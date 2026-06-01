@@ -1,0 +1,14 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: apiforge-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "ApiForge_dev_12345!"
+    ports:
+      - "14333:1433"
+    volumes:
+      - apiforge-sql-data:/var/opt/mssql
+
+volumes:
+  apiforge-sql-data:

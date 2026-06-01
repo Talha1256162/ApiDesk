@@ -1,0 +1,43 @@
+using ApiForge.Application.Abstractions.Auth;
+using ApiForge.Application.Abstractions.Persistence;
+using ApiForge.Application.Abstractions.Services;
+using ApiForge.Application.DTOs.Activity;
+using ApiForge.Domain.Constants;
+using ApiForge.Shared.Pagination;
+using ApiForge.Shared.Responses;
+
+namespace ApiForge.Application.Services;
+
+public sealed class ActivityService(
+    IActivityRepository activityRepository,
+    IPermissionService permissionService,
+    ICurrentUserContext currentUserContext) : IActivityService
+{
+    public async Task<Result<PagedResult<ActivityEventDto>>> GetActivityAsync(ActivityFilterRequest request, CancellationToken cancellationToken)
+    {
+        if (currentUserContext.User is null)
+        {
+            return Result<PagedResult<ActivityEventDto>>.Failure("Authentication is required.", new ErrorDetail("auth.required", "Authentication is required."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(currentUserContext.User.UserId, request.OrganizationId, request.WorkspaceId, PermissionKeys.ViewTeamActivity, cancellationToken);
+        if (!allowed)
+        {
+            return Result<PagedResult<ActivityEventDto>>.Failure("You do not have permission to view team activity.", new ErrorDetail("permission.denied", $"Missing permission: {PermissionKeys.ViewTeamActivity}."));
+        }
+
+        var activity = await activityRepository.GetActivityAsync(request, cancellationToken);
+        return Result<PagedResult<ActivityEventDto>>.Success(activity);
+    }
+
+    public async Task<Result<ManagerSummaryDto>> GetManagerSummaryAsync(Guid workspaceId, CancellationToken cancellationToken)
+    {
+        if (currentUserContext.User is null)
+        {
+            return Result<ManagerSummaryDto>.Failure("Authentication is required.", new ErrorDetail("auth.required", "Authentication is required."));
+        }
+
+        var summary = await activityRepository.GetManagerSummaryAsync(workspaceId, cancellationToken);
+        return Result<ManagerSummaryDto>.Success(summary);
+    }
+}

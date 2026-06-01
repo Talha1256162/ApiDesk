@@ -1,0 +1,377 @@
+<div class="app-shell" [class.light-shell]="!darkMode()">
+  @if (!isSignedIn()) {
+    <main class="auth-screen">
+      <section class="auth-panel">
+        <div class="brand-mark">AF</div>
+        <h1>{{ productName() }}</h1>
+        <p>API collaboration, activity visibility, and developer utilities for engineering teams.</p>
+
+        <form (ngSubmit)="submitAuth()" class="auth-form">
+          <label>
+            Email
+            <input name="email" type="email" [(ngModel)]="loginEmail" required />
+          </label>
+          <label>
+            Password
+            <input name="password" type="password" [(ngModel)]="loginPassword" required />
+          </label>
+
+          @if (registerMode) {
+            <label>
+              Full name
+              <input name="fullName" [(ngModel)]="registerFullName" required />
+            </label>
+            <label>
+              Organization
+              <input name="organization" [(ngModel)]="registerOrganization" required />
+            </label>
+            <label>
+              Workspace
+              <input name="workspace" [(ngModel)]="registerWorkspace" />
+            </label>
+          }
+
+          <button class="primary-action" type="submit" [disabled]="loading()">
+            {{ loading() ? 'Working...' : registerMode ? 'Create account' : 'Sign in' }}
+          </button>
+        </form>
+
+        <button class="link-action" type="button" (click)="registerMode = !registerMode">
+          {{ registerMode ? 'Use existing account' : 'Create new organization' }}
+        </button>
+      </section>
+    </main>
+  } @else {
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">AF</div>
+        <div>
+          <strong>{{ productName() }}</strong>
+          <span>Collaboration Console</span>
+        </div>
+      </div>
+
+      <nav>
+        <button [class.active]="activeView() === 'dashboard'" (click)="activeView.set('dashboard')">Dashboard</button>
+        <button [class.active]="activeView() === 'client'" (click)="activeView.set('client')">Collections</button>
+        <button [class.active]="activeView() === 'environments'" (click)="activeView.set('environments')">Environments</button>
+        <button [class.active]="activeView() === 'activity'" (click)="activeView.set('activity')">Activity</button>
+        <button [class.active]="activeView() === 'team'" (click)="activeView.set('team')">Team</button>
+        <button [class.active]="activeView() === 'json-tools'" (click)="activeView.set('json-tools')">JSON Tools</button>
+        <button [class.active]="activeView() === 'dev-tools'" (click)="activeView.set('dev-tools')">Developer Tools</button>
+        <button [class.active]="activeView() === 'settings'" (click)="activeView.set('settings')">Settings</button>
+      </nav>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div class="switchers">
+          <select [(ngModel)]="selectedOrganizationId" (ngModelChange)="loadWorkspaces()">
+            @for (organization of organizations; track organization.id) {
+              <option [value]="organization.id">{{ organization.name }}</option>
+            }
+          </select>
+          <select [(ngModel)]="selectedWorkspaceId" (ngModelChange)="loadWorkspaceData()">
+            @for (workspace of workspaces; track workspace.id) {
+              <option [value]="workspace.id">{{ workspace.name }}</option>
+            }
+          </select>
+          <select [(ngModel)]="selectedEnvironmentId">
+            @for (environment of environments; track environment.id) {
+              <option [value]="environment.id">{{ environment.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="topbar-actions">
+          <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
+          <button class="icon-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
+          <button class="invite-button" type="button">Invite</button>
+          <button class="icon-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
+          <button class="profile-button" type="button" (click)="logout()">Logout</button>
+        </div>
+      </header>
+
+      <main class="content">
+        @if (activeView() === 'dashboard') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Manager visibility</span>
+              <h2>Workspace dashboard</h2>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh</button>
+          </section>
+
+          <section class="metric-grid">
+            <article><span>Total collections</span><strong>{{ dashboard?.totalCollections ?? 0 }}</strong></article>
+            <article><span>Total APIs</span><strong>{{ dashboard?.totalApis ?? 0 }}</strong></article>
+            <article><span>Requests today</span><strong>{{ dashboard?.requestsSentToday ?? 0 }}</strong></article>
+            <article><span>Failed today</span><strong>{{ dashboard?.failedRequestsToday ?? 0 }}</strong></article>
+            <article><span>Active members</span><strong>{{ dashboard?.activeMembers ?? 0 }}</strong></article>
+            <article><span>Pending approvals</span><strong>{{ managerSummary?.pendingApprovals ?? 0 }}</strong></article>
+          </section>
+
+          <section class="two-column">
+            <article class="panel">
+              <h3>Recent activity</h3>
+              @for (item of dashboard?.recentActivity ?? []; track item.createdOn) {
+                <div class="feed-row">
+                  <span>{{ item.eventType }}</span>
+                  <strong>{{ item.entityName }}</strong>
+                  <small>{{ item.actorName }} · {{ item.status }}</small>
+                </div>
+              } @empty {
+                <div class="empty-state">No activity has been recorded for this workspace yet.</div>
+              }
+            </article>
+
+            <article class="panel">
+              <h3>Slowest APIs</h3>
+              @for (api of dashboard?.slowestApis ?? []; track api.requestId) {
+                <div class="endpoint-row">
+                  <code>{{ api.method }}</code>
+                  <span>{{ api.url }}</span>
+                  <strong>{{ api.averageMs }}ms</strong>
+                </div>
+              } @empty {
+                <div class="empty-state">Run requests to populate latency analytics.</div>
+              }
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'client') {
+          <section class="client-layout">
+            <aside class="collection-rail">
+              <h3>Collections</h3>
+              @for (collection of collections; track collection.id) {
+                <button [class.active]="selectedCollectionId === collection.id" (click)="selectedCollectionId = collection.id; loadRequests()">
+                  <strong>{{ collection.name }}</strong>
+                  <span>{{ collection.requestCount }} requests</span>
+                </button>
+              } @empty {
+                <div class="empty-state">No collections found in this workspace.</div>
+              }
+            </aside>
+
+            <section class="api-client">
+              <div class="request-tabs">
+                @for (request of requests; track request.id) {
+                  <button [class.active]="selectedRequestId === request.id" (click)="selectedRequestId = request.id">
+                    {{ request.name }}
+                  </button>
+                }
+              </div>
+
+              <div class="request-bar">
+                <select [ngModel]="selectedRequest()?.method || 'GET'">
+                  <option>GET</option>
+                  <option>POST</option>
+                  <option>PUT</option>
+                  <option>PATCH</option>
+                  <option>DELETE</option>
+                </select>
+                <input [ngModel]="selectedRequest()?.url || ''" readonly />
+                <button class="send-button" type="button" (click)="sendSelectedRequest()">Send</button>
+                <button class="secondary-action" type="button">Save</button>
+              </div>
+
+              <div class="request-panels">
+                <article class="panel request-config">
+                  <div class="tab-strip">
+                    <button class="active">Params</button>
+                    <button>Auth</button>
+                    <button>Headers</button>
+                    <button>Body</button>
+                    <button>Tests</button>
+                    <button>Settings</button>
+                  </div>
+                  <div class="empty-state">Request editing is backed by the API model. Select or create records through the backend endpoints.</div>
+                </article>
+
+                <article class="panel response-panel">
+                  <div class="response-meta">
+                    <span>Status {{ apiResponse?.statusCode ?? '-' }}</span>
+                    <span>{{ apiResponse?.elapsedMs ?? 0 }}ms</span>
+                    <span>{{ apiResponse?.sizeBytes ?? 0 }} bytes</span>
+                  </div>
+                  <div class="editor-shell">
+                    <app-monaco-editor [value]="responseBody" language="json" [readonly]="true"></app-monaco-editor>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </section>
+        }
+
+        @if (activeView() === 'environments') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Variables</span>
+              <h2>Environments</h2>
+            </div>
+          </section>
+          <section class="table-panel">
+            @for (environment of environments; track environment.id) {
+              <div class="table-row">
+                <strong>{{ environment.name }}</strong>
+                <span>{{ environment.variableCount }} variables</span>
+                <span>{{ environment.secretCount }} secrets</span>
+                <small>{{ environment.isDefault ? 'Default' : 'Workspace' }}</small>
+              </div>
+            } @empty {
+              <div class="empty-state">No environments found.</div>
+            }
+          </section>
+        }
+
+        @if (activeView() === 'activity') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Audit-ready activity</span>
+              <h2>Team activity</h2>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadActivity()">Refresh</button>
+          </section>
+          <section class="panel">
+            @for (event of activity; track event.id) {
+              <div class="feed-row">
+                <span>{{ event.eventType }}</span>
+                <strong>{{ event.entityName || event.entityType }}</strong>
+                <small>{{ event.actorName }} · {{ event.status }} · {{ event.createdOn | date:'short' }}</small>
+              </div>
+            } @empty {
+              <div class="empty-state">No matching activity events.</div>
+            }
+          </section>
+        }
+
+        @if (activeView() === 'team') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">RBAC</span>
+              <h2>Team workspace</h2>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="empty-state">Member APIs are available under organization endpoints. The dedicated member grid is next in the implementation sequence.</div>
+          </section>
+        }
+
+        @if (activeView() === 'json-tools') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Developer utilities</span>
+              <h2>JSON tools</h2>
+            </div>
+            <div class="toolbar">
+              <button class="secondary-action" type="button" (click)="runJsonTool()">Run</button>
+              <button class="secondary-action" type="button" (click)="sortAndFormat()">Sort keys</button>
+              <button class="secondary-action" type="button" (click)="copyJsonOutput()">Copy</button>
+            </div>
+          </section>
+
+          <div class="tab-strip utility-tabs">
+            @for (tab of jsonTabs; track tab) {
+              <button [class.active]="jsonTab === tab" (click)="jsonTab = tab">{{ tab }}</button>
+            }
+          </div>
+
+          <section class="json-workbench">
+            <article class="panel editor-card">
+              <h3>Input</h3>
+              <div class="editor-shell tall">
+                <app-monaco-editor [(value)]="jsonInput" language="json"></app-monaco-editor>
+              </div>
+              @if (jsonTab === 'Compare') {
+                <h3>Compare against</h3>
+                <div class="editor-shell compare-editor">
+                  <app-monaco-editor [(value)]="jsonCompareInput" language="json"></app-monaco-editor>
+                </div>
+              }
+              @if (jsonTab === 'Schema') {
+                <label class="path-input">JSON Path <input [(ngModel)]="jsonPath" /></label>
+              }
+            </article>
+
+            <article class="panel editor-card">
+              <h3>Output</h3>
+              @if (jsonError) {
+                <div class="error-state">{{ jsonError }}</div>
+              }
+              <div class="editor-shell tall">
+                <app-monaco-editor [value]="jsonOutput" language="json" [readonly]="true"></app-monaco-editor>
+              </div>
+              <div class="stats-row">
+                <span>{{ jsonStats?.fileSize ?? 0 }} bytes</span>
+                <span>Depth {{ jsonStats?.depth ?? 0 }}</span>
+                <span>{{ jsonStats?.keys ?? 0 }} keys</span>
+                <span>{{ jsonStats?.objects ?? 0 }} objects</span>
+                <span>{{ jsonStats?.arrays ?? 0 }} arrays</span>
+              </div>
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'dev-tools') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Productivity suite</span>
+              <h2>Developer tools</h2>
+            </div>
+          </section>
+          <section class="json-workbench">
+            <article class="panel editor-card">
+              <select [(ngModel)]="utilityTool">
+                @for (tool of ['Base64', 'Base64 Decode', 'URL Encode', 'URL Decode', 'JWT Decoder', 'UUID Generator', 'Timestamp Converter', 'cURL Parser', 'Hash Generator', 'Regex Tester']; track tool) {
+                  <option [value]="tool">{{ tool }}</option>
+                }
+              </select>
+              <div class="editor-shell tall">
+                <app-monaco-editor [(value)]="utilityInput" language="text"></app-monaco-editor>
+              </div>
+              <button class="primary-action" type="button" (click)="runUtility()">Run utility</button>
+            </article>
+            <article class="panel editor-card">
+              <h3>Result</h3>
+              <div class="editor-shell tall">
+                <app-monaco-editor [value]="utilityOutput" language="json" [readonly]="true"></app-monaco-editor>
+              </div>
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'settings') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Configurable product</span>
+              <h2>Settings</h2>
+            </div>
+          </section>
+          <section class="panel settings-panel">
+            <label>
+              Product name
+              <input [ngModel]="productName()" (ngModelChange)="productName.set($event)" />
+            </label>
+          </section>
+        }
+      </main>
+    </section>
+  }
+
+  @if (toast()) {
+    <div class="toast">{{ toast() }}</div>
+  }
+
+  @if (commandOpen()) {
+    <div class="command-overlay" (click)="commandOpen.set(false)">
+      <div class="command-panel" (click)="$event.stopPropagation()">
+        <input autofocus placeholder="Jump to dashboard, collections, activity, JSON tools" [(ngModel)]="globalSearch" />
+        <button (click)="activeView.set('dashboard'); commandOpen.set(false)">Dashboard</button>
+        <button (click)="activeView.set('client'); commandOpen.set(false)">API client</button>
+        <button (click)="activeView.set('json-tools'); commandOpen.set(false)">JSON tools</button>
+        <button (click)="activeView.set('activity'); commandOpen.set(false)">Activity feed</button>
+      </div>
+    </div>
+  }
+</div>

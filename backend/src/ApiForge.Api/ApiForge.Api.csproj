@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.8" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ApiForge.Application\ApiForge.Application.csproj" />
+    <ProjectReference Include="..\ApiForge.Domain\ApiForge.Domain.csproj" />
+    <ProjectReference Include="..\ApiForge.Persistence\ApiForge.Persistence.csproj" />
+    <ProjectReference Include="..\ApiForge.Infrastructure\ApiForge.Infrastructure.csproj" />
+    <ProjectReference Include="..\ApiForge.Shared\ApiForge.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

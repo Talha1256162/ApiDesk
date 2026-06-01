@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ApiForge.Api/ApiForge.Api.csproj" />
+    <Project Path="src/ApiForge.Application/ApiForge.Application.csproj" />
+    <Project Path="src/ApiForge.Domain/ApiForge.Domain.csproj" />
+    <Project Path="src/ApiForge.Infrastructure/ApiForge.Infrastructure.csproj" />
+    <Project Path="src/ApiForge.Persistence/ApiForge.Persistence.csproj" />
+    <Project Path="src/ApiForge.Shared/ApiForge.Shared.csproj" />
+  </Folder>
+</Solution>
