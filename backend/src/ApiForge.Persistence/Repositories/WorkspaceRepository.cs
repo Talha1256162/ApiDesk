@@ -108,6 +108,11 @@ public sealed class WorkspaceRepository(ISqlConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.CreateConnection();
         using var grid = await connection.QueryMultipleAsync(new CommandDefinition("""
+            select count(1)
+            from workspaces
+            where organizationId = (select organizationId from workspaces where id = @WorkspaceId)
+                and isDeleted = 0;
+
             select count(1) from collections where workspaceId = @WorkspaceId and isDeleted = 0;
             select count(1) from requests where workspaceId = @WorkspaceId and isDeleted = 0;
             select count(1) from requestRuns where workspaceId = @WorkspaceId and cast(createdOn as date) = cast(sysutcdatetime() as date) and isDeleted = 0;
@@ -141,6 +146,7 @@ public sealed class WorkspaceRepository(ISqlConnectionFactory connectionFactory)
             new { WorkspaceId = workspaceId },
             cancellationToken: cancellationToken));
 
+        var totalWorkspaces = await grid.ReadSingleAsync<int>();
         var totalCollections = await grid.ReadSingleAsync<int>();
         var totalApis = await grid.ReadSingleAsync<int>();
         var sentToday = await grid.ReadSingleAsync<int>();
@@ -151,6 +157,6 @@ public sealed class WorkspaceRepository(ISqlConnectionFactory connectionFactory)
         var slowApis = (await grid.ReadAsync<SlowApiDto>()).AsList();
         var envUsage = (await grid.ReadAsync<EnvironmentUsageDto>()).AsList();
 
-        return new WorkspaceDashboardDto(workspaceId, totalCollections, totalApis, sentToday, failedToday, activeMembers, recent, runs, slowApis, envUsage);
+        return new WorkspaceDashboardDto(workspaceId, totalWorkspaces, totalCollections, totalApis, sentToday, failedToday, activeMembers, recent, runs, slowApis, envUsage);
     }
 }

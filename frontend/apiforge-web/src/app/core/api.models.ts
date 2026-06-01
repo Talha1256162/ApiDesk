@@ -50,6 +50,7 @@ export interface Workspace {
 
 export interface WorkspaceDashboard {
   workspaceId: string;
+  totalWorkspaces: number;
   totalCollections: number;
   totalApis: number;
   requestsSentToday: number;

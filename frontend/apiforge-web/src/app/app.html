@@ -1,25 +1,57 @@
 <div class="app-shell" [class.light-shell]="!darkMode()">
   @if (!isSignedIn()) {
     <main class="auth-screen">
-      <section class="auth-panel">
-        <div class="brand-mark">AF</div>
-        <h1>{{ productName() }}</h1>
-        <p>API collaboration, activity visibility, and developer utilities for engineering teams.</p>
+      <section class="auth-card">
+        <div class="auth-copy">
+          <div class="brand-row">
+            <div class="brand-mark">AF</div>
+            <div>
+              <strong>{{ productName() }}</strong>
+              <span>Engineering command center</span>
+            </div>
+          </div>
+          <h1>Ship, test, and govern APIs from one team workspace.</h1>
+          <p>Built for backend teams, QA leads, and software-house managers who need visibility without slowing engineers down.</p>
+          <div class="auth-proof">
+            <span>Real request runner</span>
+            <span>Team activity</span>
+            <span>JSON utility suite</span>
+          </div>
+        </div>
 
-        <form (ngSubmit)="submitAuth()" class="auth-form">
+        <form class="auth-form" (ngSubmit)="submitAuth()" novalidate>
+          <div class="form-title">
+            <span>{{ registerMode ? 'Create workspace' : 'Welcome back' }}</span>
+            <strong>{{ registerMode ? 'Start your organization' : 'Sign in to continue' }}</strong>
+          </div>
+
+          @if (authError()) {
+            <div class="inline-error">{{ authError() }}</div>
+          }
+
           <label>
             Email
-            <input name="email" type="email" [(ngModel)]="loginEmail" required />
+            <input name="email" type="email" autocomplete="email" [(ngModel)]="loginEmail" required />
           </label>
+
           <label>
             Password
-            <input name="password" type="password" [(ngModel)]="loginPassword" required />
+            <div class="password-field">
+              <input
+                name="password"
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="current-password"
+                [(ngModel)]="loginPassword"
+                required
+              />
+              <button type="button" (click)="togglePasswordVisibility()">{{ showPassword() ? 'Hide' : 'Show' }}</button>
+            </div>
           </label>
 
           @if (registerMode) {
             <label>
               Full name
-              <input name="fullName" [(ngModel)]="registerFullName" required />
+              <input name="fullName" autocomplete="name" [(ngModel)]="registerFullName" required />
             </label>
             <label>
               Organization
@@ -27,18 +59,18 @@
             </label>
             <label>
               Workspace
-              <input name="workspace" [(ngModel)]="registerWorkspace" />
+              <input name="workspace" [(ngModel)]="registerWorkspace" placeholder="Platform APIs" />
             </label>
           }
 
-          <button class="primary-action" type="submit" [disabled]="loading()">
-            {{ loading() ? 'Working...' : registerMode ? 'Create account' : 'Sign in' }}
+          <button class="primary-action wide" type="submit" [disabled]="authLoading()">
+            {{ authLoading() ? 'Authenticating...' : registerMode ? 'Create account' : 'Sign in' }}
+          </button>
+
+          <button class="link-action" type="button" (click)="toggleRegisterMode()">
+            {{ registerMode ? 'Use an existing account' : 'Create a new organization' }}
           </button>
         </form>
-
-        <button class="link-action" type="button" (click)="registerMode = !registerMode">
-          {{ registerMode ? 'Use existing account' : 'Create new organization' }}
-        </button>
       </section>
     </main>
   } @else {
@@ -47,48 +79,56 @@
         <div class="brand-mark">AF</div>
         <div>
           <strong>{{ productName() }}</strong>
-          <span>Collaboration Console</span>
+          <span>{{ selectedWorkspace()?.name || 'Loading workspace' }}</span>
         </div>
       </div>
 
-      <nav>
-        <button [class.active]="activeView() === 'dashboard'" (click)="activeView.set('dashboard')">Dashboard</button>
-        <button [class.active]="activeView() === 'client'" (click)="activeView.set('client')">Collections</button>
-        <button [class.active]="activeView() === 'environments'" (click)="activeView.set('environments')">Environments</button>
-        <button [class.active]="activeView() === 'activity'" (click)="activeView.set('activity')">Activity</button>
-        <button [class.active]="activeView() === 'team'" (click)="activeView.set('team')">Team</button>
-        <button [class.active]="activeView() === 'json-tools'" (click)="activeView.set('json-tools')">JSON Tools</button>
-        <button [class.active]="activeView() === 'dev-tools'" (click)="activeView.set('dev-tools')">Developer Tools</button>
-        <button [class.active]="activeView() === 'settings'" (click)="activeView.set('settings')">Settings</button>
+      <nav class="side-nav">
+        @for (item of navItems; track item.key) {
+          <button [class.active]="activeView() === item.key" (click)="selectView(item.key)">
+            <span>{{ item.label }}</span>
+            <small>{{ item.hint }}</small>
+          </button>
+        }
       </nav>
     </aside>
 
     <section class="workspace">
       <header class="topbar">
         <div class="switchers">
-          <select [(ngModel)]="selectedOrganizationId" (ngModelChange)="loadWorkspaces()">
-            @for (organization of organizations; track organization.id) {
-              <option [value]="organization.id">{{ organization.name }}</option>
-            }
-          </select>
-          <select [(ngModel)]="selectedWorkspaceId" (ngModelChange)="loadWorkspaceData()">
-            @for (workspace of workspaces; track workspace.id) {
-              <option [value]="workspace.id">{{ workspace.name }}</option>
-            }
-          </select>
-          <select [(ngModel)]="selectedEnvironmentId">
-            @for (environment of environments; track environment.id) {
-              <option [value]="environment.id">{{ environment.name }}</option>
-            }
-          </select>
+          <label>
+            Organization
+            <select [ngModel]="selectedOrganizationId()" (ngModelChange)="onOrganizationChange($event)">
+              @for (organization of organizations(); track organization.id) {
+                <option [value]="organization.id">{{ organization.name }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Workspace
+            <select [ngModel]="selectedWorkspaceId()" (ngModelChange)="onWorkspaceChange($event)">
+              @for (workspace of workspaces(); track workspace.id) {
+                <option [value]="workspace.id">{{ workspace.name }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            Environment
+            <select [ngModel]="selectedEnvironmentId()" (ngModelChange)="selectedEnvironmentId.set($event)">
+              @for (environment of environments(); track environment.id) {
+                <option [value]="environment.id">{{ environment.name }}</option>
+              }
+            </select>
+          </label>
         </div>
 
         <div class="topbar-actions">
           <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
-          <button class="icon-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
-          <button class="invite-button" type="button">Invite</button>
-          <button class="icon-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
-          <button class="profile-button" type="button" (click)="logout()">Logout</button>
+          <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
+          <button class="primary-action" type="button" (click)="notifyPhase('Invite APIs exist; the premium invite drawer is part of the team/RBAC phase.')">Invite</button>
+          <button class="ghost-button" type="button">Alerts</button>
+          <button class="ghost-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
+          <button class="profile-button" type="button" (click)="logout()">{{ currentUserName() }}</button>
         </div>
       </header>
 
@@ -97,69 +137,157 @@
           <section class="page-header">
             <div>
               <span class="eyebrow">Manager visibility</span>
-              <h2>Workspace dashboard</h2>
+              <h2>Workspace command center</h2>
+              <p>Live operational view from workspace, request-run, environment, and activity APIs.</p>
             </div>
-            <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh</button>
+            <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh data</button>
           </section>
 
-          <section class="metric-grid">
-            <article><span>Total collections</span><strong>{{ dashboard?.totalCollections ?? 0 }}</strong></article>
-            <article><span>Total APIs</span><strong>{{ dashboard?.totalApis ?? 0 }}</strong></article>
-            <article><span>Requests today</span><strong>{{ dashboard?.requestsSentToday ?? 0 }}</strong></article>
-            <article><span>Failed today</span><strong>{{ dashboard?.failedRequestsToday ?? 0 }}</strong></article>
-            <article><span>Active members</span><strong>{{ dashboard?.activeMembers ?? 0 }}</strong></article>
-            <article><span>Pending approvals</span><strong>{{ managerSummary?.pendingApprovals ?? 0 }}</strong></article>
-          </section>
+          @if (pageLoading() && !dashboard()) {
+            <section class="metric-grid">
+              <app-skeleton [rows]="6" [height]="132"></app-skeleton>
+            </section>
+          } @else {
+            <section class="metric-grid">
+              <app-stat-card label="Workspaces" [value]="dashboard()?.totalWorkspaces ?? workspaces().length" hint="Org" description="Active collaboration spaces"></app-stat-card>
+              <app-stat-card label="Collections" [value]="dashboard()?.totalCollections ?? 0" hint="API sets" description="Owned by this workspace"></app-stat-card>
+              <app-stat-card label="Requests" [value]="dashboard()?.totalApis ?? 0" hint="Endpoints" description="Saved request definitions"></app-stat-card>
+              <app-stat-card label="Sent today" [value]="dashboard()?.requestsSentToday ?? 0" hint="Runs" description="Backend-executed requests"></app-stat-card>
+              <app-stat-card label="Failed today" [value]="dashboard()?.failedRequestsToday ?? 0" hint="Errors" description="Non-success executions"></app-stat-card>
+              <app-stat-card label="Active members" [value]="dashboard()?.activeMembers ?? 0" hint="Team" description="Workspace members"></app-stat-card>
+            </section>
+          }
 
-          <section class="two-column">
-            <article class="panel">
-              <h3>Recent activity</h3>
-              @for (item of dashboard?.recentActivity ?? []; track item.createdOn) {
-                <div class="feed-row">
-                  <span>{{ item.eventType }}</span>
-                  <strong>{{ item.entityName }}</strong>
-                  <small>{{ item.actorName }} · {{ item.status }}</small>
+          <section class="dashboard-grid">
+            <article class="panel activity-panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Live feed</span>
+                  <h3>Recent activity</h3>
+                </div>
+                <app-badge [label]="activity().length + ' events'" tone="accent"></app-badge>
+              </div>
+
+              @for (event of activity().slice(0, 8); track event.id) {
+                <div class="timeline-row">
+                  <div class="timeline-dot"></div>
+                  <div>
+                    <strong>{{ event.eventType }}</strong>
+                    <span>{{ event.actorName }} &middot; {{ event.entityName || event.entityType }}</span>
+                  </div>
+                  <app-badge [label]="event.status" [tone]="activityTone(event.status)"></app-badge>
                 </div>
               } @empty {
-                <div class="empty-state">No activity has been recorded for this workspace yet.</div>
+                <app-empty-state title="No activity yet" description="Send a request or change a workspace object to populate the manager feed."></app-empty-state>
               }
             </article>
 
             <article class="panel">
-              <h3>Slowest APIs</h3>
-              @for (api of dashboard?.slowestApis ?? []; track api.requestId) {
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Performance</span>
+                  <h3>Slowest endpoints</h3>
+                </div>
+              </div>
+
+              @for (api of dashboard()?.slowestApis ?? []; track api.requestId) {
                 <div class="endpoint-row">
-                  <code>{{ api.method }}</code>
+                  <app-badge [label]="api.method" [tone]="methodTone(api.method)"></app-badge>
                   <span>{{ api.url }}</span>
                   <strong>{{ api.averageMs }}ms</strong>
                 </div>
               } @empty {
-                <div class="empty-state">Run requests to populate latency analytics.</div>
+                <app-empty-state title="No latency data" description="Run saved requests to build response-time analytics."></app-empty-state>
+              }
+            </article>
+
+            <article class="panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Team</span>
+                  <h3>Most active users</h3>
+                </div>
+              </div>
+
+              @for (user of managerSummary()?.mostActiveUsers ?? []; track user.userId) {
+                <div class="table-row compact">
+                  <strong>{{ user.name }}</strong>
+                  <span>{{ user.count }} events</span>
+                </div>
+              } @empty {
+                <app-empty-state title="No user activity" description="Activity ranking appears after workspace events are recorded."></app-empty-state>
+              }
+            </article>
+
+            <article class="panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Environments</span>
+                  <h3>Most used environments</h3>
+                </div>
+              </div>
+
+              @for (environment of dashboard()?.mostUsedEnvironments ?? []; track environment.environmentId) {
+                <div class="table-row compact">
+                  <strong>{{ environment.name }}</strong>
+                  <span>{{ environment.runCount }} runs</span>
+                </div>
+              } @empty {
+                <app-empty-state title="No environment usage" description="Run requests with an environment to populate this panel."></app-empty-state>
               }
             </article>
           </section>
         }
 
-        @if (activeView() === 'client') {
+        @if (activeView() === 'workspaces') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Organization</span>
+              <h2>Workspaces</h2>
+              <p>Real workspaces returned from the organization workspace API.</p>
+            </div>
+          </section>
+          <section class="panel">
+            @for (workspace of workspaces(); track workspace.id) {
+              <div class="table-row">
+                <strong>{{ workspace.name }}</strong>
+                <span>{{ workspace.type }}</span>
+                <small>{{ workspace.description || 'No description' }}</small>
+              </div>
+            } @empty {
+              <app-empty-state title="No workspaces" description="Create a workspace to organize API collaboration."></app-empty-state>
+            }
+          </section>
+        }
+
+        @if (activeView() === 'collections' || activeView() === 'api-client') {
           <section class="client-layout">
             <aside class="collection-rail">
-              <h3>Collections</h3>
-              @for (collection of collections; track collection.id) {
-                <button [class.active]="selectedCollectionId === collection.id" (click)="selectedCollectionId = collection.id; loadRequests()">
+              <div class="rail-header">
+                <h3>Collections</h3>
+                <app-badge [label]="collections().length + ''" tone="accent"></app-badge>
+              </div>
+              <input class="rail-search" placeholder="Search collections" [(ngModel)]="globalSearch" />
+
+              @for (collection of collections(); track collection.id) {
+                <button [class.active]="selectedCollectionId() === collection.id" (click)="onCollectionChange(collection.id)">
                   <strong>{{ collection.name }}</strong>
-                  <span>{{ collection.requestCount }} requests</span>
+                  <span>{{ collection.requestCount }} requests &middot; v{{ collection.versionNumber }}</span>
                 </button>
               } @empty {
-                <div class="empty-state">No collections found in this workspace.</div>
+                <app-empty-state title="No collections" description="Collections will appear here after they are created through the API."></app-empty-state>
               }
             </aside>
 
             <section class="api-client">
               <div class="request-tabs">
-                @for (request of requests; track request.id) {
-                  <button [class.active]="selectedRequestId === request.id" (click)="selectedRequestId = request.id">
-                    {{ request.name }}
+                @for (request of requests(); track request.id) {
+                  <button [class.active]="selectedRequestId() === request.id" (click)="selectedRequestId.set(request.id)">
+                    <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
+                    <span>{{ request.name }}</span>
                   </button>
+                } @empty {
+                  <span class="muted">No requests in selected collection</span>
                 }
               </div>
 
@@ -171,8 +299,8 @@
                   <option>PATCH</option>
                   <option>DELETE</option>
                 </select>
-                <input [ngModel]="selectedRequest()?.url || ''" readonly />
-                <button class="send-button" type="button" (click)="sendSelectedRequest()">Send</button>
+                <input class="url-input" [ngModel]="selectedRequest()?.url || ''" readonly />
+                <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">Send</button>
                 <button class="secondary-action" type="button">Save</button>
               </div>
 
@@ -186,17 +314,20 @@
                     <button>Tests</button>
                     <button>Settings</button>
                   </div>
-                  <div class="empty-state">Request editing is backed by the API model. Select or create records through the backend endpoints.</div>
+                  <app-empty-state title="Request editor queued for Phase 2" description="The request model is real and loaded from the API. Editable tables and Monaco request body controls are the next implementation slice."></app-empty-state>
                 </article>
 
                 <article class="panel response-panel">
-                  <div class="response-meta">
-                    <span>Status {{ apiResponse?.statusCode ?? '-' }}</span>
-                    <span>{{ apiResponse?.elapsedMs ?? 0 }}ms</span>
-                    <span>{{ apiResponse?.sizeBytes ?? 0 }} bytes</span>
+                  <div class="response-toolbar">
+                    <div class="response-meta">
+                      <app-badge [label]="'Status ' + (apiResponse()?.statusCode ?? '-')" [tone]="apiResponse()?.succeeded ? 'success' : 'default'"></app-badge>
+                      <span>{{ apiResponse()?.elapsedMs ?? 0 }}ms</span>
+                      <span>{{ formatBytes(apiResponse()?.sizeBytes) }}</span>
+                    </div>
+                    <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
                   </div>
                   <div class="editor-shell">
-                    <app-monaco-editor [value]="responseBody" language="json" [readonly]="true"></app-monaco-editor>
+                    <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
                   </div>
                 </article>
               </div>
@@ -209,39 +340,44 @@
             <div>
               <span class="eyebrow">Variables</span>
               <h2>Environments</h2>
+              <p>Environment records and counts are loaded from SQL-backed APIs.</p>
             </div>
           </section>
-          <section class="table-panel">
-            @for (environment of environments; track environment.id) {
+          <section class="panel">
+            @for (environment of environments(); track environment.id) {
               <div class="table-row">
                 <strong>{{ environment.name }}</strong>
                 <span>{{ environment.variableCount }} variables</span>
                 <span>{{ environment.secretCount }} secrets</span>
-                <small>{{ environment.isDefault ? 'Default' : 'Workspace' }}</small>
+                <app-badge [label]="environment.isDefault ? 'Default' : 'Workspace'" [tone]="environment.isDefault ? 'success' : 'default'"></app-badge>
               </div>
             } @empty {
-              <div class="empty-state">No environments found.</div>
+              <app-empty-state title="No environments" description="Create an environment before sending variable-powered requests."></app-empty-state>
             }
           </section>
         }
 
-        @if (activeView() === 'activity') {
+        @if (activeView() === 'activity' || activeView() === 'reports') {
           <section class="page-header">
             <div>
-              <span class="eyebrow">Audit-ready activity</span>
-              <h2>Team activity</h2>
+              <span class="eyebrow">Team visibility</span>
+              <h2>{{ activeView() === 'reports' ? 'Manager reports' : 'Activity timeline' }}</h2>
+              <p>Events are loaded from the activity API and scoped to the current workspace.</p>
             </div>
             <button class="secondary-action" type="button" (click)="loadActivity()">Refresh</button>
           </section>
-          <section class="panel">
-            @for (event of activity; track event.id) {
-              <div class="feed-row">
-                <span>{{ event.eventType }}</span>
-                <strong>{{ event.entityName || event.entityType }}</strong>
-                <small>{{ event.actorName }} · {{ event.status }} · {{ event.createdOn | date:'short' }}</small>
+          <section class="panel activity-panel">
+            @for (event of activity(); track event.id) {
+              <div class="timeline-row wide">
+                <div class="timeline-dot"></div>
+                <div>
+                  <strong>{{ event.eventType }}</strong>
+                  <span>{{ event.actorName }} &middot; {{ event.entityName || event.entityType }} &middot; {{ event.createdOn | date:'short' }}</span>
+                </div>
+                <app-badge [label]="event.status" [tone]="activityTone(event.status)"></app-badge>
               </div>
             } @empty {
-              <div class="empty-state">No matching activity events.</div>
+              <app-empty-state title="No activity" description="The manager activity feed will populate as the team uses the workspace."></app-empty-state>
             }
           </section>
         }
@@ -250,11 +386,12 @@
           <section class="page-header">
             <div>
               <span class="eyebrow">RBAC</span>
-              <h2>Team workspace</h2>
+              <h2>Team and roles</h2>
+              <p>Backend member APIs exist; the premium member grid is scheduled after Phase 1 shell polish.</p>
             </div>
           </section>
           <section class="panel">
-            <div class="empty-state">Member APIs are available under organization endpoints. The dedicated member grid is next in the implementation sequence.</div>
+            <app-empty-state title="Team grid pending" description="Phase 4 will add permission-gated member actions, role changes, and invite tracking."></app-empty-state>
           </section>
         }
 
@@ -263,6 +400,7 @@
             <div>
               <span class="eyebrow">Developer utilities</span>
               <h2>JSON tools</h2>
+              <p>Formatter, validator, tree view, compare, convert, and JSON path tools run with real logic.</p>
             </div>
             <div class="toolbar">
               <button class="secondary-action" type="button" (click)="runJsonTool()">Run</button>
@@ -297,7 +435,7 @@
             <article class="panel editor-card">
               <h3>Output</h3>
               @if (jsonError) {
-                <div class="error-state">{{ jsonError }}</div>
+                <div class="inline-error">{{ jsonError }}</div>
               }
               <div class="editor-shell tall">
                 <app-monaco-editor [value]="jsonOutput" language="json" [readonly]="true"></app-monaco-editor>
@@ -318,6 +456,7 @@
             <div>
               <span class="eyebrow">Productivity suite</span>
               <h2>Developer tools</h2>
+              <p>Utility tools run locally in the browser without sending payloads to external services.</p>
             </div>
           </section>
           <section class="json-workbench">
@@ -330,7 +469,7 @@
               <div class="editor-shell tall">
                 <app-monaco-editor [(value)]="utilityInput" language="text"></app-monaco-editor>
               </div>
-              <button class="primary-action" type="button" (click)="runUtility()">Run utility</button>
+              <button class="primary-action wide" type="button" (click)="runUtility()">Run utility</button>
             </article>
             <article class="panel editor-card">
               <h3>Result</h3>
@@ -344,8 +483,9 @@
         @if (activeView() === 'settings') {
           <section class="page-header">
             <div>
-              <span class="eyebrow">Configurable product</span>
-              <h2>Settings</h2>
+              <span class="eyebrow">Configuration</span>
+              <h2>Workspace settings</h2>
+              <p>Local product-name preview for Phase 1. Persistence is planned with organization settings.</p>
             </div>
           </section>
           <section class="panel settings-panel">
@@ -359,18 +499,16 @@
     </section>
   }
 
-  @if (toast()) {
-    <div class="toast">{{ toast() }}</div>
-  }
+  <app-toast [title]="toast()?.title ?? ''" [message]="toast()?.message ?? ''" [tone]="toast()?.tone ?? 'default'"></app-toast>
 
   @if (commandOpen()) {
     <div class="command-overlay" (click)="commandOpen.set(false)">
       <div class="command-panel" (click)="$event.stopPropagation()">
-        <input autofocus placeholder="Jump to dashboard, collections, activity, JSON tools" [(ngModel)]="globalSearch" />
-        <button (click)="activeView.set('dashboard'); commandOpen.set(false)">Dashboard</button>
-        <button (click)="activeView.set('client'); commandOpen.set(false)">API client</button>
-        <button (click)="activeView.set('json-tools'); commandOpen.set(false)">JSON tools</button>
-        <button (click)="activeView.set('activity'); commandOpen.set(false)">Activity feed</button>
+        <input autofocus placeholder="Jump to dashboard, API client, activity, JSON tools" [(ngModel)]="globalSearch" />
+        <button (click)="selectView('dashboard')">Dashboard</button>
+        <button (click)="selectView('api-client')">API client</button>
+        <button (click)="selectView('json-tools')">JSON tools</button>
+        <button (click)="selectView('activity')">Activity feed</button>
       </div>
     </div>
   }

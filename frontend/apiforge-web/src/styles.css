@@ -12,6 +12,17 @@ body {
   background: #0d0f12;
 }
 
+html.light,
+html.light body {
+  background: #f4f6f9;
+  color-scheme: light;
+}
+
+html:not(.light),
+html:not(.light) body {
+  color-scheme: dark;
+}
+
 button,
 input,
 select {

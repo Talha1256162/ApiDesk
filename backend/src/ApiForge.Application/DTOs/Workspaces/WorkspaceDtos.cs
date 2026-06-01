@@ -14,6 +14,7 @@ public sealed record UpdateWorkspaceRequest(string Name, string Type, string? De
 
 public sealed record WorkspaceDashboardDto(
     Guid WorkspaceId,
+    int TotalWorkspaces,
     int TotalCollections,
     int TotalApis,
     int RequestsSentToday,

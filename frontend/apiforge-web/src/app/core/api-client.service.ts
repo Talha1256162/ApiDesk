@@ -18,6 +18,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
   private readonly apiBaseUrl = 'http://localhost:5108/api';
+  private readonly sessionKey = 'apiforge.session';
   private readonly tokenKey = 'apiforge.accessToken';
   private readonly refreshTokenKey = 'apiforge.refreshToken';
   private readonly authState = signal<AuthResponse | null>(null);
@@ -26,17 +27,13 @@ export class ApiClientService {
   readonly isAuthenticated = computed(() => !!this.accessToken);
 
   constructor(private readonly http: HttpClient) {
-    const token = localStorage.getItem(this.tokenKey);
-    const refreshToken = localStorage.getItem(this.refreshTokenKey);
-    if (token && refreshToken) {
-      this.authState.set({
-        accessToken: token,
-        refreshToken,
-        accessTokenExpiresOnUtc: '',
-        refreshTokenExpiresOnUtc: '',
-        organizationId: '',
-        user: { id: '', email: '', fullName: 'Signed in user' }
-      });
+    const session = localStorage.getItem(this.sessionKey);
+    if (session) {
+      try {
+        this.authState.set(JSON.parse(session) as AuthResponse);
+      } catch {
+        this.logout();
+      }
     }
   }
 
@@ -54,12 +51,14 @@ export class ApiClientService {
 
   setSession(auth: AuthResponse): void {
     this.authState.set(auth);
+    localStorage.setItem(this.sessionKey, JSON.stringify(auth));
     localStorage.setItem(this.tokenKey, auth.accessToken);
     localStorage.setItem(this.refreshTokenKey, auth.refreshToken);
   }
 
   logout(): void {
     this.authState.set(null);
+    localStorage.removeItem(this.sessionKey);
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshTokenKey);
   }
