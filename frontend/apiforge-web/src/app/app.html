@@ -128,30 +128,9 @@
 
       <main class="content">
         <section class="scope-bar">
-          <label>
-            Organization
-            <select [ngModel]="selectedOrganizationId()" (ngModelChange)="onOrganizationChange($event)">
-              @for (organization of organizations(); track organization.id) {
-                <option [value]="organization.id">{{ organization.name }}</option>
-              }
-            </select>
-          </label>
-          <label>
-            Workspace
-            <select [ngModel]="selectedWorkspaceId()" (ngModelChange)="onWorkspaceChange($event)">
-              @for (workspace of workspaces(); track workspace.id) {
-                <option [value]="workspace.id">{{ workspace.name }}</option>
-              }
-            </select>
-          </label>
-          <label>
-            Environment
-            <select [ngModel]="selectedEnvironmentId()" (ngModelChange)="selectedEnvironmentId.set($event)">
-              @for (environment of environments(); track environment.id) {
-                <option [value]="environment.id">{{ environment.name }}</option>
-              }
-            </select>
-          </label>
+          <app-premium-select label="Organization" [options]="organizationOptions()" [value]="selectedOrganizationId()" (valueChange)="onOrganizationChange($event)"></app-premium-select>
+          <app-premium-select label="Workspace" [options]="workspaceOptions()" [value]="selectedWorkspaceId()" (valueChange)="onWorkspaceChange($event)"></app-premium-select>
+          <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="selectedEnvironmentId.set($event)"></app-premium-select>
         </section>
 
         @if (activeView() === 'dashboard') {
@@ -706,8 +685,8 @@
           <section class="panel filter-panel">
             <label>Name<input [(ngModel)]="monitorName" placeholder="Production identity monitor" /></label>
             <label>Schedule<input [(ngModel)]="monitorSchedule" placeholder="every 15 minutes" /></label>
-            <label>Collection<select [ngModel]="selectedCollectionId()" (ngModelChange)="selectedCollectionId.set($event)">@for (collection of collections(); track collection.id) {<option [value]="collection.id">{{ collection.name }}</option>}</select></label>
-            <label>Environment<select [ngModel]="selectedEnvironmentId()" (ngModelChange)="selectedEnvironmentId.set($event)">@for (environment of environments(); track environment.id) {<option [value]="environment.id">{{ environment.name }}</option>}</select></label>
+            <app-premium-select label="Collection" [options]="collectionOptions()" [value]="selectedCollectionId()" (valueChange)="selectedCollectionId.set($event)"></app-premium-select>
+            <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="selectedEnvironmentId.set($event)"></app-premium-select>
             <button class="primary-action" type="button" (click)="createMonitor()">Create monitor</button>
           </section>
           <section class="report-grid">
@@ -817,7 +796,7 @@
           </section>
           <section class="report-grid">
             <article class="panel editor-card">
-              <select [(ngModel)]="aiProvider"><option>OpenAI</option><option>Azure OpenAI</option><option>Local LLM</option></select>
+              <app-premium-select label="Provider" [options]="aiProviderOptions()" [value]="aiProvider" (valueChange)="aiProvider = $event"></app-premium-select>
               <input [(ngModel)]="aiModelName" placeholder="Model name" />
               <input [(ngModel)]="aiEndpointUrl" placeholder="Provider endpoint URL" />
               <input [(ngModel)]="aiDeploymentName" placeholder="Azure deployment / local profile" />
@@ -825,11 +804,7 @@
               <button class="primary-action wide" type="button" (click)="saveAiConfig()">Save provider config</button>
             </article>
             <article class="panel editor-card">
-              <select [(ngModel)]="aiAction">
-                @for (action of ['GenerateTests', 'ExplainResponse', 'GenerateDocs', 'SuggestMocks', 'FindQualityGaps']; track action) {
-                  <option [value]="action">{{ action }}</option>
-                }
-              </select>
+              <app-premium-select label="Action" [options]="aiActionOptions()" [value]="aiAction" (valueChange)="aiAction = $event"></app-premium-select>
               <textarea class="code-textarea" rows="5" [(ngModel)]="aiInput" placeholder="Optional context for assistant action"></textarea>
               <button class="primary-action wide" type="button" (click)="runAiAssistant()">Run assistant action</button>
               @if (aiResult()) {

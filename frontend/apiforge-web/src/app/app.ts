@@ -42,6 +42,7 @@ import { DeveloperToolsService, JsonDiff, JsonStats } from './features/developer
 import { MonacoEditorComponent } from './shared/monaco-editor.component';
 import { BadgeComponent } from './shared/ui/badge.component';
 import { EmptyStateComponent } from './shared/ui/empty-state.component';
+import { PremiumSelectComponent, PremiumSelectOption } from './shared/ui/premium-select.component';
 import { SkeletonComponent } from './shared/ui/skeleton.component';
 import { StatCardComponent } from './shared/ui/stat-card.component';
 import { ToastComponent } from './shared/ui/toast.component';
@@ -85,6 +86,7 @@ type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
     MonacoEditorComponent,
     BadgeComponent,
     EmptyStateComponent,
+    PremiumSelectComponent,
     SkeletonComponent,
     StatCardComponent,
     ToastComponent
@@ -179,6 +181,18 @@ export class App implements OnInit {
       .join('') || 'AF'
   );
   readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Dashboard');
+  readonly organizationOptions = computed<PremiumSelectOption[]>(() => this.organizations().map((organization) => ({ value: organization.id, label: organization.name, meta: organization.slug })));
+  readonly workspaceOptions = computed<PremiumSelectOption[]>(() => this.workspaces().map((workspace) => ({ value: workspace.id, label: workspace.name, meta: workspace.type })));
+  readonly environmentOptions = computed<PremiumSelectOption[]>(() => this.environments().map((environment) => ({ value: environment.id, label: environment.name, meta: environment.isDefault ? 'Default' : `${environment.variableCount} variables` })));
+  readonly collectionOptions = computed<PremiumSelectOption[]>(() => this.collections().map((collection) => ({ value: collection.id, label: collection.name, meta: `${collection.requestCount} requests` })));
+  readonly aiProviderOptions = computed<PremiumSelectOption[]>(() => ['OpenAI', 'Azure OpenAI', 'Local LLM'].map((provider) => ({ value: provider, label: provider, meta: 'Configurable provider' })));
+  readonly aiActionOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'GenerateTests', label: 'Generate tests', meta: 'Assertions' },
+    { value: 'ExplainResponse', label: 'Explain response', meta: 'Readable summary' },
+    { value: 'GenerateDocs', label: 'Generate docs', meta: 'Documentation' },
+    { value: 'SuggestMocks', label: 'Suggest mocks', meta: 'Examples' },
+    { value: 'FindQualityGaps', label: 'Find quality gaps', meta: 'Governance' }
+  ]);
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
