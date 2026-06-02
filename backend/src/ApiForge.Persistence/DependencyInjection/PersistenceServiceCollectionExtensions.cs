@@ -19,6 +19,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IActivityRepository, ActivityRepository>();
         services.AddScoped<IRequestRunRepository, RequestRunRepository>();
         services.AddScoped<IProductOpsRepository, ProductOpsRepository>();
+        services.AddScoped<IPhase4Repository, Phase4Repository>();
         return services;
     }
 }

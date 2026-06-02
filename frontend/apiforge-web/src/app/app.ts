@@ -5,12 +5,17 @@ import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 import { ApiClientService } from './core/api-client.service';
 import {
   ActivityEvent,
+  AdvancedAnalytics,
+  AiAssistantAction,
+  AiAssistantConfig,
   AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
   ApiSpec,
   ApiSpecValidation,
+  ApiKeyModel,
+  BillingOverview,
   CommentModel,
   Collection,
   CollectionRunResult,
@@ -26,6 +31,7 @@ import {
   MonitorRun,
   Organization,
   OrganizationMember,
+  OrganizationSaasSettings,
   PublishedDoc,
   RequestRun,
   SaveApiRequestPayload,
@@ -50,6 +56,9 @@ type ViewKey =
   | 'monitors'
   | 'documentation'
   | 'governance'
+  | 'ai-assistant'
+  | 'analytics'
+  | 'billing'
   | 'json-tools'
   | 'dev-tools'
   | 'activity'
@@ -113,6 +122,12 @@ export class App implements OnInit {
   readonly publishedDocs = signal<PublishedDoc[]>([]);
   readonly apiSpecs = signal<ApiSpec[]>([]);
   readonly governanceFindings = signal<ApiSpecValidation | null>(null);
+  readonly aiConfig = signal<AiAssistantConfig | null>(null);
+  readonly aiResult = signal<AiAssistantAction | null>(null);
+  readonly advancedAnalytics = signal<AdvancedAnalytics | null>(null);
+  readonly billingOverview = signal<BillingOverview | null>(null);
+  readonly saasSettings = signal<OrganizationSaasSettings | null>(null);
+  readonly apiKeys = signal<ApiKeyModel[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
   readonly requestHistory = signal<RequestRun[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
@@ -185,6 +200,14 @@ export class App implements OnInit {
         { key: 'monitors', label: 'Monitors', hint: 'Schedules', icon: 'pulse' },
         { key: 'documentation', label: 'Documentation', hint: 'Publish', icon: 'stack' },
         { key: 'governance', label: 'Governance', hint: 'Review', icon: 'shield' }
+      ]
+    },
+    {
+      title: 'Enterprise',
+      items: [
+        { key: 'ai-assistant', label: 'AI Assistant', hint: 'Provider', icon: 'terminal' },
+        { key: 'analytics', label: 'Analytics', hint: 'Advanced', icon: 'chart' },
+        { key: 'billing', label: 'Billing', hint: 'SaaS', icon: 'shield' }
       ]
     },
     {
@@ -263,6 +286,17 @@ export class App implements OnInit {
   specName = '';
   specFormat = 'json';
   specContent = '';
+  aiProvider = 'OpenAI';
+  aiModelName = '';
+  aiEndpointUrl = '';
+  aiDeploymentName = '';
+  aiEnabled = false;
+  aiAction = 'GenerateTests';
+  aiInput = '';
+  settingsProductName = 'API DESK';
+  settingsRetentionDays = 365;
+  apiKeyName = '';
+  createdPlainApiKey = '';
   utilityTool = 'Base64';
   utilityPattern = '';
   utilityFlags = 'g';
@@ -347,6 +381,12 @@ export class App implements OnInit {
     this.publishedDocs.set([]);
     this.apiSpecs.set([]);
     this.governanceFindings.set(null);
+    this.aiConfig.set(null);
+    this.aiResult.set(null);
+    this.advancedAnalytics.set(null);
+    this.billingOverview.set(null);
+    this.saasSettings.set(null);
+    this.apiKeys.set([]);
     this.members.set([]);
     this.requestHistory.set([]);
     this.dashboard.set(null);
@@ -464,6 +504,15 @@ export class App implements OnInit {
     this.loadMonitors();
     this.loadPublishedDocs();
     this.loadApiSpecs();
+    this.loadPhase4Data();
+  }
+
+  loadPhase4Data(): void {
+    this.loadOrganizationSettings();
+    this.loadAiConfig();
+    this.loadAdvancedAnalytics();
+    this.loadBillingOverview();
+    this.loadApiKeys();
   }
 
   loadDashboard(): void {
@@ -862,6 +911,142 @@ export class App implements OnInit {
         this.showToast('Spec validated', `${result.data.findings.length} findings returned.`, result.data.spec.validationStatus === 'Passed' ? 'success' : 'danger');
       },
       error: (error) => this.showToast('Spec upload failed', error?.error?.message ?? 'Could not upload API spec.', 'danger')
+    });
+  }
+
+  loadOrganizationSettings(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.organizationSettings(this.selectedOrganizationId()).subscribe({
+      next: (result) => {
+        if (result.data) {
+          this.saasSettings.set(result.data);
+          this.settingsProductName = result.data.productName;
+          this.settingsRetentionDays = result.data.retentionDays;
+        }
+      },
+      error: () => this.showToast('Settings failed', 'Could not load SaaS settings.', 'danger')
+    });
+  }
+
+  saveOrganizationSettings(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.saveOrganizationSettings(this.selectedOrganizationId(), {
+      productName: this.settingsProductName,
+      retentionDays: Number(this.settingsRetentionDays) || 365
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Settings failed', result.message, 'danger');
+          return;
+        }
+        this.saasSettings.set(result.data);
+        this.productName.set(result.data.productName);
+        this.showToast('Settings saved', 'Organization SaaS settings were updated.', 'success');
+      },
+      error: (error) => this.showToast('Settings failed', error?.error?.message ?? 'Could not save settings.', 'danger')
+    });
+  }
+
+  loadAiConfig(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.aiConfig(this.selectedOrganizationId()).subscribe({
+      next: (result) => {
+        this.aiConfig.set(result.data);
+        if (result.data) {
+          this.aiProvider = result.data.provider;
+          this.aiModelName = result.data.modelName ?? '';
+          this.aiEndpointUrl = result.data.endpointUrl ?? '';
+          this.aiDeploymentName = result.data.deploymentName ?? '';
+          this.aiEnabled = result.data.isEnabled;
+        }
+      },
+      error: () => this.showToast('AI config failed', 'Could not load AI provider settings.', 'danger')
+    });
+  }
+
+  saveAiConfig(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.saveAiConfig(this.selectedOrganizationId(), {
+      provider: this.aiProvider,
+      modelName: this.aiModelName || undefined,
+      endpointUrl: this.aiEndpointUrl || undefined,
+      deploymentName: this.aiDeploymentName || undefined,
+      isEnabled: this.aiEnabled
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('AI config failed', result.message, 'danger');
+          return;
+        }
+        this.aiConfig.set(result.data);
+        this.showToast('AI config saved', `${result.data.provider} is ${result.data.isEnabled ? 'enabled' : 'disabled'}.`, 'success');
+      },
+      error: (error) => this.showToast('AI config failed', error?.error?.message ?? 'Could not save AI config.', 'danger')
+    });
+  }
+
+  runAiAssistant(): void {
+    if (!this.selectedWorkspaceId()) return;
+    this.api.runAiAction(this.selectedWorkspaceId(), {
+      action: this.aiAction,
+      collectionId: this.selectedCollectionId() || undefined,
+      requestId: this.selectedRequestId() || undefined,
+      input: this.aiInput || undefined
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('AI action failed', result.message, 'danger');
+          return;
+        }
+        this.aiResult.set(result.data);
+        this.loadActivity();
+        this.showToast('AI assistant', result.data.providerStatus, 'success');
+      },
+      error: (error) => this.showToast('AI action failed', error?.error?.message ?? 'Could not run AI assistant action.', 'danger')
+    });
+  }
+
+  loadAdvancedAnalytics(): void {
+    if (!this.selectedWorkspaceId()) return;
+    this.api.advancedAnalytics(this.selectedWorkspaceId()).subscribe({
+      next: (result) => this.advancedAnalytics.set(result.data),
+      error: () => this.showToast('Analytics failed', 'Could not load advanced analytics.', 'danger')
+    });
+  }
+
+  loadBillingOverview(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.billingOverview(this.selectedOrganizationId()).subscribe({
+      next: (result) => this.billingOverview.set(result.data),
+      error: () => this.showToast('Billing failed', 'Could not load billing overview.', 'danger')
+    });
+  }
+
+  loadApiKeys(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.apiKeys(this.selectedOrganizationId()).subscribe({
+      next: (result) => this.apiKeys.set(result.data ?? []),
+      error: () => this.showToast('API keys failed', 'Could not load API keys.', 'danger')
+    });
+  }
+
+  createApiKey(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.createApiKey(this.selectedOrganizationId(), {
+      workspaceId: this.selectedWorkspaceId() || undefined,
+      name: this.apiKeyName.trim() || 'Workspace API key'
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('API key failed', result.message, 'danger');
+          return;
+        }
+        this.createdPlainApiKey = result.data.plainTextKey;
+        this.apiKeys.update((items) => [result.data.apiKey, ...items]);
+        this.apiKeyName = '';
+        this.showToast('API key created', 'Copy the key now; it is shown once.', 'success');
+      },
+      error: (error) => this.showToast('API key failed', error?.error?.message ?? 'Could not create API key.', 'danger')
     });
   }
 

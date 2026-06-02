@@ -2,6 +2,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import {
   ActivityEvent,
+  AdvancedAnalytics,
+  AiAssistantAction,
+  AiAssistantConfig,
   AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
@@ -9,12 +12,15 @@ import {
   ApiResult,
   ApiSpec,
   ApiSpecValidation,
+  ApiKeyModel,
   AuthResponse,
+  BillingOverview,
   Collection,
   CollectionExport,
   CollectionImportResult,
   CollectionRunResult,
   CommentModel,
+  CreatedApiKey,
   EnvironmentModel,
   GovernanceFinding,
   ImportCollectionPayload,
@@ -26,6 +32,7 @@ import {
   MonitorRun,
   Organization,
   OrganizationMember,
+  OrganizationSaasSettings,
   PublishedDoc,
   PagedResult,
   RequestRun,
@@ -288,5 +295,41 @@ export class ApiClientService {
 
   uploadApiSpec(workspaceId: string, payload: { collectionId?: string; name: string; format: string; content: string }) {
     return this.http.post<ApiResult<ApiSpecValidation>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/api-specs`, payload);
+  }
+
+  organizationSettings(organizationId: string) {
+    return this.http.get<ApiResult<OrganizationSaasSettings>>(`${this.apiBaseUrl}/organizations/${organizationId}/saas-settings`);
+  }
+
+  saveOrganizationSettings(organizationId: string, payload: { productName: string; retentionDays: number }) {
+    return this.http.put<ApiResult<OrganizationSaasSettings>>(`${this.apiBaseUrl}/organizations/${organizationId}/saas-settings`, payload);
+  }
+
+  aiConfig(organizationId: string) {
+    return this.http.get<ApiResult<AiAssistantConfig>>(`${this.apiBaseUrl}/organizations/${organizationId}/ai-config`);
+  }
+
+  saveAiConfig(organizationId: string, payload: { provider: string; modelName?: string; endpointUrl?: string; deploymentName?: string; isEnabled: boolean }) {
+    return this.http.put<ApiResult<AiAssistantConfig>>(`${this.apiBaseUrl}/organizations/${organizationId}/ai-config`, payload);
+  }
+
+  runAiAction(workspaceId: string, payload: { action: string; collectionId?: string; requestId?: string; input?: string }) {
+    return this.http.post<ApiResult<AiAssistantAction>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/ai-assistant/actions`, payload);
+  }
+
+  advancedAnalytics(workspaceId: string) {
+    return this.http.get<ApiResult<AdvancedAnalytics>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/analytics/advanced`);
+  }
+
+  billingOverview(organizationId: string) {
+    return this.http.get<ApiResult<BillingOverview>>(`${this.apiBaseUrl}/organizations/${organizationId}/billing`);
+  }
+
+  apiKeys(organizationId: string) {
+    return this.http.get<ApiResult<ApiKeyModel[]>>(`${this.apiBaseUrl}/organizations/${organizationId}/api-keys`);
+  }
+
+  createApiKey(organizationId: string, payload: { workspaceId?: string; name: string; expiresOn?: string }) {
+    return this.http.post<ApiResult<CreatedApiKey>>(`${this.apiBaseUrl}/organizations/${organizationId}/api-keys`, payload);
   }
 }

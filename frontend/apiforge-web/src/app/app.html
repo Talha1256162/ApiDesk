@@ -810,6 +810,97 @@
           </section>
         }
 
+        @if (activeView() === 'ai-assistant') {
+          <section class="page-header">
+            <div><span class="eyebrow">AI provider</span><h2>AI assistant</h2><p>Provider configuration is stored in SQL. No API key is hardcoded or exposed.</p></div>
+            <button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button>
+          </section>
+          <section class="report-grid">
+            <article class="panel editor-card">
+              <select [(ngModel)]="aiProvider"><option>OpenAI</option><option>Azure OpenAI</option><option>Local LLM</option></select>
+              <input [(ngModel)]="aiModelName" placeholder="Model name" />
+              <input [(ngModel)]="aiEndpointUrl" placeholder="Provider endpoint URL" />
+              <input [(ngModel)]="aiDeploymentName" placeholder="Azure deployment / local profile" />
+              <label class="toggle-row"><input type="checkbox" [(ngModel)]="aiEnabled" /> Enable assistant interface</label>
+              <button class="primary-action wide" type="button" (click)="saveAiConfig()">Save provider config</button>
+            </article>
+            <article class="panel editor-card">
+              <select [(ngModel)]="aiAction">
+                @for (action of ['GenerateTests', 'ExplainResponse', 'GenerateDocs', 'SuggestMocks', 'FindQualityGaps']; track action) {
+                  <option [value]="action">{{ action }}</option>
+                }
+              </select>
+              <textarea class="code-textarea" rows="5" [(ngModel)]="aiInput" placeholder="Optional context for assistant action"></textarea>
+              <button class="primary-action wide" type="button" (click)="runAiAssistant()">Run assistant action</button>
+              @if (aiResult()) {
+                <div class="inline-info">{{ aiResult()?.providerStatus }}</div>
+                @for (suggestion of aiResult()?.suggestions ?? []; track suggestion) {
+                  <div class="table-row compact"><strong>{{ suggestion }}</strong><span>{{ aiResult()?.createdOnUtc | date:'short' }}</span></div>
+                }
+              } @else {
+                <app-empty-state title="No assistant output" description="Run an assistant action against the selected collection/request or custom context."></app-empty-state>
+              }
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'analytics') {
+          <section class="page-header">
+            <div><span class="eyebrow">Advanced analytics</span><h2>Usage intelligence</h2><p>Analytics are aggregated from request run, user, and endpoint tables.</p></div>
+            <button class="secondary-action" type="button" (click)="loadAdvancedAnalytics()">Refresh</button>
+          </section>
+          <section class="metric-grid">
+            <app-stat-card label="Total runs" [value]="advancedAnalytics()?.totalRuns ?? 0" hint="All time" description="Workspace executions"></app-stat-card>
+            <app-stat-card label="Success rate" [value]="(advancedAnalytics()?.successRate ?? 100) + '%'" hint="Quality" description="Successful request ratio"></app-stat-card>
+            <app-stat-card label="Failures" [value]="advancedAnalytics()?.failedRuns ?? 0" hint="Errors" description="Failed executions"></app-stat-card>
+            <app-stat-card label="Avg latency" [value]="(advancedAnalytics()?.averageLatencyMs ?? 0) + 'ms'" hint="Speed" description="Mean response time"></app-stat-card>
+          </section>
+          <section class="report-grid">
+            <article class="panel"><div class="panel-title"><div><span class="eyebrow">People</span><h3>Top users</h3></div></div>
+              @for (item of advancedAnalytics()?.topUsers ?? []; track item.label) {<div class="rank-row"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>} @empty {<app-empty-state title="No user analytics" description="Request runs will populate top user analytics."></app-empty-state>}
+            </article>
+            <article class="panel"><div class="panel-title"><div><span class="eyebrow">Endpoints</span><h3>Slowest APIs</h3></div></div>
+              @for (item of advancedAnalytics()?.slowEndpoints ?? []; track item.label) {<div class="rank-row"><span>{{ item.label }}</span><strong>{{ item.metric }}ms</strong></div>} @empty {<app-empty-state title="No endpoint analytics" description="Send requests to populate endpoint latency."></app-empty-state>}
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'billing') {
+          <section class="page-header">
+            <div><span class="eyebrow">SaaS control</span><h2>Billing and settings</h2><p>Plan catalog, usage, product name, retention, and API keys are SQL-backed.</p></div>
+            <button class="secondary-action" type="button" (click)="loadBillingOverview(); loadOrganizationSettings(); loadApiKeys()">Refresh</button>
+          </section>
+          <section class="panel filter-panel">
+            <label>Product name<input [(ngModel)]="settingsProductName" /></label>
+            <label>Audit retention days<input type="number" min="30" max="3650" [(ngModel)]="settingsRetentionDays" /></label>
+            <button class="primary-action" type="button" (click)="saveOrganizationSettings()">Save settings</button>
+          </section>
+          <section class="report-grid">
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">Usage</span><h3>Current period</h3></div></div>
+              <div class="settings-grid">
+                <div><span>Requests</span><strong>{{ billingOverview()?.requestsThisPeriod ?? 0 }}</strong></div>
+                <div><span>Members</span><strong>{{ billingOverview()?.members ?? 0 }}</strong></div>
+                <div><span>Workspaces</span><strong>{{ billingOverview()?.workspaces ?? 0 }}</strong></div>
+                <div><span>Subscription</span><strong>{{ billingOverview()?.subscription?.planName || 'Not assigned' }}</strong></div>
+              </div>
+              @for (plan of billingOverview()?.plans ?? []; track plan.id) {
+                <div class="table-row">
+                  <strong>{{ plan.name }}</strong><span>${{ plan.monthlyPrice }}/mo</span><span>{{ plan.includedRequests }} requests</span><app-badge label="DB plan" tone="accent"></app-badge>
+                </div>
+              }
+            </article>
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">API access</span><h3>API keys</h3></div></div>
+              <div class="toolbar"><input [(ngModel)]="apiKeyName" placeholder="Key name" /><button class="secondary-action" type="button" (click)="createApiKey()">Create key</button></div>
+              @if (createdPlainApiKey) {<div class="inline-info"><strong>Copy now:</strong> {{ createdPlainApiKey }}</div>}
+              @for (key of apiKeys(); track key.id) {
+                <div class="table-row compact"><strong>{{ key.name }}</strong><span>{{ key.createdOn | date:'short' }}</span></div>
+              } @empty {<app-empty-state title="No API keys" description="Create an API key for future automation integrations."></app-empty-state>}
+            </article>
+          </section>
+        }
+
         @if (activeView() === 'activity' || activeView() === 'reports') {
           <section class="page-header">
             <div>

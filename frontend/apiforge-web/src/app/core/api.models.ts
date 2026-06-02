@@ -340,6 +340,98 @@ export interface ApiSpecValidation {
   findings: GovernanceFinding[];
 }
 
+export interface AiAssistantConfig {
+  id: string;
+  organizationId: string;
+  provider: string;
+  modelName?: string;
+  endpointUrl?: string;
+  deploymentName?: string;
+  isEnabled: boolean;
+  createdOn: string;
+  modifiedOn?: string;
+}
+
+export interface AiAssistantAction {
+  action: string;
+  providerStatus: string;
+  suggestions: string[];
+  createdOnUtc: string;
+}
+
+export interface AnalyticsPoint {
+  label: string;
+  value: number;
+}
+
+export interface AnalyticsRank {
+  label: string;
+  value: number;
+  metric?: number;
+}
+
+export interface AdvancedAnalytics {
+  totalRuns: number;
+  successfulRuns: number;
+  failedRuns: number;
+  successRate: number;
+  averageLatencyMs: number;
+  requestsPerDay: AnalyticsPoint[];
+  failuresPerDay: AnalyticsPoint[];
+  topUsers: AnalyticsRank[];
+  topEndpoints: AnalyticsRank[];
+  slowEndpoints: AnalyticsRank[];
+}
+
+export interface BillingPlan {
+  id: string;
+  code: string;
+  name: string;
+  monthlyPrice: number;
+  includedRequests: number;
+  includedMembers?: number;
+  featuresJson: string;
+}
+
+export interface OrganizationSubscription {
+  id: string;
+  organizationId: string;
+  billingPlanId: string;
+  planName: string;
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+}
+
+export interface BillingOverview {
+  plans: BillingPlan[];
+  subscription?: OrganizationSubscription;
+  requestsThisPeriod: number;
+  members: number;
+  workspaces: number;
+}
+
+export interface OrganizationSaasSettings {
+  organizationId: string;
+  productName: string;
+  retentionDays: number;
+}
+
+export interface ApiKeyModel {
+  id: string;
+  organizationId: string;
+  workspaceId?: string;
+  name: string;
+  expiresOn?: string;
+  lastUsedOn?: string;
+  createdOn: string;
+}
+
+export interface CreatedApiKey {
+  apiKey: ApiKeyModel;
+  plainTextKey: string;
+}
+
 export interface ManagerSummary {
   activeUsersToday: number;
   requestsSentToday: number;

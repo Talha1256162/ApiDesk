@@ -2,6 +2,16 @@
   display: block;
 }
 
+.inline-info {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .app-shell {
   --bg: #090b10;
   --bg-rail: #101217;

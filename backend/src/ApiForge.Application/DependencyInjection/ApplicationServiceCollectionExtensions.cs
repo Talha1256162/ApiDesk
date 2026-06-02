@@ -17,6 +17,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IRequestRunnerService, RequestRunnerService>();
         services.AddScoped<IActivityService, ActivityService>();
         services.AddScoped<IProductOpsService, ProductOpsService>();
+        services.AddScoped<IPhase4Service, Phase4Service>();
         return services;
     }
 }
