@@ -1,4 +1,5 @@
 using System.Text;
+using ApiForge.Api.Background;
 using ApiForge.Api.Middleware;
 using ApiForge.Api.Security;
 using ApiForge.Api.SignalR;
@@ -65,6 +66,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSignalR();
+builder.Services.AddHostedService<MonitorSchedulerWorker>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();

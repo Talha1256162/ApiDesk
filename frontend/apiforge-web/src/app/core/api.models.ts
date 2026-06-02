@@ -244,6 +244,102 @@ export interface RequestExample {
   createdOn: string;
 }
 
+export interface MockServer {
+  id: string;
+  workspaceId: string;
+  collectionId: string;
+  collectionName: string;
+  name: string;
+  slug: string;
+  isPublic: boolean;
+  apiKeyRequired: boolean;
+  delayMs: number;
+  routeCount: number;
+  logCount: number;
+  createdOn: string;
+}
+
+export interface MockRoute {
+  id: string;
+  mockServerId: string;
+  method: string;
+  path: string;
+  requestExampleId?: string;
+  exampleName?: string;
+}
+
+export interface MockLog {
+  id: string;
+  mockServerId: string;
+  mockRouteId?: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  createdOn: string;
+}
+
+export interface Monitor {
+  id: string;
+  workspaceId: string;
+  collectionId: string;
+  environmentId?: string;
+  collectionName: string;
+  environmentName?: string;
+  name: string;
+  scheduleExpression: string;
+  isEnabled: boolean;
+  lastStatus?: string;
+  lastPassedCount?: number;
+  lastFailedCount?: number;
+  lastLatencyMs?: number;
+  lastRunOn?: string;
+  createdOn: string;
+}
+
+export interface MonitorRun {
+  id: string;
+  monitorId: string;
+  status: string;
+  passedCount: number;
+  failedCount: number;
+  latencyMs?: number;
+  createdOn: string;
+}
+
+export interface PublishedDoc {
+  id: string;
+  workspaceId: string;
+  collectionId: string;
+  collectionName: string;
+  slug: string;
+  isPublic: boolean;
+  brandJson?: string;
+  publishedOn?: string;
+  createdOn: string;
+}
+
+export interface ApiSpec {
+  id: string;
+  workspaceId: string;
+  collectionId?: string;
+  name: string;
+  format: string;
+  validationStatus: string;
+  createdOn: string;
+}
+
+export interface GovernanceFinding {
+  rule: string;
+  severity: string;
+  message: string;
+  location?: string;
+}
+
+export interface ApiSpecValidation {
+  spec: ApiSpec;
+  findings: GovernanceFinding[];
+}
+
 export interface ManagerSummary {
   activeUsersToday: number;
   requestsSentToday: number;

@@ -7,6 +7,8 @@ import {
   ApiRequestSummary,
   ApiResponse,
   ApiResult,
+  ApiSpec,
+  ApiSpecValidation,
   AuthResponse,
   Collection,
   CollectionExport,
@@ -14,10 +16,17 @@ import {
   CollectionRunResult,
   CommentModel,
   EnvironmentModel,
+  GovernanceFinding,
   ImportCollectionPayload,
   ManagerSummary,
+  MockLog,
+  MockRoute,
+  MockServer,
+  Monitor,
+  MonitorRun,
   Organization,
   OrganizationMember,
+  PublishedDoc,
   PagedResult,
   RequestRun,
   RequestExample,
@@ -221,5 +230,63 @@ export class ApiClientService {
 
   saveResponseExample(requestId: string, payload: { name: string; statusCode?: number; headersJson?: string; body?: string; contentType?: string }) {
     return this.http.post<ApiResult<RequestExample>>(`${this.apiBaseUrl}/requests/${requestId}/examples`, payload);
+  }
+
+  mockServers(workspaceId: string) {
+    return this.http.get<ApiResult<MockServer[]>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/mock-servers`);
+  }
+
+  createMockServer(workspaceId: string, payload: { collectionId: string; name: string; isPublic: boolean; apiKeyRequired: boolean; delayMs: number }) {
+    return this.http.post<ApiResult<MockServer>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/mock-servers`, payload);
+  }
+
+  mockRoutes(mockServerId: string) {
+    return this.http.get<ApiResult<MockRoute[]>>(`${this.apiBaseUrl}/mock-servers/${mockServerId}/routes`);
+  }
+
+  mockLogs(mockServerId: string) {
+    return this.http.get<ApiResult<MockLog[]>>(`${this.apiBaseUrl}/mock-servers/${mockServerId}/logs`, {
+      params: new HttpParams().set('count', 50)
+    });
+  }
+
+  monitors(workspaceId: string) {
+    return this.http.get<ApiResult<Monitor[]>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/monitors`);
+  }
+
+  createMonitor(workspaceId: string, payload: { collectionId: string; environmentId?: string; name: string; scheduleExpression: string; isEnabled: boolean }) {
+    return this.http.post<ApiResult<Monitor>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/monitors`, payload);
+  }
+
+  runMonitor(monitorId: string) {
+    return this.http.post<ApiResult<CollectionRunResult>>(`${this.apiBaseUrl}/monitors/${monitorId}/run`, {});
+  }
+
+  monitorRuns(monitorId: string) {
+    return this.http.get<ApiResult<MonitorRun[]>>(`${this.apiBaseUrl}/monitors/${monitorId}/runs`, {
+      params: new HttpParams().set('count', 25)
+    });
+  }
+
+  publishedDocs(workspaceId: string) {
+    return this.http.get<ApiResult<PublishedDoc[]>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/published-docs`);
+  }
+
+  publishDocs(workspaceId: string, payload: { collectionId: string; slug: string; isPublic: boolean; password?: string; brandJson?: string }) {
+    return this.http.post<ApiResult<PublishedDoc>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/published-docs`, payload);
+  }
+
+  unpublishDocs(docId: string) {
+    return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/published-docs/${docId}`);
+  }
+
+  apiSpecs(workspaceId: string) {
+    return this.http.get<ApiResult<PagedResult<ApiSpec>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/api-specs`, {
+      params: new HttpParams().set('count', 50)
+    });
+  }
+
+  uploadApiSpec(workspaceId: string, payload: { collectionId?: string; name: string; format: string; content: string }) {
+    return this.http.post<ApiResult<ApiSpecValidation>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/api-specs`, payload);
   }
 }

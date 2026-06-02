@@ -639,6 +639,177 @@
           </section>
         }
 
+        @if (activeView() === 'mock-servers') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Mocking</span>
+              <h2>Mock servers</h2>
+              <p>Create mock endpoints from saved collections and response examples.</p>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadMockServers()">Refresh</button>
+          </section>
+          <section class="panel filter-panel">
+            <label>Name<input [(ngModel)]="mockName" placeholder="Identity mock server" /></label>
+            <label>Delay ms<input type="number" min="0" max="30000" [(ngModel)]="mockDelayMs" /></label>
+            <label class="toggle-row"><input type="checkbox" [(ngModel)]="mockIsPublic" /> Public</label>
+            <label class="toggle-row"><input type="checkbox" [(ngModel)]="mockApiKeyRequired" /> API key required</label>
+            <button class="primary-action" type="button" (click)="createMockServer()">Create mock</button>
+          </section>
+          <section class="report-grid">
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">Servers</span><h3>Collection mocks</h3></div></div>
+              @for (server of mockServers(); track server.id) {
+                <div class="table-row" [class.active]="selectedMockServerId === server.id" (click)="selectedMockServerId = server.id; loadSelectedMockDetails()">
+                  <strong>{{ server.name }}</strong>
+                  <span>{{ server.collectionName }}</span>
+                  <span>{{ server.routeCount }} routes</span>
+                  <app-badge [label]="server.isPublic ? 'Public' : 'Private'" [tone]="server.isPublic ? 'success' : 'default'"></app-badge>
+                </div>
+                <small class="muted-line">Mock URL: http://localhost:5108/api/mock/{{ server.slug }}</small>
+              } @empty {
+                <app-empty-state title="No mock servers" description="Create a mock server from the selected collection. Saved response examples power the mock output."></app-empty-state>
+              }
+            </article>
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">Routes</span><h3>Generated endpoints</h3></div></div>
+              @for (route of mockRoutes(); track route.id) {
+                <div class="table-row compact">
+                  <strong>{{ route.method }} {{ route.path }}</strong>
+                  <span>{{ route.exampleName || 'No example attached' }}</span>
+                </div>
+              } @empty {
+                <app-empty-state title="No routes selected" description="Select or create a mock server to inspect generated routes."></app-empty-state>
+              }
+              <div class="panel-title inline-title"><div><span class="eyebrow">Logs</span><h3>Recent calls</h3></div></div>
+              @for (log of mockLogs(); track log.id) {
+                <div class="timeline-row wide">
+                  <div class="timeline-dot"></div>
+                  <div><strong>{{ log.method }} {{ log.path }}</strong><span>{{ log.createdOn | date:'short' }}</span></div>
+                  <app-badge [label]="'' + log.statusCode" [tone]="log.statusCode < 400 ? 'success' : 'danger'"></app-badge>
+                </div>
+              } @empty {
+                <app-empty-state title="No mock calls yet" description="Call a mock URL to populate logs."></app-empty-state>
+              }
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'monitors') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Reliability</span>
+              <h2>Monitors</h2>
+              <p>Run saved collections against selected environments and keep monitor history.</p>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadMonitors()">Refresh</button>
+          </section>
+          <section class="panel filter-panel">
+            <label>Name<input [(ngModel)]="monitorName" placeholder="Production identity monitor" /></label>
+            <label>Schedule<input [(ngModel)]="monitorSchedule" placeholder="every 15 minutes" /></label>
+            <label>Collection<select [ngModel]="selectedCollectionId()" (ngModelChange)="selectedCollectionId.set($event)">@for (collection of collections(); track collection.id) {<option [value]="collection.id">{{ collection.name }}</option>}</select></label>
+            <label>Environment<select [ngModel]="selectedEnvironmentId()" (ngModelChange)="selectedEnvironmentId.set($event)">@for (environment of environments(); track environment.id) {<option [value]="environment.id">{{ environment.name }}</option>}</select></label>
+            <button class="primary-action" type="button" (click)="createMonitor()">Create monitor</button>
+          </section>
+          <section class="report-grid">
+            <article class="panel">
+              @for (monitor of monitors(); track monitor.id) {
+                <div class="table-row">
+                  <strong>{{ monitor.name }}</strong>
+                  <span>{{ monitor.collectionName }} · {{ monitor.environmentName || 'No environment' }}</span>
+                  <span>{{ monitor.scheduleExpression }}</span>
+                  <app-badge [label]="monitor.lastStatus || 'Not run'" [tone]="monitor.lastStatus === 'Passed' ? 'success' : monitor.lastStatus === 'Failed' ? 'danger' : 'default'"></app-badge>
+                  <button class="secondary-action" type="button" (click)="runMonitor(monitor.id)">Run</button>
+                </div>
+              } @empty {
+                <app-empty-state title="No monitors" description="Create a monitor from a collection to start tracking pass/fail history."></app-empty-state>
+              }
+            </article>
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">History</span><h3>Monitor runs</h3></div></div>
+              @for (run of monitorRuns(); track run.id) {
+                <div class="timeline-row wide">
+                  <div class="timeline-dot"></div>
+                  <div><strong>{{ run.passedCount }}/{{ run.passedCount + run.failedCount }} passed</strong><span>{{ run.latencyMs || 0 }}ms · {{ run.createdOn | date:'short' }}</span></div>
+                  <app-badge [label]="run.status" [tone]="run.status === 'Passed' ? 'success' : 'danger'"></app-badge>
+                </div>
+              } @empty {
+                <app-empty-state title="No monitor history" description="Run a monitor to store its first result."></app-empty-state>
+              }
+            </article>
+          </section>
+        }
+
+        @if (activeView() === 'documentation') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Docs</span>
+              <h2>Published documentation</h2>
+              <p>Publish documentation generated from real collection requests and saved examples.</p>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadPublishedDocs()">Refresh</button>
+          </section>
+          <section class="panel filter-panel">
+            <label>Slug<input [(ngModel)]="docsSlug" placeholder="identity-service-docs" /></label>
+            <label>Brand JSON<input [(ngModel)]="docsBrandJson" placeholder='{"theme":"dark"}' /></label>
+            <label class="toggle-row"><input type="checkbox" [(ngModel)]="docsIsPublic" /> Public link</label>
+            <button class="primary-action" type="button" (click)="publishDocs()">Publish selected collection</button>
+          </section>
+          <section class="panel">
+            @for (doc of publishedDocs(); track doc.id) {
+              <div class="table-row">
+                <strong>{{ doc.collectionName }}</strong>
+                <span>/api/docs/{{ doc.slug }}</span>
+                <span>{{ doc.publishedOn | date:'short' }}</span>
+                <app-badge [label]="doc.isPublic ? 'Public' : 'Private'" [tone]="doc.isPublic ? 'success' : 'default'"></app-badge>
+                <button class="ghost-button" type="button" (click)="unpublishDocs(doc.id)">Unpublish</button>
+              </div>
+            } @empty {
+              <app-empty-state title="No published docs" description="Publish a collection to generate searchable API documentation from live request data."></app-empty-state>
+            }
+          </section>
+        }
+
+        @if (activeView() === 'governance') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">API quality</span>
+              <h2>Governance</h2>
+              <p>Upload OpenAPI specs and validate them against API quality rules.</p>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadApiSpecs()">Refresh</button>
+          </section>
+          <section class="json-workbench">
+            <article class="panel editor-card">
+              <input [(ngModel)]="specName" placeholder="OpenAPI spec name" />
+              <select [(ngModel)]="specFormat"><option value="json">JSON</option><option value="yaml">YAML</option></select>
+              <div class="editor-shell tall"><app-monaco-editor [(value)]="specContent" language="json"></app-monaco-editor></div>
+              <button class="primary-action wide" type="button" (click)="uploadApiSpec()">Upload and validate</button>
+            </article>
+            <article class="panel">
+              <div class="panel-title"><div><span class="eyebrow">Findings</span><h3>Validation result</h3></div></div>
+              @for (finding of governanceFindings()?.findings ?? []; track finding.rule + finding.location) {
+                <div class="timeline-row wide">
+                  <div class="timeline-dot"></div>
+                  <div><strong>{{ finding.rule }}</strong><span>{{ finding.message }} · {{ finding.location || 'spec' }}</span></div>
+                  <app-badge [label]="finding.severity" [tone]="finding.severity === 'Error' ? 'danger' : 'default'"></app-badge>
+                </div>
+              } @empty {
+                <app-empty-state title="No validation run selected" description="Upload a spec to see governance findings."></app-empty-state>
+              }
+              <div class="panel-title inline-title"><div><span class="eyebrow">Specs</span><h3>Uploaded specs</h3></div></div>
+              @for (spec of apiSpecs(); track spec.id) {
+                <div class="table-row compact">
+                  <strong>{{ spec.name }}</strong>
+                  <span>{{ spec.format }} · {{ spec.createdOn | date:'short' }}</span>
+                  <app-badge [label]="spec.validationStatus" [tone]="spec.validationStatus === 'Passed' ? 'success' : 'danger'"></app-badge>
+                </div>
+              } @empty {
+                <app-empty-state title="No specs uploaded" description="OpenAPI specs uploaded here are stored in SQL Server and audited."></app-empty-state>
+              }
+            </article>
+          </section>
+        }
+
         @if (activeView() === 'activity' || activeView() === 'reports') {
           <section class="page-header">
             <div>

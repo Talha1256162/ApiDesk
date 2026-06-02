@@ -9,6 +9,8 @@ import {
   ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
+  ApiSpec,
+  ApiSpecValidation,
   CommentModel,
   Collection,
   CollectionRunResult,
@@ -17,8 +19,14 @@ import {
   ImportCollectionPayload,
   KeyValueItem,
   ManagerSummary,
+  MockLog,
+  MockRoute,
+  MockServer,
+  Monitor,
+  MonitorRun,
   Organization,
   OrganizationMember,
+  PublishedDoc,
   RequestRun,
   SaveApiRequestPayload,
   Workspace,
@@ -38,6 +46,10 @@ type ViewKey =
   | 'collections'
   | 'api-client'
   | 'environments'
+  | 'mock-servers'
+  | 'monitors'
+  | 'documentation'
+  | 'governance'
   | 'json-tools'
   | 'dev-tools'
   | 'activity'
@@ -93,6 +105,14 @@ export class App implements OnInit {
   readonly filteredActivity = signal<ActivityEvent[]>([]);
   readonly auditLogs = signal<AuditLog[]>([]);
   readonly comments = signal<CommentModel[]>([]);
+  readonly mockServers = signal<MockServer[]>([]);
+  readonly mockRoutes = signal<MockRoute[]>([]);
+  readonly mockLogs = signal<MockLog[]>([]);
+  readonly monitors = signal<Monitor[]>([]);
+  readonly monitorRuns = signal<MonitorRun[]>([]);
+  readonly publishedDocs = signal<PublishedDoc[]>([]);
+  readonly apiSpecs = signal<ApiSpec[]>([]);
+  readonly governanceFindings = signal<ApiSpecValidation | null>(null);
   readonly members = signal<OrganizationMember[]>([]);
   readonly requestHistory = signal<RequestRun[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
@@ -160,7 +180,11 @@ export class App implements OnInit {
       items: [
         { key: 'collections', label: 'Collections', hint: 'Library', icon: 'stack' },
         { key: 'api-client', label: 'API Client', hint: 'Runner', icon: 'bolt' },
-        { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' }
+        { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' },
+        { key: 'mock-servers', label: 'Mock Servers', hint: 'Examples', icon: 'bolt' },
+        { key: 'monitors', label: 'Monitors', hint: 'Schedules', icon: 'pulse' },
+        { key: 'documentation', label: 'Documentation', hint: 'Publish', icon: 'stack' },
+        { key: 'governance', label: 'Governance', hint: 'Review', icon: 'shield' }
       ]
     },
     {
@@ -225,6 +249,20 @@ export class App implements OnInit {
   activityEventFilter = '';
   activityStatusFilter = '';
   commentText = '';
+  mockName = '';
+  mockDelayMs = 0;
+  mockIsPublic = false;
+  mockApiKeyRequired = false;
+  selectedMockServerId = '';
+  monitorName = '';
+  monitorSchedule = 'every 15 minutes';
+  selectedMonitorId = '';
+  docsSlug = '';
+  docsIsPublic = true;
+  docsBrandJson = '';
+  specName = '';
+  specFormat = 'json';
+  specContent = '';
   utilityTool = 'Base64';
   utilityPattern = '';
   utilityFlags = 'g';
@@ -301,6 +339,14 @@ export class App implements OnInit {
     this.filteredActivity.set([]);
     this.auditLogs.set([]);
     this.comments.set([]);
+    this.mockServers.set([]);
+    this.mockRoutes.set([]);
+    this.mockLogs.set([]);
+    this.monitors.set([]);
+    this.monitorRuns.set([]);
+    this.publishedDocs.set([]);
+    this.apiSpecs.set([]);
+    this.governanceFindings.set(null);
     this.members.set([]);
     this.requestHistory.set([]);
     this.dashboard.set(null);
@@ -409,7 +455,15 @@ export class App implements OnInit {
     this.loadManagerActivity();
     this.loadAuditLogs();
     this.loadMembers();
+    this.loadPhase3Data();
     this.joinRealtimeWorkspace();
+  }
+
+  loadPhase3Data(): void {
+    this.loadMockServers();
+    this.loadMonitors();
+    this.loadPublishedDocs();
+    this.loadApiSpecs();
   }
 
   loadDashboard(): void {
@@ -580,6 +634,234 @@ export class App implements OnInit {
     this.api.members(this.selectedOrganizationId()).subscribe({
       next: (result) => this.members.set(result.data?.items ?? []),
       error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
+    });
+  }
+
+  loadMockServers(): void {
+    if (!this.selectedWorkspaceId()) {
+      return;
+    }
+
+    this.api.mockServers(this.selectedWorkspaceId()).subscribe({
+      next: (result) => {
+        this.mockServers.set(result.data ?? []);
+        if (!this.selectedMockServerId && this.mockServers().length) {
+          this.selectedMockServerId = this.mockServers()[0].id;
+          this.loadSelectedMockDetails();
+        }
+      },
+      error: () => this.showToast('Mock servers failed', 'Could not load mock servers.', 'danger')
+    });
+  }
+
+  createMockServer(): void {
+    if (!this.selectedWorkspaceId() || !this.selectedCollectionId()) {
+      this.showToast('Collection required', 'Select a collection before creating a mock server.', 'danger');
+      return;
+    }
+
+    const name = this.mockName.trim() || `${this.selectedCollection()?.name ?? 'Collection'} mock`;
+    this.api.createMockServer(this.selectedWorkspaceId(), {
+      collectionId: this.selectedCollectionId(),
+      name,
+      isPublic: this.mockIsPublic,
+      apiKeyRequired: this.mockApiKeyRequired,
+      delayMs: Number(this.mockDelayMs) || 0
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Mock failed', result.message, 'danger');
+          return;
+        }
+        this.mockName = '';
+        this.selectedMockServerId = result.data.id;
+        this.mockServers.update((items) => [result.data, ...items]);
+        this.loadSelectedMockDetails();
+        this.loadActivity();
+        this.showToast('Mock server created', `${result.data.routeCount} routes generated.`, 'success');
+      },
+      error: (error) => this.showToast('Mock failed', error?.error?.message ?? 'Could not create mock server.', 'danger')
+    });
+  }
+
+  loadSelectedMockDetails(): void {
+    if (!this.selectedMockServerId) {
+      this.mockRoutes.set([]);
+      this.mockLogs.set([]);
+      return;
+    }
+
+    this.api.mockRoutes(this.selectedMockServerId).subscribe({
+      next: (result) => this.mockRoutes.set(result.data ?? []),
+      error: () => this.showToast('Mock routes failed', 'Could not load generated mock routes.', 'danger')
+    });
+    this.api.mockLogs(this.selectedMockServerId).subscribe({
+      next: (result) => this.mockLogs.set(result.data ?? []),
+      error: () => this.showToast('Mock logs failed', 'Could not load mock logs.', 'danger')
+    });
+  }
+
+  loadMonitors(): void {
+    if (!this.selectedWorkspaceId()) {
+      return;
+    }
+
+    this.api.monitors(this.selectedWorkspaceId()).subscribe({
+      next: (result) => {
+        this.monitors.set(result.data ?? []);
+        if (!this.selectedMonitorId && this.monitors().length) {
+          this.selectedMonitorId = this.monitors()[0].id;
+          this.loadMonitorRuns();
+        }
+      },
+      error: () => this.showToast('Monitors failed', 'Could not load monitors.', 'danger')
+    });
+  }
+
+  createMonitor(): void {
+    if (!this.selectedWorkspaceId() || !this.selectedCollectionId()) {
+      this.showToast('Collection required', 'Select a collection before creating a monitor.', 'danger');
+      return;
+    }
+
+    this.api.createMonitor(this.selectedWorkspaceId(), {
+      collectionId: this.selectedCollectionId(),
+      environmentId: this.selectedEnvironmentId() || undefined,
+      name: this.monitorName.trim() || `${this.selectedCollection()?.name ?? 'Collection'} monitor`,
+      scheduleExpression: this.monitorSchedule.trim(),
+      isEnabled: true
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Monitor failed', result.message, 'danger');
+          return;
+        }
+        this.monitorName = '';
+        this.selectedMonitorId = result.data.id;
+        this.monitors.update((items) => [result.data, ...items]);
+        this.loadActivity();
+        this.showToast('Monitor created', result.data.scheduleExpression, 'success');
+      },
+      error: (error) => this.showToast('Monitor failed', error?.error?.message ?? 'Could not create monitor.', 'danger')
+    });
+  }
+
+  runMonitor(monitorId: string): void {
+    this.pageLoading.set(true);
+    this.api.runMonitor(monitorId).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Monitor run failed', result.message, 'danger');
+          return;
+        }
+        this.collectionRun.set(result.data);
+        this.selectedMonitorId = monitorId;
+        this.loadMonitors();
+        this.loadMonitorRuns();
+        this.loadActivity();
+        this.showToast('Monitor run complete', `${result.data.passed}/${result.data.totalRequests} passed.`, result.data.failed === 0 ? 'success' : 'danger');
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Monitor run failed', error?.error?.message ?? 'Could not run monitor.', 'danger');
+      }
+    });
+  }
+
+  loadMonitorRuns(): void {
+    if (!this.selectedMonitorId) {
+      this.monitorRuns.set([]);
+      return;
+    }
+
+    this.api.monitorRuns(this.selectedMonitorId).subscribe({
+      next: (result) => this.monitorRuns.set(result.data ?? []),
+      error: () => this.showToast('Monitor history failed', 'Could not load monitor runs.', 'danger')
+    });
+  }
+
+  loadPublishedDocs(): void {
+    if (!this.selectedWorkspaceId()) {
+      return;
+    }
+
+    this.api.publishedDocs(this.selectedWorkspaceId()).subscribe({
+      next: (result) => this.publishedDocs.set(result.data ?? []),
+      error: () => this.showToast('Docs failed', 'Could not load published docs.', 'danger')
+    });
+  }
+
+  publishDocs(): void {
+    if (!this.selectedWorkspaceId() || !this.selectedCollectionId()) {
+      this.showToast('Collection required', 'Select a collection before publishing docs.', 'danger');
+      return;
+    }
+
+    const slug = this.docsSlug.trim() || (this.selectedCollection()?.name ?? 'api-docs').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    this.api.publishDocs(this.selectedWorkspaceId(), {
+      collectionId: this.selectedCollectionId(),
+      slug,
+      isPublic: this.docsIsPublic,
+      brandJson: this.docsBrandJson.trim() || undefined
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Publish failed', result.message, 'danger');
+          return;
+        }
+        this.docsSlug = '';
+        this.publishedDocs.update((items) => [result.data, ...items]);
+        this.loadActivity();
+        this.showToast('Docs published', `/api/docs/${result.data.slug}`, 'success');
+      },
+      error: (error) => this.showToast('Publish failed', error?.error?.message ?? 'Could not publish docs.', 'danger')
+    });
+  }
+
+  unpublishDocs(docId: string): void {
+    this.api.unpublishDocs(docId).subscribe({
+      next: () => {
+        this.publishedDocs.update((items) => items.filter((item) => item.id !== docId));
+        this.showToast('Docs unpublished', 'Documentation link was removed.', 'success');
+      },
+      error: () => this.showToast('Unpublish failed', 'Could not unpublish docs.', 'danger')
+    });
+  }
+
+  loadApiSpecs(): void {
+    if (!this.selectedWorkspaceId()) {
+      return;
+    }
+
+    this.api.apiSpecs(this.selectedWorkspaceId()).subscribe({
+      next: (result) => this.apiSpecs.set(result.data?.items ?? []),
+      error: () => this.showToast('Specs failed', 'Could not load API specs.', 'danger')
+    });
+  }
+
+  uploadApiSpec(): void {
+    if (!this.selectedWorkspaceId()) {
+      return;
+    }
+
+    this.api.uploadApiSpec(this.selectedWorkspaceId(), {
+      collectionId: this.selectedCollectionId() || undefined,
+      name: this.specName.trim() || 'OpenAPI spec',
+      format: this.specFormat,
+      content: this.specContent
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Spec validation failed', result.message, 'danger');
+          return;
+        }
+        this.governanceFindings.set(result.data);
+        this.apiSpecs.update((items) => [result.data.spec, ...items]);
+        this.loadActivity();
+        this.showToast('Spec validated', `${result.data.findings.length} findings returned.`, result.data.spec.validationStatus === 'Passed' ? 'success' : 'danger');
+      },
+      error: (error) => this.showToast('Spec upload failed', error?.error?.message ?? 'Could not upload API spec.', 'danger')
     });
   }
 

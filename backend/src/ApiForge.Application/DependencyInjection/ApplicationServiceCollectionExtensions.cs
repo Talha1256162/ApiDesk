@@ -16,6 +16,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IEnvironmentService, EnvironmentService>();
         services.AddScoped<IRequestRunnerService, RequestRunnerService>();
         services.AddScoped<IActivityService, ActivityService>();
+        services.AddScoped<IProductOpsService, ProductOpsService>();
         return services;
     }
 }
