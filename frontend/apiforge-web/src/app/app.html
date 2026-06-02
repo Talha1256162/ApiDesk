@@ -79,23 +79,54 @@
         <div class="brand-mark">AF</div>
         <div>
           <strong>{{ productName() }}</strong>
-          <span>{{ selectedWorkspace()?.name || 'Loading workspace' }}</span>
+          <span>API operating system</span>
         </div>
       </div>
 
       <nav class="side-nav">
-        @for (item of navItems; track item.key) {
-          <button [attr.data-view]="item.key" [class.active]="activeView() === item.key" (click)="selectView(item.key)">
-            <span>{{ item.label }}</span>
-            <small>{{ item.hint }}</small>
-          </button>
+        @for (section of navSections; track section.title) {
+          <div class="nav-section">
+            <span class="nav-section-title">{{ section.title }}</span>
+            @for (item of section.items; track item.key) {
+              <button [attr.data-view]="item.key" [class.active]="activeView() === item.key" (click)="selectView(item.key)">
+                <i class="nav-icon"></i>
+                <span>{{ item.label }}</span>
+                <small>{{ item.hint }}</small>
+              </button>
+            }
+          </div>
         }
       </nav>
+
+      <div class="sidebar-user">
+        <div class="user-avatar">{{ currentUserInitials() }}</div>
+        <div>
+          <strong>{{ currentUserName() }}</strong>
+          <span>{{ selectedWorkspace()?.name || 'Workspace loading' }}</span>
+        </div>
+      </div>
     </aside>
 
     <section class="workspace">
       <header class="topbar">
-        <div class="switchers">
+        <div class="topbar-title">
+          <strong>{{ activeViewTitle() }}</strong>
+          <span>{{ selectedWorkspace()?.name || 'Loading workspace' }}</span>
+        </div>
+
+        <div class="topbar-actions">
+          <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
+          <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
+          <button class="primary-action" type="button" (click)="notifyPhase('Invite APIs exist; the premium invite drawer is part of the team/RBAC phase.')">Invite</button>
+          <button class="ghost-button compact-button" type="button">Alerts</button>
+          <button class="ghost-button" type="button">Help &amp; Docs</button>
+          <button class="ghost-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
+          <button class="profile-button" type="button" (click)="logout()">{{ currentUserName() }}</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="scope-bar">
           <label>
             Organization
             <select [ngModel]="selectedOrganizationId()" (ngModelChange)="onOrganizationChange($event)">
@@ -120,19 +151,8 @@
               }
             </select>
           </label>
-        </div>
+        </section>
 
-        <div class="topbar-actions">
-          <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
-          <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
-          <button class="primary-action" type="button" (click)="notifyPhase('Invite APIs exist; the premium invite drawer is part of the team/RBAC phase.')">Invite</button>
-          <button class="ghost-button" type="button">Alerts</button>
-          <button class="ghost-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
-          <button class="profile-button" type="button" (click)="logout()">{{ currentUserName() }}</button>
-        </div>
-      </header>
-
-      <main class="content">
         @if (activeView() === 'dashboard') {
           <section class="page-header">
             <div>

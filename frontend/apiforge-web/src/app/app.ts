@@ -42,6 +42,8 @@ type ToastState = {
   tone: 'default' | 'success' | 'danger';
 };
 
+type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
+type NavSection = { title: string; items: NavItem[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
 type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline';
 
@@ -118,22 +120,52 @@ export class App implements OnInit {
   readonly maxRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.requestsPerDay ?? []).map((point) => point.value))));
   readonly maxFailedRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.failedRequestsPerDay ?? []).map((point) => point.value))));
   readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'ApiForge user');
+  readonly currentUserInitials = computed(() =>
+    this.currentUserName()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || 'AF'
+  );
+  readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Command Center');
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline'];
-  readonly navItems: { key: ViewKey; label: string; hint: string }[] = [
-    { key: 'dashboard', label: 'Dashboard', hint: 'Overview' },
-    { key: 'workspaces', label: 'Workspaces', hint: 'Teams' },
-    { key: 'collections', label: 'Collections', hint: 'Library' },
-    { key: 'api-client', label: 'API Client', hint: 'Runner' },
-    { key: 'environments', label: 'Environments', hint: 'Variables' },
-    { key: 'json-tools', label: 'JSON Tools', hint: 'Utilities' },
-    { key: 'dev-tools', label: 'Developer Tools', hint: 'Toolkit' },
-    { key: 'activity', label: 'Activity', hint: 'Audit' },
-    { key: 'reports', label: 'Reports', hint: 'Insights' },
-    { key: 'team', label: 'Team', hint: 'RBAC' },
-    { key: 'settings', label: 'Settings', hint: 'Config' }
+  readonly navSections: NavSection[] = [
+    {
+      title: 'Command',
+      items: [
+        { key: 'dashboard', label: 'Command Center', hint: 'Overview', icon: 'grid' },
+        { key: 'api-client', label: 'API Workbench', hint: 'Runner', icon: 'bolt' },
+        { key: 'collections', label: 'Collections', hint: 'Library', icon: 'stack' },
+        { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' }
+      ]
+    },
+    {
+      title: 'Intelligence',
+      items: [
+        { key: 'activity', label: 'Activity Feed', hint: 'Audit', icon: 'pulse' },
+        { key: 'reports', label: 'Executive Reports', hint: 'Insights', icon: 'chart' },
+        { key: 'team', label: 'Team & RBAC', hint: 'Members', icon: 'users' }
+      ]
+    },
+    {
+      title: 'Developer Suite',
+      items: [
+        { key: 'json-tools', label: 'JSON Tools', hint: 'Utilities', icon: 'braces' },
+        { key: 'dev-tools', label: 'Developer Tools', hint: 'Toolkit', icon: 'terminal' }
+      ]
+    },
+    {
+      title: 'Enterprise',
+      items: [
+        { key: 'workspaces', label: 'Workspaces', hint: 'Teams', icon: 'building' },
+        { key: 'settings', label: 'Settings', hint: 'Config', icon: 'shield' }
+      ]
+    }
   ];
+  readonly navItems = this.navSections.flatMap((section) => section.items);
 
   loginEmail = '';
   loginPassword = '';
