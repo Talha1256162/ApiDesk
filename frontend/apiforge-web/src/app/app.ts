@@ -193,6 +193,17 @@ export class App implements OnInit {
     { value: 'SuggestMocks', label: 'Suggest mocks', meta: 'Examples' },
     { value: 'FindQualityGaps', label: 'Find quality gaps', meta: 'Governance' }
   ]);
+  readonly methodOptions = computed<PremiumSelectOption[]>(() => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => ({ value: method, label: method, meta: method === 'GET' ? 'Read' : method === 'DELETE' ? 'Delete' : 'Write' })));
+  readonly authTypeOptions = computed<PremiumSelectOption[]>(() => [
+    { value: '', label: 'No Auth', meta: 'Public request' },
+    { value: 'Bearer', label: 'Bearer token', meta: 'Authorization header' },
+    { value: 'Basic', label: 'Basic auth', meta: 'Username/password' }
+  ]);
+  readonly bodyTypeOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'none', label: 'none', meta: 'No request body' },
+    { value: 'rawJson', label: 'raw JSON', meta: 'Application JSON' },
+    { value: 'text', label: 'text', meta: 'Plain text' }
+  ]);
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
@@ -1571,6 +1582,10 @@ export class App implements OnInit {
 
   responseCookieEntries(): { key: string; value: string }[] {
     return Object.entries(this.apiResponse()?.cookies ?? {}).map(([key, value]) => ({ key, value: value.join(', ') }));
+  }
+
+  keyValuePreviewRows(value: string): KeyValueItem[] {
+    return this.parseKeyValueText(value);
   }
 
   chartHeight(value: number, max: number): number {

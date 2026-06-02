@@ -1052,9 +1052,13 @@ select option {
 
 .request-bar {
   display: grid;
-  grid-template-columns: 112px minmax(260px, 1fr) 96px 88px;
+  grid-template-columns: 128px minmax(260px, 1fr) 96px 88px;
   gap: 10px;
   margin-bottom: 16px;
+}
+
+.request-bar app-premium-select {
+  min-width: 0;
 }
 
 .url-input {
@@ -1092,6 +1096,7 @@ select option {
 
 .request-config {
   min-height: 360px;
+  overflow: visible;
 }
 
 .response-panel {
@@ -1140,7 +1145,7 @@ select option {
   margin-bottom: 10px;
 }
 
-.body-toolbar label {
+.body-toolbar app-premium-select {
   width: min(220px, 100%);
 }
 
@@ -1162,6 +1167,87 @@ select option {
 .kv-section {
   display: grid;
   gap: 10px;
+}
+
+.request-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kv-editor-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mini-panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mini-panel-title span {
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  padding: 4px 8px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.kv-preview {
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  max-height: 154px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  padding: 8px;
+}
+
+.large-preview {
+  max-height: 186px;
+}
+
+.kv-preview-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-card);
+  padding: 7px 9px;
+}
+
+.kv-preview-row code,
+.kv-preview-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kv-preview-row code {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.kv-preview-row span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.compact-bulk-editor {
+  min-height: 112px;
+  resize: vertical;
 }
 
 .kv-section h3 {
