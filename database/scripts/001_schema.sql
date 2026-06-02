@@ -35,7 +35,7 @@ begin
         id uniqueidentifier not null constraint pk_organizations primary key,
         name nvarchar(200) not null,
         slug nvarchar(220) not null,
-        productName nvarchar(120) not null constraint df_organizations_productName default ('ApiForge Pro'),
+        productName nvarchar(120) not null constraint df_organizations_productName default ('API DESK'),
         retentionDays int not null constraint df_organizations_retentionDays default (365),
         createdOn datetime2 not null constraint df_organizations_createdOn default sysutcdatetime(),
         createdBy uniqueidentifier not null,

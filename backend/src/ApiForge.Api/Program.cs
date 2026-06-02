@@ -58,7 +58,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "ApiForge Pro API",
+        Title = "API DESK API",
         Version = "v1",
         Description = "Modern API collaboration platform for engineering teams."
     });

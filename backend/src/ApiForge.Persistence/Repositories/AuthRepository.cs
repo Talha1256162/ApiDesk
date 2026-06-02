@@ -63,7 +63,7 @@ public sealed class AuthRepository(ISqlConnectionFactory connectionFactory) : IA
             values (@UserId, @Email, @PasswordHash, @FullName, null, 'UTC', sysutcdatetime(), sysutcdatetime(), @UserId, 0, 1);
 
             insert into organizations (id, name, slug, productName, createdOn, createdBy, isDeleted, versionNumber)
-            values (@OrganizationId, @OrganizationName, @OrganizationSlug, coalesce(@ProductName, 'ApiForge Pro'), sysutcdatetime(), @UserId, 0, 1);
+            values (@OrganizationId, @OrganizationName, @OrganizationSlug, coalesce(@ProductName, 'API DESK'), sysutcdatetime(), @UserId, 0, 1);
 
             insert into organizationMembers (id, organizationId, userId, roleId, status, invitedByUserId, joinedOn, createdOn, createdBy, isDeleted, versionNumber)
             values (newid(), @OrganizationId, @UserId, @OwnerRoleId, 'Active', @UserId, sysutcdatetime(), sysutcdatetime(), @UserId, 0, 1);

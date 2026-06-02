@@ -1,6 +1,6 @@
-# ApiForge Pro
+# API DESK
 
-ApiForge Pro is a premium API collaboration platform for software houses, QA teams, backend teams, and engineering managers.
+API DESK is a premium API collaboration platform for software houses, QA teams, backend teams, and engineering managers.
 
 The product name is configurable in the UI and stored as organization-level configuration in the database design.
 

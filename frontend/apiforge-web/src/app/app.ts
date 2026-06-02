@@ -63,7 +63,7 @@ type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline';
   styleUrl: './app.css'
 })
 export class App implements OnInit {
-  readonly productName = signal('ApiForge Pro');
+  readonly productName = signal('API DESK');
   readonly activeView = signal<ViewKey>('dashboard');
   readonly shellLoading = signal(false);
   readonly pageLoading = signal(false);
@@ -119,7 +119,7 @@ export class App implements OnInit {
   });
   readonly maxRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.requestsPerDay ?? []).map((point) => point.value))));
   readonly maxFailedRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.failedRequestsPerDay ?? []).map((point) => point.value))));
-  readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'ApiForge user');
+  readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'API DESK user');
   readonly currentUserInitials = computed(() =>
     this.currentUserName()
       .split(/\s+/)

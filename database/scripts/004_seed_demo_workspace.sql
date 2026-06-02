@@ -13,13 +13,13 @@ declare @ownerRole uniqueidentifier = (select top 1 id from dbo.roles where name
 if not exists (select 1 from dbo.users where email = 'admin@apiforge.local')
 begin
     insert into dbo.users (id, email, passwordHash, fullName, avatarUrl, timeZone, lastActiveOn, createdOn, createdBy, isDeleted, versionNumber)
-    values (@adminUser, 'admin@apiforge.local', '$2a$12$SAhWOzEhuv8l9hrf6KYQLuyt6cknInKNE1Iarzv6K8rDbqAFhtHgS', 'ApiForge Admin', null, 'UTC', sysutcdatetime(), sysutcdatetime(), @adminUser, 0, 1);
+    values (@adminUser, 'admin@apiforge.local', '$2a$12$SAhWOzEhuv8l9hrf6KYQLuyt6cknInKNE1Iarzv6K8rDbqAFhtHgS', 'API DESK Admin', null, 'UTC', sysutcdatetime(), sysutcdatetime(), @adminUser, 0, 1);
 end
 
 if not exists (select 1 from dbo.organizations where id = @org)
 begin
     insert into dbo.organizations (id, name, slug, productName, retentionDays, createdOn, createdBy, isDeleted, versionNumber)
-    values (@org, 'Northstar Software House', 'northstar-software-house', 'ApiForge Pro', 365, sysutcdatetime(), @adminUser, 0, 1);
+    values (@org, 'Northstar Software House', 'northstar-software-house', 'API DESK', 365, sysutcdatetime(), @adminUser, 0, 1);
 end
 
 if not exists (select 1 from dbo.organizationMembers where organizationId = @org and userId = @adminUser)
