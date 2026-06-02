@@ -128,39 +128,44 @@ export class App implements OnInit {
       .map((part) => part[0]?.toUpperCase())
       .join('') || 'AF'
   );
-  readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Command Center');
+  readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Dashboard');
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline'];
   readonly navSections: NavSection[] = [
     {
-      title: 'Command',
+      title: 'Main',
       items: [
-        { key: 'dashboard', label: 'Command Center', hint: 'Overview', icon: 'grid' },
-        { key: 'api-client', label: 'API Workbench', hint: 'Runner', icon: 'bolt' },
+        { key: 'dashboard', label: 'Dashboard', hint: 'Overview', icon: 'grid' },
+        { key: 'workspaces', label: 'Workspaces', hint: 'Teams', icon: 'building' }
+      ]
+    },
+    {
+      title: 'API',
+      items: [
         { key: 'collections', label: 'Collections', hint: 'Library', icon: 'stack' },
+        { key: 'api-client', label: 'API Client', hint: 'Runner', icon: 'bolt' },
         { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' }
       ]
     },
     {
-      title: 'Intelligence',
-      items: [
-        { key: 'activity', label: 'Activity Feed', hint: 'Audit', icon: 'pulse' },
-        { key: 'reports', label: 'Executive Reports', hint: 'Insights', icon: 'chart' },
-        { key: 'team', label: 'Team & RBAC', hint: 'Members', icon: 'users' }
-      ]
-    },
-    {
-      title: 'Developer Suite',
+      title: 'Tools',
       items: [
         { key: 'json-tools', label: 'JSON Tools', hint: 'Utilities', icon: 'braces' },
         { key: 'dev-tools', label: 'Developer Tools', hint: 'Toolkit', icon: 'terminal' }
       ]
     },
     {
-      title: 'Enterprise',
+      title: 'Team',
       items: [
-        { key: 'workspaces', label: 'Workspaces', hint: 'Teams', icon: 'building' },
+        { key: 'activity', label: 'Activity', hint: 'Audit', icon: 'pulse' },
+        { key: 'reports', label: 'Reports', hint: 'Insights', icon: 'chart' },
+        { key: 'team', label: 'Team', hint: 'RBAC', icon: 'users' }
+      ]
+    },
+    {
+      title: 'Admin',
+      items: [
         { key: 'settings', label: 'Settings', hint: 'Config', icon: 'shield' }
       ]
     }
