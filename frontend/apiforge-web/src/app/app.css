@@ -749,6 +749,11 @@ select option {
   margin-bottom: 20px;
 }
 
+.response-toolbar {
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
 .timeline-row,
 .endpoint-row,
 .table-row {
@@ -906,8 +911,9 @@ select option {
 
 .client-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 276px minmax(0, 1fr);
   gap: 18px;
+  align-items: start;
 }
 
 .collection-rail {
@@ -972,6 +978,7 @@ select option {
 
 .api-client {
   min-width: 0;
+  overflow: hidden;
 }
 
 .collection-overview {
@@ -1017,12 +1024,18 @@ select option {
   align-items: center;
   gap: 6px;
   overflow-x: auto;
+  scrollbar-width: none;
   margin-bottom: 12px;
   padding-bottom: 2px;
 }
 
+.request-tabs::-webkit-scrollbar,
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
 .request-tabs button {
-  min-width: 170px;
+  min-width: 154px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1039,9 +1052,9 @@ select option {
 
 .request-bar {
   display: grid;
-  grid-template-columns: 122px minmax(0, 1fr) 96px 88px;
-  gap: 8px;
-  margin-bottom: 14px;
+  grid-template-columns: 112px minmax(260px, 1fr) 96px 88px;
+  gap: 10px;
+  margin-bottom: 16px;
 }
 
 .url-input {
@@ -1050,11 +1063,20 @@ select option {
 
 .request-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 318px;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(278px, 320px);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
 }
 
-.request-main,
+.request-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
 .json-workbench {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1063,7 +1085,17 @@ select option {
 
 .request-config,
 .response-panel {
-  min-height: 474px;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.request-config {
+  min-height: 360px;
+}
+
+.response-panel {
+  min-height: 430px;
 }
 
 .response-panel {
@@ -1082,7 +1114,7 @@ select option {
 }
 
 .editor-shell {
-  min-height: 320px;
+  min-height: 286px;
   height: 100%;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -1099,7 +1131,7 @@ select option {
 }
 
 .request-editor {
-  min-height: 394px;
+  min-height: 356px;
 }
 
 .body-toolbar {
@@ -1294,9 +1326,14 @@ select option {
 }
 
 .context-panel {
+  min-width: 0;
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 14px;
+}
+
+.context-panel .panel {
+  padding: 18px;
 }
 
 .context-panel p {
@@ -1311,6 +1348,7 @@ select option {
   gap: 3px;
   border-top: 1px solid var(--border-subtle);
   padding: 10px 0;
+  min-width: 0;
 }
 
 .mini-activity:first-of-type {
@@ -1323,8 +1361,12 @@ select option {
 }
 
 .mini-activity span {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text-tertiary);
   font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mini-activity small {
