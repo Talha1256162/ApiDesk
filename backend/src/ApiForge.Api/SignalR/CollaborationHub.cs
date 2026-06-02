@@ -22,5 +22,5 @@ public sealed class CollaborationHub : Hub
             .SendAsync("requestEditing", new { workspaceId, requestId, displayName });
     }
 
-    private static string WorkspaceGroup(Guid workspaceId) => $"workspace:{workspaceId}";
+    public static string WorkspaceGroup(Guid workspaceId) => $"workspace:{workspaceId}";
 }

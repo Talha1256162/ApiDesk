@@ -20,4 +20,7 @@ public interface ICollectionRepository
     Task<ApiRequestDetailDto?> UpdateRequestAsync(Guid requestId, SaveApiRequestRequest request, Guid userId, CancellationToken cancellationToken);
     Task<CollectionExportDto?> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken);
     Task<CollectionImportResultDto> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, Guid userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<CommentDto>> GetCommentsAsync(Guid workspaceId, string entityType, Guid entityId, CancellationToken cancellationToken);
+    Task<CommentDto> CreateCommentAsync(Guid workspaceId, CreateCommentRequest request, Guid userId, CancellationToken cancellationToken);
+    Task<RequestExampleDto> SaveResponseExampleAsync(Guid requestId, SaveResponseExampleRequest request, Guid userId, CancellationToken cancellationToken);
 }

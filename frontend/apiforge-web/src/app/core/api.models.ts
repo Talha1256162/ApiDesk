@@ -202,6 +202,48 @@ export interface ActivityEvent {
   createdOn: string;
 }
 
+export interface AuditLog {
+  id: string;
+  organizationId: string;
+  workspaceId?: string;
+  actorUserId: string;
+  actorName: string;
+  actorEmail: string;
+  eventType: string;
+  entityType: string;
+  entityId?: string;
+  entityName?: string;
+  action: string;
+  oldValueJson?: string;
+  newValueJson?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  severity: string;
+  correlationId: string;
+  createdOn: string;
+}
+
+export interface CommentModel {
+  id: string;
+  workspaceId: string;
+  entityType: string;
+  entityId: string;
+  body: string;
+  createdBy: string;
+  createdByName: string;
+  createdOn: string;
+}
+
+export interface RequestExample {
+  id: string;
+  requestId: string;
+  name: string;
+  statusCode?: number;
+  headersJson?: string;
+  body?: string;
+  createdOn: string;
+}
+
 export interface ManagerSummary {
   activeUsersToday: number;
   requestsSentToday: number;

@@ -519,6 +519,53 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         return new CollectionImportResultDto(collectionId, request.Name, requestRows.Count);
     }
 
+    public async Task<IReadOnlyList<CommentDto>> GetCommentsAsync(Guid workspaceId, string entityType, Guid entityId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<CommentDto>(new CommandDefinition("""
+            select c.id, c.workspaceId, c.entityType, c.entityId, c.body, c.createdBy, u.fullName as createdByName, c.createdOn
+            from comments c
+            join users u on u.id = c.createdBy
+            where c.workspaceId = @WorkspaceId and c.entityType = @EntityType and c.entityId = @EntityId and c.isDeleted = 0
+            order by c.createdOn desc;
+            """, new { WorkspaceId = workspaceId, EntityType = entityType, EntityId = entityId }, cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
+
+    public async Task<CommentDto> CreateCommentAsync(Guid workspaceId, CreateCommentRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var organizationId = await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(
+            "select organizationId from workspaces where id = @WorkspaceId and isDeleted = 0;",
+            new { WorkspaceId = workspaceId },
+            cancellationToken: cancellationToken));
+        var commentId = Guid.NewGuid();
+        return await connection.QuerySingleAsync<CommentDto>(new CommandDefinition("""
+            insert into comments (id, organizationId, workspaceId, entityType, entityId, body, createdOn, createdBy, isDeleted, versionNumber)
+            values (@CommentId, @OrganizationId, @WorkspaceId, @EntityType, @EntityId, @Body, sysutcdatetime(), @UserId, 0, 1);
+
+            select c.id, c.workspaceId, c.entityType, c.entityId, c.body, c.createdBy, u.fullName as createdByName, c.createdOn
+            from comments c
+            join users u on u.id = c.createdBy
+            where c.id = @CommentId;
+            """,
+            new { CommentId = commentId, OrganizationId = organizationId, WorkspaceId = workspaceId, request.EntityType, request.EntityId, Body = request.Body.Trim(), UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
+    public async Task<RequestExampleDto> SaveResponseExampleAsync(Guid requestId, SaveResponseExampleRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var exampleId = Guid.NewGuid();
+        return await connection.QuerySingleAsync<RequestExampleDto>(new CommandDefinition("""
+            insert into requestExamples (id, requestId, name, statusCode, headersJson, body, createdOn, createdBy, isDeleted, versionNumber)
+            output inserted.id, inserted.requestId, inserted.name, inserted.statusCode, inserted.headersJson, inserted.body, inserted.createdOn
+            values (@ExampleId, @RequestId, @Name, @StatusCode, @HeadersJson, @Body, sysutcdatetime(), @UserId, 0, 1);
+            """,
+            new { ExampleId = exampleId, RequestId = requestId, Name = string.IsNullOrWhiteSpace(request.Name) ? "Response example" : request.Name.Trim(), request.StatusCode, HeadersJson = request.HeadersJson, request.Body, UserId = userId },
+            cancellationToken: cancellationToken));
+    }
+
     private static async Task ReplaceRequestChildrenAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, Guid requestId, SaveApiRequestRequest request, Guid userId, CancellationToken cancellationToken)
     {
         await connection.ExecuteAsync(new CommandDefinition("""

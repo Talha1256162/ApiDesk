@@ -295,4 +295,61 @@ public sealed class CollectionService(
         await RecordActivityAsync(organizationId.Value, workspaceId, "CollectionImported", "Collection", imported.CollectionId, imported.Name, "Import", "Success", "Info", $"{imported.RequestCount} requests imported.", null, cancellationToken);
         return Result<CollectionImportResultDto>.Success(imported, "Collection imported.");
     }
+
+    public async Task<Result<IReadOnlyList<CommentDto>>> GetCommentsAsync(Guid workspaceId, string entityType, Guid entityId, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<IReadOnlyList<CommentDto>>();
+        }
+
+        return Result<IReadOnlyList<CommentDto>>.Success(await collectionRepository.GetCommentsAsync(workspaceId, entityType, entityId, cancellationToken));
+    }
+
+    public async Task<Result<CommentDto>> CreateCommentAsync(Guid workspaceId, CreateCommentRequest request, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<CommentDto>();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Body))
+        {
+            return Result<CommentDto>.Failure("Comment body is required.", new ErrorDetail("comment.body_required", "Comment body is required."));
+        }
+
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<CommentDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        var comment = await collectionRepository.CreateCommentAsync(workspaceId, request, CurrentUser.UserId, cancellationToken);
+        await RecordActivityAsync(organizationId.Value, workspaceId, "CommentCreated", request.EntityType, request.EntityId, request.EntityType, "Comment", "Success", "Info", "Comment added.", null, cancellationToken);
+        return Result<CommentDto>.Success(comment, "Comment added.");
+    }
+
+    public async Task<Result<RequestExampleDto>> SaveResponseExampleAsync(Guid requestId, SaveResponseExampleRequest request, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<RequestExampleDto>();
+        }
+
+        var scope = await collectionRepository.GetRequestScopeAsync(requestId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<RequestExampleDto>.Failure("Request was not found.", new ErrorDetail("request.not_found", "Request was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.EditCollection, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<RequestExampleDto>(PermissionKeys.EditCollection);
+        }
+
+        var example = await collectionRepository.SaveResponseExampleAsync(requestId, request, CurrentUser.UserId, cancellationToken);
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "ResponseExampleSaved", "Request", requestId, example.Name, "Create", "Success", "Info", "Response example saved.", null, cancellationToken);
+        return Result<RequestExampleDto>.Success(example, "Response example saved.");
+    }
 }

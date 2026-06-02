@@ -107,3 +107,9 @@ public sealed record ApiRequestExportDto(
     IReadOnlyList<KeyValueItemDto> PathParams);
 
 public sealed record CollectionExportDto(string FormatVersion, CollectionDto Collection, IReadOnlyList<ApiRequestExportDto> Requests);
+
+public sealed record CommentDto(Guid Id, Guid WorkspaceId, string EntityType, Guid EntityId, string Body, Guid CreatedBy, string CreatedByName, DateTime CreatedOn);
+public sealed record CreateCommentRequest(string EntityType, Guid EntityId, string Body);
+
+public sealed record SaveResponseExampleRequest(string Name, int? StatusCode, string? HeadersJson, string? Body);
+public sealed record RequestExampleDto(Guid Id, Guid RequestId, string Name, int? StatusCode, string? HeadersJson, string? Body, DateTime CreatedOn);

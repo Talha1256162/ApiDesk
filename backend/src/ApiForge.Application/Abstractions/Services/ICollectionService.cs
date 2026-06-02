@@ -18,4 +18,7 @@ public interface ICollectionService
     Task<Result<ApiRequestDetailDto>> UpdateRequestAsync(Guid requestId, SaveApiRequestRequest request, CancellationToken cancellationToken);
     Task<Result<CollectionExportDto>> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken);
     Task<Result<CollectionImportResultDto>> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, CancellationToken cancellationToken);
+    Task<Result<IReadOnlyList<CommentDto>>> GetCommentsAsync(Guid workspaceId, string entityType, Guid entityId, CancellationToken cancellationToken);
+    Task<Result<CommentDto>> CreateCommentAsync(Guid workspaceId, CreateCommentRequest request, CancellationToken cancellationToken);
+    Task<Result<RequestExampleDto>> SaveResponseExampleAsync(Guid requestId, SaveResponseExampleRequest request, CancellationToken cancellationToken);
 }

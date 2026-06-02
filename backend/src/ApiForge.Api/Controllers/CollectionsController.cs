@@ -1,14 +1,16 @@
 using ApiForge.Application.Abstractions.Services;
 using ApiForge.Application.DTOs.Collections;
+using ApiForge.Api.SignalR;
 using ApiForge.Shared.Pagination;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 namespace ApiForge.Api.Controllers;
 
 [Authorize]
 [Route("api")]
-public sealed class CollectionsController(ICollectionService collectionService) : ApiControllerBase
+public sealed class CollectionsController(ICollectionService collectionService, IHubContext<CollaborationHub> hubContext) : ApiControllerBase
 {
     [HttpGet("workspaces/{workspaceId:guid}/collections")]
     public async Task<IActionResult> GetCollections(Guid workspaceId, [FromQuery] PagedRequest request, CancellationToken cancellationToken)
@@ -70,6 +72,17 @@ public sealed class CollectionsController(ICollectionService collectionService) 
         return FromResult(await collectionService.UpdateRequestAsync(requestId, request, cancellationToken));
     }
 
+    [HttpPost("requests/{requestId:guid}/examples")]
+    public async Task<IActionResult> SaveResponseExample(Guid requestId, SaveResponseExampleRequest request, CancellationToken cancellationToken)
+    {
+        var result = await collectionService.SaveResponseExampleAsync(requestId, request, cancellationToken);
+        if (result.Succeeded && result.Data is not null)
+        {
+            await hubContext.Clients.All.SendAsync("responseExampleSaved", result.Data, cancellationToken);
+        }
+        return FromResult(result);
+    }
+
     [HttpGet("collections/{collectionId:guid}/export")]
     public async Task<IActionResult> ExportCollection(Guid collectionId, CancellationToken cancellationToken)
     {
@@ -80,5 +93,22 @@ public sealed class CollectionsController(ICollectionService collectionService) 
     public async Task<IActionResult> ImportCollection(Guid workspaceId, ImportCollectionRequest request, CancellationToken cancellationToken)
     {
         return FromResult(await collectionService.ImportCollectionAsync(workspaceId, request, cancellationToken));
+    }
+
+    [HttpGet("workspaces/{workspaceId:guid}/comments")]
+    public async Task<IActionResult> GetComments(Guid workspaceId, [FromQuery] string entityType, [FromQuery] Guid entityId, CancellationToken cancellationToken)
+    {
+        return FromResult(await collectionService.GetCommentsAsync(workspaceId, entityType, entityId, cancellationToken));
+    }
+
+    [HttpPost("workspaces/{workspaceId:guid}/comments")]
+    public async Task<IActionResult> CreateComment(Guid workspaceId, CreateCommentRequest request, CancellationToken cancellationToken)
+    {
+        var result = await collectionService.CreateCommentAsync(workspaceId, request, cancellationToken);
+        if (result.Succeeded && result.Data is not null)
+        {
+            await hubContext.Clients.Group(CollaborationHub.WorkspaceGroup(workspaceId)).SendAsync("commentCreated", result.Data, cancellationToken);
+        }
+        return FromResult(result);
     }
 }

@@ -1,12 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 import { ApiClientService } from './core/api-client.service';
 import {
   ActivityEvent,
+  AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
+  CommentModel,
   Collection,
   CollectionRunResult,
   EnvironmentModel,
@@ -87,6 +90,9 @@ export class App implements OnInit {
   readonly requestDetail = signal<ApiRequestDetail | null>(null);
   readonly environments = signal<EnvironmentModel[]>([]);
   readonly activity = signal<ActivityEvent[]>([]);
+  readonly filteredActivity = signal<ActivityEvent[]>([]);
+  readonly auditLogs = signal<AuditLog[]>([]);
+  readonly comments = signal<CommentModel[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
   readonly requestHistory = signal<RequestRun[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
@@ -94,6 +100,7 @@ export class App implements OnInit {
   readonly apiResponse = signal<ApiResponse | null>(null);
   readonly collectionRun = signal<CollectionRunResult | null>(null);
   readonly responseBody = signal('');
+  readonly realtimeStatus = signal('offline');
   readonly selectedOrganizationId = signal('');
   readonly selectedWorkspaceId = signal('');
   readonly selectedCollectionId = signal('');
@@ -214,12 +221,17 @@ export class App implements OnInit {
   requestHeadersText = '';
   requestQueryText = '';
   requestPathText = '';
+  activityUserFilter = '';
+  activityEventFilter = '';
+  activityStatusFilter = '';
+  commentText = '';
   utilityTool = 'Base64';
   utilityPattern = '';
   utilityFlags = 'g';
   hashAlgorithm: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512' = 'SHA-256';
   utilityInput = '';
   utilityOutput = '';
+  private hub?: HubConnection;
 
   constructor(
     readonly api: ApiClientService,
@@ -233,6 +245,7 @@ export class App implements OnInit {
       this.selectedOrganizationId.set(auth.organizationId);
       this.selectedWorkspaceId.set(auth.workspaceId ?? '');
       this.loadOrganizations();
+      this.connectRealtime();
     }
   }
 
@@ -267,6 +280,7 @@ export class App implements OnInit {
         this.selectedWorkspaceId.set(result.data.workspaceId ?? '');
         this.showToast('Signed in', `Welcome back, ${result.data.user.fullName}.`, 'success');
         this.loadOrganizations();
+        this.connectRealtime();
       },
       error: (error) => {
         this.authLoading.set(false);
@@ -284,6 +298,9 @@ export class App implements OnInit {
     this.requestDetail.set(null);
     this.environments.set([]);
     this.activity.set([]);
+    this.filteredActivity.set([]);
+    this.auditLogs.set([]);
+    this.comments.set([]);
     this.members.set([]);
     this.requestHistory.set([]);
     this.dashboard.set(null);
@@ -293,6 +310,9 @@ export class App implements OnInit {
     this.responseBody.set('');
     this.resetRequestEditor();
     this.activeView.set('dashboard');
+    void this.hub?.stop();
+    this.hub = undefined;
+    this.realtimeStatus.set('offline');
   }
 
   togglePasswordVisibility(): void {
@@ -323,6 +343,7 @@ export class App implements OnInit {
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
     this.requestDetail.set(null);
+    this.comments.set([]);
     this.loadWorkspaceData();
   }
 
@@ -385,7 +406,10 @@ export class App implements OnInit {
     this.loadCollections();
     this.loadEnvironments();
     this.loadActivity();
+    this.loadManagerActivity();
+    this.loadAuditLogs();
     this.loadMembers();
+    this.joinRealtimeWorkspace();
   }
 
   loadDashboard(): void {
@@ -465,6 +489,7 @@ export class App implements OnInit {
         if (result.data) {
           this.populateRequestEditor(result.data);
           this.loadRequestHistory();
+          this.loadComments();
         }
       },
       error: () => this.showToast('Request detail failed', 'Could not load request configuration.', 'danger')
@@ -506,6 +531,47 @@ export class App implements OnInit {
     });
   }
 
+  loadManagerActivity(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.activityFiltered({
+      organizationId: this.selectedOrganizationId(),
+      workspaceId: this.selectedWorkspaceId() || undefined,
+      userId: this.activityUserFilter || undefined,
+      eventType: this.activityEventFilter.trim() || undefined,
+      status: this.activityStatusFilter || undefined,
+      count: 100
+    }).subscribe({
+      next: (result) => this.filteredActivity.set(result.data?.items ?? []),
+      error: () => this.showToast('Manager feed failed', 'Could not load filtered team activity.', 'danger')
+    });
+  }
+
+  loadAuditLogs(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.auditLogs(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
+      next: (result) => this.auditLogs.set(result.data?.items ?? []),
+      error: () => this.showToast('Audit logs failed', 'Could not load immutable audit logs.', 'danger')
+    });
+  }
+
+  loadComments(): void {
+    if (!this.selectedWorkspaceId() || !this.selectedRequestId()) {
+      this.comments.set([]);
+      return;
+    }
+
+    this.api.comments(this.selectedWorkspaceId(), 'Request', this.selectedRequestId()).subscribe({
+      next: (result) => this.comments.set(result.data ?? []),
+      error: () => this.showToast('Comments failed', 'Could not load request comments.', 'danger')
+    });
+  }
+
   loadMembers(): void {
     if (!this.selectedOrganizationId()) {
       return;
@@ -514,6 +580,29 @@ export class App implements OnInit {
     this.api.members(this.selectedOrganizationId()).subscribe({
       next: (result) => this.members.set(result.data?.items ?? []),
       error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
+    });
+  }
+
+  addComment(): void {
+    const body = this.commentText.trim();
+    if (!body || !this.selectedWorkspaceId() || !this.selectedRequestId()) {
+      this.showToast('Comment required', 'Select a request and enter a comment.', 'danger');
+      return;
+    }
+
+    this.api.createComment(this.selectedWorkspaceId(), 'Request', this.selectedRequestId(), body).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Comment failed', result.message, 'danger');
+          return;
+        }
+        this.commentText = '';
+        this.comments.update((items) => [result.data, ...items]);
+        this.loadActivity();
+        this.loadManagerActivity();
+        this.showToast('Comment added', 'The request discussion was updated.', 'success');
+      },
+      error: (error) => this.showToast('Comment failed', error?.error?.message ?? 'The comment could not be saved.', 'danger')
     });
   }
 
@@ -811,6 +900,115 @@ export class App implements OnInit {
   copyResponseBody(): void {
     navigator.clipboard.writeText(this.responseBody() || this.apiResponse()?.body || '');
     this.showToast('Copied', 'Response body copied to clipboard.', 'success');
+  }
+
+  saveCurrentResponseAsExample(): void {
+    const response = this.apiResponse();
+    if (!this.selectedRequestId() || !response) {
+      this.showToast('No response', 'Send a request before saving an example.', 'danger');
+      return;
+    }
+
+    this.api.saveResponseExample(this.selectedRequestId(), {
+      name: `${this.requestName || 'Response'} - ${response.statusCode}`,
+      statusCode: response.statusCode,
+      headersJson: JSON.stringify(response.headers ?? {}, null, 2),
+      body: response.body ?? '',
+      contentType: response.contentType ?? undefined
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Example failed', result.message, 'danger');
+          return;
+        }
+        this.showToast('Example saved', 'The response is now available as a request example.', 'success');
+        this.loadActivity();
+        this.loadManagerActivity();
+      },
+      error: (error) => this.showToast('Example failed', error?.error?.message ?? 'Could not save the response example.', 'danger')
+    });
+  }
+
+  exportActivityCsv(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.exportActivityCsv(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
+      next: (csv) => this.downloadBlob('api-desk-activity.csv', csv, 'text/csv'),
+      error: () => this.showToast('Export failed', 'Could not export activity CSV.', 'danger')
+    });
+  }
+
+  exportAuditCsv(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.exportAuditCsv(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
+      next: (csv) => this.downloadBlob('api-desk-audit.csv', csv, 'text/csv'),
+      error: () => this.showToast('Export failed', 'Could not export audit CSV.', 'danger')
+    });
+  }
+
+  private connectRealtime(): void {
+    if (this.hub || !this.api.accessToken) {
+      return;
+    }
+
+    this.hub = new HubConnectionBuilder()
+      .withUrl(this.api.collaborationHubUrl, { accessTokenFactory: () => this.api.accessToken ?? '' })
+      .withAutomaticReconnect()
+      .build();
+
+    this.hub.onreconnecting(() => this.realtimeStatus.set('reconnecting'));
+    this.hub.onreconnected(() => {
+      this.realtimeStatus.set('online');
+      this.joinRealtimeWorkspace();
+    });
+    this.hub.onclose(() => this.realtimeStatus.set('offline'));
+
+    this.hub.on('commentCreated', (comment: CommentModel) => {
+      if (comment.entityId === this.selectedRequestId()) {
+        this.comments.update((items) => items.some((item) => item.id === comment.id) ? items : [comment, ...items]);
+      }
+      this.loadActivity();
+      this.loadManagerActivity();
+    });
+
+    this.hub.on('requestRunCompleted', () => {
+      this.loadDashboard();
+      this.loadActivity();
+      this.loadManagerActivity();
+      this.loadRequestHistory();
+    });
+
+    this.hub.on('collectionRunCompleted', () => {
+      this.loadDashboard();
+      this.loadActivity();
+      this.loadManagerActivity();
+    });
+
+    this.hub.on('responseExampleSaved', () => {
+      this.loadActivity();
+      this.loadManagerActivity();
+    });
+
+    this.hub.start()
+      .then(() => {
+        this.realtimeStatus.set('online');
+        this.joinRealtimeWorkspace();
+      })
+      .catch(() => this.realtimeStatus.set('offline'));
+  }
+
+  private joinRealtimeWorkspace(): void {
+    const workspaceId = this.selectedWorkspaceId();
+    if (!workspaceId || this.hub?.state !== 'Connected') {
+      return;
+    }
+
+    void this.hub.invoke('JoinWorkspace', workspaceId);
   }
 
   notifyPhase(message: string): void {

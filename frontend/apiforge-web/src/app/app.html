@@ -117,6 +117,7 @@
         <div class="topbar-actions">
           <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
           <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
+          <app-badge [label]="'Live ' + realtimeStatus()" [tone]="realtimeStatus() === 'online' ? 'success' : 'default'"></app-badge>
           <button class="primary-action" type="button" (click)="notifyPhase('Invite APIs exist; the premium invite drawer is part of the team/RBAC phase.')">Invite</button>
           <button class="ghost-button compact-button" type="button">Alerts</button>
           <button class="ghost-button" type="button">Help &amp; Docs</button>
@@ -501,7 +502,10 @@
                       <span>{{ apiResponse()?.elapsedMs ?? 0 }}ms</span>
                       <span>{{ formatBytes(apiResponse()?.sizeBytes) }}</span>
                     </div>
-                    <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
+                    <div class="toolbar">
+                      <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
+                      <button class="ghost-button" type="button" (click)="saveCurrentResponseAsExample()" [disabled]="!apiResponse()">Save example</button>
+                    </div>
                   </div>
                   <div class="tab-strip response-tabs">
                     @for (tab of responseTabs; track tab) {
@@ -590,6 +594,22 @@
                       <app-empty-state title="No request activity" description="Send or update this request to populate its activity trail."></app-empty-state>
                     }
                   </article>
+                  <article class="panel">
+                    <span class="eyebrow">Comments</span>
+                    <div class="comment-box">
+                      <textarea class="code-textarea compact-editor" rows="3" [(ngModel)]="commentText" placeholder="Add a team note or @mention"></textarea>
+                      <button class="secondary-action" type="button" (click)="addComment()" [disabled]="!selectedRequestId()">Add comment</button>
+                    </div>
+                    @for (comment of comments(); track comment.id) {
+                      <div class="mini-activity comment-item">
+                        <strong>{{ comment.createdByName }}</strong>
+                        <span>{{ comment.body }}</span>
+                        <small>{{ comment.createdOn | date:'short' }}</small>
+                      </div>
+                    } @empty {
+                      <app-empty-state title="No comments" description="Request comments appear here in real time for everyone in the workspace."></app-empty-state>
+                    }
+                  </article>
                 </aside>
               </div>
               }
@@ -624,9 +644,37 @@
             <div>
               <span class="eyebrow">Team visibility</span>
               <h2>{{ activeView() === 'reports' ? 'Manager reports' : 'Activity timeline' }}</h2>
-              <p>Events are loaded from the activity API and scoped to the current workspace.</p>
+              <p>Managers can filter the real activity API by member, event type, status, and workspace.</p>
             </div>
-            <button class="secondary-action" type="button" (click)="loadActivity()">Refresh</button>
+            <div class="toolbar">
+              <button class="secondary-action" type="button" (click)="loadActivity(); loadManagerActivity(); loadAuditLogs()">Refresh</button>
+              <button class="secondary-action" type="button" (click)="exportActivityCsv()">Export activity</button>
+              <button class="secondary-action" type="button" (click)="exportAuditCsv()">Export audit</button>
+            </div>
+          </section>
+          <section class="panel filter-panel">
+            <label>
+              Team member
+              <select [(ngModel)]="activityUserFilter" (ngModelChange)="loadManagerActivity(); loadAuditLogs()">
+                <option value="">All members</option>
+                @for (member of members(); track member.userId) {
+                  <option [value]="member.userId">{{ member.fullName }} - {{ member.roleName }}</option>
+                }
+              </select>
+            </label>
+            <label>
+              Event type
+              <input placeholder="RequestSent, CommentCreated..." [(ngModel)]="activityEventFilter" (keyup.enter)="loadManagerActivity()" />
+            </label>
+            <label>
+              Status
+              <select [(ngModel)]="activityStatusFilter" (ngModelChange)="loadManagerActivity()">
+                <option value="">Any status</option>
+                <option value="Success">Success</option>
+                <option value="Failure">Failure</option>
+              </select>
+            </label>
+            <button class="primary-action" type="button" (click)="loadManagerActivity(); loadAuditLogs()">Apply filters</button>
           </section>
           @if (activeView() === 'reports') {
             <section class="report-grid">
@@ -665,17 +713,47 @@
             </section>
           }
           <section class="panel activity-panel">
-            @for (event of activity(); track event.id) {
+            <div class="panel-title">
+              <div>
+                <span class="eyebrow">Member timeline</span>
+                <h3>Who did what</h3>
+              </div>
+              <app-badge [label]="filteredActivity().length + ' events'" tone="accent"></app-badge>
+            </div>
+            @for (event of filteredActivity(); track event.id) {
               <div class="timeline-row wide">
                 <div class="timeline-dot"></div>
                 <div>
                   <strong>{{ event.eventType }}</strong>
-                  <span>{{ event.actorName }} &middot; {{ event.entityName || event.entityType }} &middot; {{ event.createdOn | date:'short' }}</span>
+                  <span>{{ event.actorName }} &middot; {{ event.actorEmail }} &middot; {{ event.entityName || event.entityType }} &middot; {{ event.createdOn | date:'short' }}</span>
+                  <small>{{ event.summary }}</small>
                 </div>
                 <app-badge [label]="event.status" [tone]="activityTone(event.status)"></app-badge>
               </div>
             } @empty {
               <app-empty-state title="No activity" description="The manager activity feed will populate as the team uses the workspace."></app-empty-state>
+            }
+          </section>
+          <section class="panel activity-panel">
+            <div class="panel-title">
+              <div>
+                <span class="eyebrow">Immutable audit</span>
+                <h3>Security trail</h3>
+              </div>
+              <app-badge [label]="auditLogs().length + ' audit rows'" tone="default"></app-badge>
+            </div>
+            @for (log of auditLogs(); track log.id) {
+              <div class="timeline-row wide">
+                <div class="timeline-dot audit-dot"></div>
+                <div>
+                  <strong>{{ log.action }} - {{ log.eventType }}</strong>
+                  <span>{{ log.actorName }} &middot; {{ log.actorEmail }} &middot; {{ log.entityName || log.entityType }} &middot; {{ log.createdOn | date:'short' }}</span>
+                  <small>Correlation {{ log.correlationId || '-' }}</small>
+                </div>
+                <app-badge [label]="log.severity" [tone]="log.severity === 'Error' ? 'danger' : 'default'"></app-badge>
+              </div>
+            } @empty {
+              <app-empty-state title="No audit logs" description="New activity events are written to immutable audit logs with masked metadata."></app-empty-state>
             }
           </section>
         }

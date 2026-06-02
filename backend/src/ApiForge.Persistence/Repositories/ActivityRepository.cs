@@ -13,9 +13,20 @@ public sealed class ActivityRepository(ISqlConnectionFactory connectionFactory) 
     public async Task RecordAsync(ActivityWriteModel activity, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
+        var masked = activity with { MetadataJson = SensitiveDataMasker.MaskJson(activity.MetadataJson) };
         await connection.ExecuteAsync(new CommandDefinition(
             ActivityQueries.InsertActivity,
-            activity with { MetadataJson = SensitiveDataMasker.MaskJson(activity.MetadataJson) },
+            masked,
+            cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition("""
+            insert into auditLogs
+            (id, organizationId, workspaceId, actorUserId, actorName, actorEmail, eventType, entityType, entityId, entityName,
+             action, oldValueJson, newValueJson, ipAddress, userAgent, severity, correlationId, createdOn, createdBy, isDeleted, versionNumber)
+            values
+            (newid(), @OrganizationId, @WorkspaceId, @ActorUserId, @ActorName, @ActorEmail, @EventType, @EntityType, @EntityId, @EntityName,
+             @Action, null, @MetadataJson, @IpAddress, @UserAgent, @Severity, @CorrelationId, sysutcdatetime(), @ActorUserId, 0, 1);
+            """,
+            masked,
             cancellationToken: cancellationToken));
     }
 
@@ -152,5 +163,52 @@ public sealed class ActivityRepository(ISqlConnectionFactory connectionFactory) 
         var latency = (await grid.ReadAsync<EndpointLatencyDto>()).AsList();
 
         return new ManagerSummaryDto(activeUsers, sent, failed, collectionsChanged, envChanged, pending, sentTrend, failedTrend, users, topFailed, latency);
+    }
+
+    public async Task<PagedResult<AuditLogDto>> GetAuditLogsAsync(ActivityFilterRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        using var grid = await connection.QueryMultipleAsync(new CommandDefinition("""
+            select count(1)
+            from auditLogs
+            where organizationId = @OrganizationId
+                and (@WorkspaceId is null or workspaceId = @WorkspaceId)
+                and (@UserId is null or actorUserId = @UserId)
+                and (@CollectionId is null or entityId = @CollectionId)
+                and (@EventType is null or eventType = @EventType)
+                and (@FromUtc is null or createdOn >= @FromUtc)
+                and (@ToUtc is null or createdOn < @ToUtc)
+                and isDeleted = 0;
+
+            select id, organizationId, workspaceId, actorUserId, actorName, actorEmail, eventType, entityType, entityId, entityName,
+                   action, oldValueJson, newValueJson, ipAddress, userAgent, severity, correlationId, createdOn
+            from auditLogs
+            where organizationId = @OrganizationId
+                and (@WorkspaceId is null or workspaceId = @WorkspaceId)
+                and (@UserId is null or actorUserId = @UserId)
+                and (@CollectionId is null or entityId = @CollectionId)
+                and (@EventType is null or eventType = @EventType)
+                and (@FromUtc is null or createdOn >= @FromUtc)
+                and (@ToUtc is null or createdOn < @ToUtc)
+                and isDeleted = 0
+            order by createdOn desc
+            offset @Offset rows fetch next @Count rows only;
+            """,
+            new
+            {
+                request.OrganizationId,
+                request.WorkspaceId,
+                request.UserId,
+                request.CollectionId,
+                request.EventType,
+                request.FromUtc,
+                request.ToUtc,
+                Offset = Math.Max(0, request.Offset),
+                Count = request.Count is < 1 or > 500 ? 100 : request.Count
+            },
+            cancellationToken: cancellationToken));
+        var total = await grid.ReadSingleAsync<int>();
+        var items = (await grid.ReadAsync<AuditLogDto>()).AsList();
+        return new PagedResult<AuditLogDto>(items, total, Math.Max(0, request.Offset), request.Count);
     }
 }

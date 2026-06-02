@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import {
   ActivityEvent,
+  AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
@@ -11,6 +12,7 @@ import {
   CollectionExport,
   CollectionImportResult,
   CollectionRunResult,
+  CommentModel,
   EnvironmentModel,
   ImportCollectionPayload,
   ManagerSummary,
@@ -18,6 +20,7 @@ import {
   OrganizationMember,
   PagedResult,
   RequestRun,
+  RequestExample,
   SaveApiRequestPayload,
   Workspace,
   WorkspaceDashboard
@@ -47,6 +50,10 @@ export class ApiClientService {
 
   get accessToken(): string | null {
     return this.authState()?.accessToken ?? localStorage.getItem(this.tokenKey);
+  }
+
+  get collaborationHubUrl(): string {
+    return this.apiBaseUrl.replace('/api', '/hubs/collaboration');
   }
 
   login(email: string, password: string) {
@@ -142,6 +149,47 @@ export class ApiClientService {
     return this.http.get<ApiResult<PagedResult<ActivityEvent>>>(`${this.apiBaseUrl}/activity`, { params });
   }
 
+  activityFiltered(filter: {
+    organizationId: string;
+    workspaceId?: string;
+    userId?: string;
+    eventType?: string;
+    status?: string;
+    fromUtc?: string;
+    toUtc?: string;
+    count?: number;
+  }) {
+    let params = new HttpParams().set('organizationId', filter.organizationId).set('count', filter.count ?? 100);
+    if (filter.workspaceId) params = params.set('workspaceId', filter.workspaceId);
+    if (filter.userId) params = params.set('userId', filter.userId);
+    if (filter.eventType) params = params.set('eventType', filter.eventType);
+    if (filter.status) params = params.set('status', filter.status);
+    if (filter.fromUtc) params = params.set('fromUtc', filter.fromUtc);
+    if (filter.toUtc) params = params.set('toUtc', filter.toUtc);
+    return this.http.get<ApiResult<PagedResult<ActivityEvent>>>(`${this.apiBaseUrl}/activity`, { params });
+  }
+
+  auditLogs(organizationId: string, workspaceId?: string, userId?: string) {
+    let params = new HttpParams().set('organizationId', organizationId).set('count', 100);
+    if (workspaceId) params = params.set('workspaceId', workspaceId);
+    if (userId) params = params.set('userId', userId);
+    return this.http.get<ApiResult<PagedResult<AuditLog>>>(`${this.apiBaseUrl}/activity/audit`, { params });
+  }
+
+  exportActivityCsv(organizationId: string, workspaceId?: string, userId?: string) {
+    let params = new HttpParams().set('organizationId', organizationId).set('count', 500);
+    if (workspaceId) params = params.set('workspaceId', workspaceId);
+    if (userId) params = params.set('userId', userId);
+    return this.http.get(`${this.apiBaseUrl}/activity/export.csv`, { params, responseType: 'text' });
+  }
+
+  exportAuditCsv(organizationId: string, workspaceId?: string, userId?: string) {
+    let params = new HttpParams().set('organizationId', organizationId).set('count', 500);
+    if (workspaceId) params = params.set('workspaceId', workspaceId);
+    if (userId) params = params.set('userId', userId);
+    return this.http.get(`${this.apiBaseUrl}/activity/audit/export.csv`, { params, responseType: 'text' });
+  }
+
   managerSummary(workspaceId: string) {
     return this.http.get<ApiResult<ManagerSummary>>(`${this.apiBaseUrl}/activity/manager-summary`, {
       params: new HttpParams().set('workspaceId', workspaceId)
@@ -159,5 +207,19 @@ export class ApiClientService {
       environmentId: environmentId || null,
       saveHistory: true
     });
+  }
+
+  comments(workspaceId: string, entityType: string, entityId: string) {
+    return this.http.get<ApiResult<CommentModel[]>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/comments`, {
+      params: new HttpParams().set('entityType', entityType).set('entityId', entityId)
+    });
+  }
+
+  createComment(workspaceId: string, entityType: string, entityId: string, body: string) {
+    return this.http.post<ApiResult<CommentModel>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/comments`, { entityType, entityId, body });
+  }
+
+  saveResponseExample(requestId: string, payload: { name: string; statusCode?: number; headersJson?: string; body?: string; contentType?: string }) {
+    return this.http.post<ApiResult<RequestExample>>(`${this.apiBaseUrl}/requests/${requestId}/examples`, payload);
   }
 }

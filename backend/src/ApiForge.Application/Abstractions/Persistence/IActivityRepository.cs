@@ -8,6 +8,7 @@ public interface IActivityRepository
     Task RecordAsync(ActivityWriteModel activity, CancellationToken cancellationToken);
     Task<PagedResult<ActivityEventDto>> GetActivityAsync(ActivityFilterRequest request, CancellationToken cancellationToken);
     Task<ManagerSummaryDto> GetManagerSummaryAsync(Guid workspaceId, CancellationToken cancellationToken);
+    Task<PagedResult<AuditLogDto>> GetAuditLogsAsync(ActivityFilterRequest request, CancellationToken cancellationToken);
 }
 
 public sealed record ActivityWriteModel(

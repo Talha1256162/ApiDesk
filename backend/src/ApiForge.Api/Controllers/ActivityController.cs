@@ -20,4 +20,28 @@ public sealed class ActivityController(IActivityService activityService) : ApiCo
     {
         return FromResult(await activityService.GetManagerSummaryAsync(workspaceId, cancellationToken));
     }
+
+    [HttpGet("export.csv")]
+    public async Task<IActionResult> ExportCsv([FromQuery] ActivityFilterRequest request, CancellationToken cancellationToken)
+    {
+        var result = await activityService.ExportActivityCsvAsync(request, cancellationToken);
+        return result.Succeeded
+            ? File(System.Text.Encoding.UTF8.GetBytes(result.Data ?? string.Empty), "text/csv", "activity.csv")
+            : FromResult(result);
+    }
+
+    [HttpGet("audit")]
+    public async Task<IActionResult> Audit([FromQuery] ActivityFilterRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await activityService.GetAuditLogsAsync(request, cancellationToken));
+    }
+
+    [HttpGet("audit/export.csv")]
+    public async Task<IActionResult> AuditExportCsv([FromQuery] ActivityFilterRequest request, CancellationToken cancellationToken)
+    {
+        var result = await activityService.ExportAuditCsvAsync(request, cancellationToken);
+        return result.Succeeded
+            ? File(System.Text.Encoding.UTF8.GetBytes(result.Data ?? string.Empty), "text/csv", "audit.csv")
+            : FromResult(result);
+    }
 }

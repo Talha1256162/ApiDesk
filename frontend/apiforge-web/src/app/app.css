@@ -794,11 +794,36 @@ select option {
   white-space: nowrap;
 }
 
+.timeline-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
 .timeline-dot {
   width: 7px;
   height: 7px;
   border-radius: 999px;
   background: var(--accent);
+}
+
+.audit-dot {
+  background: var(--warning);
+}
+
+.filter-panel {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) minmax(140px, 0.6fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.filter-panel label,
+.comment-box {
+  display: grid;
+  gap: 8px;
 }
 
 .bar-chart {
@@ -1290,6 +1315,16 @@ select option {
 .mini-activity span {
   color: var(--text-tertiary);
   font-size: 11px;
+}
+
+.mini-activity small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.comment-item span {
+  white-space: normal;
+  line-height: 1.45;
 }
 
 .compare-editor {

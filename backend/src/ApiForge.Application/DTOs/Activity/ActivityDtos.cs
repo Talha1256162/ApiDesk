@@ -12,6 +12,26 @@ public sealed record ActivityFilterRequest(
     int Offset = 0,
     int Count = 25);
 
+public sealed record AuditLogDto(
+    Guid Id,
+    Guid OrganizationId,
+    Guid? WorkspaceId,
+    Guid ActorUserId,
+    string ActorName,
+    string ActorEmail,
+    string EventType,
+    string EntityType,
+    Guid? EntityId,
+    string? EntityName,
+    string Action,
+    string? OldValueJson,
+    string? NewValueJson,
+    string? IpAddress,
+    string? UserAgent,
+    string Severity,
+    string CorrelationId,
+    DateTime CreatedOn);
+
 public sealed record ActivityEventDto(
     Guid Id,
     Guid OrganizationId,
