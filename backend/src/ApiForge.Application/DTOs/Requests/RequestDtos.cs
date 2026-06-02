@@ -4,6 +4,8 @@ public sealed record KeyValueItemDto(string Key, string? Value, bool Enabled = t
 
 public sealed record SendApiRequestRequest(Guid? EnvironmentId, bool SaveHistory = true);
 
+public sealed record RunCollectionRequest(Guid? EnvironmentId, IReadOnlyList<Guid>? RequestIds = null, int DelayMs = 0);
+
 public sealed record ApiResponseDto(
     Guid RunId,
     int StatusCode,
@@ -21,9 +23,21 @@ public sealed record ApiResponseDto(
 public sealed record RequestRunDto(
     Guid Id,
     Guid RequestId,
+    string RequestName,
+    string Method,
+    string Url,
+    string ActorName,
+    string Status,
     Guid UserId,
     int? StatusCode,
-    bool Succeeded,
-    long ElapsedMs,
-    long SizeBytes,
+    bool? Succeeded,
+    long? ElapsedMs,
+    long? SizeBytes,
+    string? ErrorMessage,
+    string? BodyPreview,
+    DateTime StartedOn,
+    DateTime? CompletedOn,
     DateTime CreatedOn);
+
+public sealed record CollectionRunItemDto(Guid RequestId, string Name, string Method, string Url, bool Succeeded, int? StatusCode, long? ElapsedMs, string? ErrorMessage);
+public sealed record CollectionRunResultDto(Guid CollectionId, int TotalRequests, int Passed, int Failed, IReadOnlyList<CollectionRunItemDto> Results);

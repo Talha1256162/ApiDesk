@@ -14,4 +14,16 @@ public sealed class RequestRunnerController(IRequestRunnerService requestRunnerS
     {
         return FromResult(await requestRunnerService.SendAsync(requestId, request, cancellationToken));
     }
+
+    [HttpGet("{requestId:guid}/history")]
+    public async Task<IActionResult> History(Guid requestId, [FromQuery] int count, CancellationToken cancellationToken)
+    {
+        return FromResult(await requestRunnerService.GetHistoryAsync(requestId, count, cancellationToken));
+    }
+
+    [HttpPost("/api/collections/{collectionId:guid}/run")]
+    public async Task<IActionResult> RunCollection(Guid collectionId, RunCollectionRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await requestRunnerService.RunCollectionAsync(collectionId, request, cancellationToken));
+    }
 }

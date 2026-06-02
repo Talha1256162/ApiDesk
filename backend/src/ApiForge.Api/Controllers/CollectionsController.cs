@@ -52,6 +52,12 @@ public sealed class CollectionsController(ICollectionService collectionService) 
         return FromResult(await collectionService.CreateRequestAsync(folderId, request, cancellationToken));
     }
 
+    [HttpPost("collections/{collectionId:guid}/requests")]
+    public async Task<IActionResult> CreateRequestInCollection(Guid collectionId, SaveApiRequestRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await collectionService.CreateRequestInCollectionAsync(collectionId, request, cancellationToken));
+    }
+
     [HttpGet("requests/{requestId:guid}")]
     public async Task<IActionResult> GetRequest(Guid requestId, CancellationToken cancellationToken)
     {
@@ -62,5 +68,17 @@ public sealed class CollectionsController(ICollectionService collectionService) 
     public async Task<IActionResult> UpdateRequest(Guid requestId, SaveApiRequestRequest request, CancellationToken cancellationToken)
     {
         return FromResult(await collectionService.UpdateRequestAsync(requestId, request, cancellationToken));
+    }
+
+    [HttpGet("collections/{collectionId:guid}/export")]
+    public async Task<IActionResult> ExportCollection(Guid collectionId, CancellationToken cancellationToken)
+    {
+        return FromResult(await collectionService.ExportCollectionAsync(collectionId, cancellationToken));
+    }
+
+    [HttpPost("workspaces/{workspaceId:guid}/collections/import")]
+    public async Task<IActionResult> ImportCollection(Guid workspaceId, ImportCollectionRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await collectionService.ImportCollectionAsync(workspaceId, request, cancellationToken));
     }
 }

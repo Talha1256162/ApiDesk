@@ -8,10 +8,16 @@ import {
   ApiRequestSummary,
   ApiResponse,
   Collection,
+  CollectionRunResult,
   EnvironmentModel,
+  ImportApiRequestPayload,
+  ImportCollectionPayload,
+  KeyValueItem,
   ManagerSummary,
   Organization,
   OrganizationMember,
+  RequestRun,
+  SaveApiRequestPayload,
   Workspace,
   WorkspaceDashboard
 } from './core/api.models';
@@ -45,7 +51,7 @@ type ToastState = {
 type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
 type NavSection = { title: string; items: NavItem[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
-type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline';
+type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
 
 @Component({
   selector: 'app-root',
@@ -82,9 +88,11 @@ export class App implements OnInit {
   readonly environments = signal<EnvironmentModel[]>([]);
   readonly activity = signal<ActivityEvent[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
+  readonly requestHistory = signal<RequestRun[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
   readonly managerSummary = signal<ManagerSummary | null>(null);
   readonly apiResponse = signal<ApiResponse | null>(null);
+  readonly collectionRun = signal<CollectionRunResult | null>(null);
   readonly responseBody = signal('');
   readonly selectedOrganizationId = signal('');
   readonly selectedWorkspaceId = signal('');
@@ -131,7 +139,7 @@ export class App implements OnInit {
   readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Dashboard');
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
-  readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline'];
+  readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
   readonly navSections: NavSection[] = [
     {
       title: 'Main',
@@ -190,6 +198,22 @@ export class App implements OnInit {
   jsonPath = '$';
   requestConfigTab: RequestConfigTab = 'Params';
   responseTab: ResponseTab = 'Body';
+  requestName = '';
+  requestDescription = '';
+  requestMethod = 'GET';
+  requestUrl = '';
+  requestAuthType = '';
+  requestAuthConfigJson = '';
+  requestBodyType = 'none';
+  requestBodyContent = '';
+  requestPreScript = '';
+  requestTestScript = '';
+  requestTimeoutMs = 30000;
+  requestFollowRedirects = true;
+  requestSslVerification = true;
+  requestHeadersText = '';
+  requestQueryText = '';
+  requestPathText = '';
   utilityTool = 'Base64';
   utilityPattern = '';
   utilityFlags = 'g';
@@ -261,10 +285,13 @@ export class App implements OnInit {
     this.environments.set([]);
     this.activity.set([]);
     this.members.set([]);
+    this.requestHistory.set([]);
     this.dashboard.set(null);
     this.managerSummary.set(null);
     this.apiResponse.set(null);
+    this.collectionRun.set(null);
     this.responseBody.set('');
+    this.resetRequestEditor();
     this.activeView.set('dashboard');
   }
 
@@ -303,6 +330,9 @@ export class App implements OnInit {
     this.selectedCollectionId.set(collectionId);
     this.selectedRequestId.set('');
     this.requestDetail.set(null);
+    this.requestHistory.set([]);
+    this.collectionRun.set(null);
+    this.resetRequestEditor();
     this.loadRequests();
   }
 
@@ -416,8 +446,10 @@ export class App implements OnInit {
   selectRequest(requestId: string): void {
     this.selectedRequestId.set(requestId);
     this.requestDetail.set(null);
+    this.requestHistory.set([]);
     this.apiResponse.set(null);
     this.responseBody.set('');
+    this.collectionRun.set(null);
     this.loadRequestDetail();
   }
 
@@ -428,8 +460,26 @@ export class App implements OnInit {
     }
 
     this.api.requestDetail(this.selectedRequestId()).subscribe({
-      next: (result) => this.requestDetail.set(result.data),
+      next: (result) => {
+        this.requestDetail.set(result.data);
+        if (result.data) {
+          this.populateRequestEditor(result.data);
+          this.loadRequestHistory();
+        }
+      },
       error: () => this.showToast('Request detail failed', 'Could not load request configuration.', 'danger')
+    });
+  }
+
+  loadRequestHistory(): void {
+    if (!this.selectedRequestId()) {
+      this.requestHistory.set([]);
+      return;
+    }
+
+    this.api.requestHistory(this.selectedRequestId(), 25).subscribe({
+      next: (result) => this.requestHistory.set(result.data ?? []),
+      error: () => this.showToast('History failed', 'Could not load request history.', 'danger')
     });
   }
 
@@ -492,12 +542,170 @@ export class App implements OnInit {
         this.showToast('Request complete', `${result.data.statusCode} in ${result.data.elapsedMs}ms.`, result.data.succeeded ? 'success' : 'danger');
         this.loadDashboard();
         this.loadActivity();
+        this.loadRequestHistory();
       },
       error: (error) => {
         this.pageLoading.set(false);
         this.showToast('Request failed', error?.error?.message ?? 'The request could not be sent.', 'danger');
       }
     });
+  }
+
+  createNewRequest(): void {
+    if (!this.selectedWorkspaceId() || !this.selectedCollectionId()) {
+      this.showToast('Select a collection', 'Choose a collection before creating a request.', 'danger');
+      return;
+    }
+
+    this.resetRequestEditor();
+    this.requestName = 'New request';
+    this.requestUrl = 'https://example.com';
+    this.requestMethod = 'GET';
+    const payload = this.buildRequestPayload(1);
+    this.pageLoading.set(true);
+    this.api.createRequest(this.selectedCollectionId(), payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Create failed', result.message, 'danger');
+          return;
+        }
+        this.showToast('Request created', result.data.name, 'success');
+        this.selectedRequestId.set(result.data.id);
+        this.requestDetail.set(result.data);
+        this.populateRequestEditor(result.data);
+        this.loadCollections();
+        this.loadRequestHistory();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Create failed', error?.error?.message ?? 'The request could not be created.', 'danger');
+      }
+    });
+  }
+
+  saveSelectedRequest(): void {
+    if (!this.selectedRequestId() || !this.requestDetail()) {
+      this.createNewRequest();
+      return;
+    }
+
+    const payload = this.buildRequestPayload(this.requestDetail()?.versionNumber ?? 1);
+    if (!payload.name.trim() || !payload.url.trim()) {
+      this.showToast('Request is incomplete', 'Name and URL are required before saving.', 'danger');
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.updateRequest(this.selectedRequestId(), payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Save failed', result.message, 'danger');
+          return;
+        }
+        this.requestDetail.set(result.data);
+        this.populateRequestEditor(result.data);
+        this.showToast('Request saved', `${result.data.name} updated to v${result.data.versionNumber}.`, 'success');
+        this.loadRequests();
+        this.loadActivity();
+        this.loadRequestHistory();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Save failed', error?.error?.message ?? 'The request could not be saved.', 'danger');
+      }
+    });
+  }
+
+  runSelectedCollection(): void {
+    if (!this.selectedCollectionId()) {
+      this.showToast('Select a collection', 'Choose a collection before running it.', 'danger');
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.runCollection(this.selectedCollectionId(), this.selectedEnvironmentId()).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Collection run failed', result.message, 'danger');
+          return;
+        }
+        this.collectionRun.set(result.data);
+        this.responseTab = 'History';
+        this.showToast('Collection run complete', `${result.data.passed}/${result.data.totalRequests} requests passed.`, result.data.failed ? 'danger' : 'success');
+        this.loadDashboard();
+        this.loadActivity();
+        this.loadRequestHistory();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Collection run failed', error?.error?.message ?? 'The collection could not be run.', 'danger');
+      }
+    });
+  }
+
+  exportSelectedCollection(): void {
+    if (!this.selectedCollectionId()) {
+      this.showToast('Select a collection', 'Choose a collection before exporting.', 'danger');
+      return;
+    }
+
+    this.api.exportCollection(this.selectedCollectionId()).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Export failed', result.message, 'danger');
+          return;
+        }
+        const safeName = (result.data.collection.name || 'collection').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+        this.downloadBlob(`${safeName}.apidesk.collection.json`, JSON.stringify(result.data, null, 2), 'application/json');
+        this.showToast('Collection exported', `${result.data.requests.length} requests exported.`, 'success');
+        this.loadActivity();
+      },
+      error: (error) => this.showToast('Export failed', error?.error?.message ?? 'The collection could not be exported.', 'danger')
+    });
+  }
+
+  importCollectionFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file || !this.selectedWorkspaceId()) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = this.normalizeCollectionImport(JSON.parse(String(reader.result ?? '{}')), file.name);
+        this.pageLoading.set(true);
+        this.api.importCollection(this.selectedWorkspaceId(), payload).subscribe({
+          next: (result) => {
+            this.pageLoading.set(false);
+            input.value = '';
+            if (!result.succeeded || !result.data) {
+              this.showToast('Import failed', result.message, 'danger');
+              return;
+            }
+            this.selectedCollectionId.set(result.data.collectionId);
+            this.selectedRequestId.set('');
+            this.requestDetail.set(null);
+            this.showToast('Collection imported', `${result.data.requestCount} requests imported.`, 'success');
+            this.loadCollections();
+            this.loadActivity();
+          },
+          error: (error) => {
+            this.pageLoading.set(false);
+            input.value = '';
+            this.showToast('Import failed', error?.error?.message ?? 'The collection could not be imported.', 'danger');
+          }
+        });
+      } catch (error) {
+        input.value = '';
+        this.showToast('Import failed', error instanceof Error ? error.message : 'Unsupported collection JSON.', 'danger');
+      }
+    };
+    reader.readAsText(file);
   }
 
   runJsonTool(): void {
@@ -700,6 +908,206 @@ export class App implements OnInit {
       return '';
     }
     return isSecret ? '********' : value;
+  }
+
+  private populateRequestEditor(request: ApiRequestDetail): void {
+    this.requestName = request.name ?? '';
+    this.requestDescription = request.description ?? '';
+    this.requestMethod = request.method ?? 'GET';
+    this.requestUrl = request.url ?? '';
+    this.requestAuthType = request.authType ?? '';
+    this.requestAuthConfigJson = request.authConfigJson ?? '';
+    this.requestBodyType = request.bodyType ?? 'none';
+    this.requestBodyContent = request.bodyContent ?? '';
+    this.requestPreScript = '';
+    this.requestTestScript = '';
+    this.requestTimeoutMs = request.timeoutMs || 30000;
+    this.requestFollowRedirects = request.followRedirects;
+    this.requestSslVerification = request.sslVerification;
+    this.requestHeadersText = this.keyValuesToText(request.headers ?? []);
+    this.requestQueryText = this.keyValuesToText(request.queryParams ?? []);
+    this.requestPathText = this.keyValuesToText(request.pathParams ?? []);
+  }
+
+  private resetRequestEditor(): void {
+    this.requestName = '';
+    this.requestDescription = '';
+    this.requestMethod = 'GET';
+    this.requestUrl = '';
+    this.requestAuthType = '';
+    this.requestAuthConfigJson = '';
+    this.requestBodyType = 'none';
+    this.requestBodyContent = '';
+    this.requestPreScript = '';
+    this.requestTestScript = '';
+    this.requestTimeoutMs = 30000;
+    this.requestFollowRedirects = true;
+    this.requestSslVerification = true;
+    this.requestHeadersText = '';
+    this.requestQueryText = '';
+    this.requestPathText = '';
+  }
+
+  private buildRequestPayload(versionNumber: number): SaveApiRequestPayload {
+    return {
+      workspaceId: this.selectedWorkspaceId(),
+      collectionId: this.selectedCollectionId(),
+      name: this.requestName.trim(),
+      description: this.requestDescription.trim() || undefined,
+      method: this.requestMethod,
+      url: this.requestUrl.trim(),
+      authType: this.requestAuthType.trim() || undefined,
+      authConfigJson: this.requestAuthConfigJson.trim() || undefined,
+      bodyType: this.requestBodyType || 'none',
+      bodyContent: this.requestBodyContent,
+      preRequestScript: this.requestPreScript,
+      testScript: this.requestTestScript,
+      timeoutMs: Number(this.requestTimeoutMs) || 30000,
+      followRedirects: this.requestFollowRedirects,
+      sslVerification: this.requestSslVerification,
+      headers: this.parseKeyValueText(this.requestHeadersText),
+      queryParams: this.parseKeyValueText(this.requestQueryText),
+      pathParams: this.parseKeyValueText(this.requestPathText),
+      versionNumber
+    };
+  }
+
+  private keyValuesToText(items: KeyValueItem[]): string {
+    return items.map((item) => `${item.key}: ${item.value ?? ''}`).join('\n');
+  }
+
+  private parseKeyValueText(value: string): KeyValueItem[] {
+    return value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#'))
+      .map((line) => {
+        const separator = line.includes(':') ? ':' : '=';
+        const index = line.indexOf(separator);
+        const key = index >= 0 ? line.slice(0, index).trim() : line;
+        const parsedValue = index >= 0 ? line.slice(index + 1).trim() : '';
+        return { key, value: parsedValue, enabled: true, isSecret: this.isSensitiveKey(key) };
+      })
+      .filter((item) => !!item.key);
+  }
+
+  private isSensitiveKey(key: string): boolean {
+    return /(password|token|secret|api[-_]?key|authorization|cookie)/i.test(key);
+  }
+
+  private normalizeCollectionImport(raw: unknown, fallbackName: string): ImportCollectionPayload {
+    const payload = raw as any;
+    if (payload?.formatVersion && payload?.collection && Array.isArray(payload.requests)) {
+      return {
+        name: payload.collection.name ?? fallbackName,
+        description: payload.collection.description,
+        requests: payload.requests.map((request: any) => this.normalizeApiRequest(request))
+      };
+    }
+
+    if (payload?.info && Array.isArray(payload.item)) {
+      return {
+        name: payload.info.name ?? fallbackName,
+        description: payload.info.description,
+        requests: this.flattenPostmanItems(payload.item)
+      };
+    }
+
+    if (Array.isArray(payload?.requests)) {
+      return {
+        name: payload.name ?? fallbackName,
+        description: payload.description,
+        requests: payload.requests.map((request: any) => this.normalizeApiRequest(request))
+      };
+    }
+
+    throw new Error('Only API DESK exports, simplified collection JSON, and Postman collection JSON are supported.');
+  }
+
+  private flattenPostmanItems(items: any[]): ImportApiRequestPayload[] {
+    return items.flatMap((item) => {
+      if (Array.isArray(item.item)) {
+        return this.flattenPostmanItems(item.item);
+      }
+
+      const request = item.request;
+      if (!request) {
+        return [];
+      }
+
+      const headers = Array.isArray(request.header)
+        ? request.header.map((header: any) => ({
+            key: header.key ?? header.name ?? '',
+            value: header.value ?? '',
+            enabled: header.disabled !== true,
+            isSecret: this.isSensitiveKey(header.key ?? header.name ?? '')
+          }))
+        : [];
+      const url = typeof request.url === 'string' ? request.url : request.url?.raw ?? this.buildPostmanUrl(request.url);
+      const queryParams = Array.isArray(request.url?.query)
+        ? request.url.query.map((param: any) => ({
+            key: param.key ?? '',
+            value: param.value ?? '',
+            enabled: param.disabled !== true,
+            isSecret: this.isSensitiveKey(param.key ?? '')
+          }))
+        : [];
+
+      return [
+        this.normalizeApiRequest({
+          name: item.name ?? request.name ?? 'Imported request',
+          description: request.description,
+          method: request.method ?? 'GET',
+          url,
+          bodyType: request.body?.mode === 'raw' ? 'rawJson' : 'none',
+          bodyContent: request.body?.raw ?? '',
+          headers,
+          queryParams,
+          pathParams: []
+        })
+      ];
+    });
+  }
+
+  private buildPostmanUrl(url: any): string {
+    if (!url) {
+      return 'https://example.com';
+    }
+    const protocol = url.protocol ? `${url.protocol}://` : '';
+    const host = Array.isArray(url.host) ? url.host.join('.') : url.host ?? '';
+    const path = Array.isArray(url.path) ? `/${url.path.join('/')}` : url.path ? `/${url.path}` : '';
+    return `${protocol}${host}${path}` || 'https://example.com';
+  }
+
+  private normalizeApiRequest(request: any): ImportApiRequestPayload {
+    return {
+      name: request.name ?? 'Imported request',
+      description: request.description,
+      method: (request.method ?? 'GET').toUpperCase(),
+      url: request.url ?? 'https://example.com',
+      authType: request.authType,
+      authConfigJson: request.authConfigJson,
+      bodyType: request.bodyType ?? 'none',
+      bodyContent: request.bodyContent ?? '',
+      preRequestScript: request.preRequestScript,
+      testScript: request.testScript,
+      timeoutMs: request.timeoutMs || 30000,
+      followRedirects: request.followRedirects ?? true,
+      sslVerification: request.sslVerification ?? true,
+      headers: request.headers ?? [],
+      queryParams: request.queryParams ?? [],
+      pathParams: request.pathParams ?? []
+    };
+  }
+
+  private downloadBlob(fileName: string, content: string, type: string): void {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   private isAuthFormValid(): boolean {

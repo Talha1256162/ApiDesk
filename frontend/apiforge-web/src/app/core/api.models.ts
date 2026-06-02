@@ -131,6 +131,52 @@ export interface ApiRequestDetail extends ApiRequestSummary {
   createdOn: string;
 }
 
+export interface SaveApiRequestPayload {
+  workspaceId: string;
+  collectionId: string;
+  name: string;
+  description?: string;
+  method: string;
+  url: string;
+  authType?: string;
+  authConfigJson?: string;
+  bodyType: string;
+  bodyContent?: string;
+  preRequestScript?: string;
+  testScript?: string;
+  timeoutMs: number;
+  followRedirects: boolean;
+  sslVerification: boolean;
+  headers: KeyValueItem[];
+  queryParams: KeyValueItem[];
+  pathParams: KeyValueItem[];
+  versionNumber: number;
+}
+
+export type ImportApiRequestPayload = Omit<SaveApiRequestPayload, 'workspaceId' | 'collectionId' | 'versionNumber'>;
+
+export interface ImportCollectionPayload {
+  name: string;
+  description?: string;
+  requests: ImportApiRequestPayload[];
+}
+
+export interface CollectionImportResult {
+  collectionId: string;
+  name: string;
+  requestCount: number;
+}
+
+export interface ApiRequestExport extends ImportApiRequestPayload {
+  id: string;
+}
+
+export interface CollectionExport {
+  formatVersion: string;
+  collection: Collection;
+  requests: ApiRequestExport[];
+}
+
 export interface EnvironmentModel {
   id: string;
   workspaceId: string;
@@ -183,6 +229,45 @@ export interface ApiResponse {
   bodyPreview: string;
   startedOnUtc: string;
   completedOnUtc: string;
+}
+
+export interface RequestRun {
+  id: string;
+  requestId: string;
+  requestName: string;
+  method: string;
+  url: string;
+  actorName: string;
+  status: string;
+  userId: string;
+  statusCode?: number;
+  succeeded?: boolean;
+  elapsedMs?: number;
+  sizeBytes?: number;
+  errorMessage?: string;
+  bodyPreview?: string;
+  startedOn: string;
+  completedOn?: string;
+  createdOn: string;
+}
+
+export interface CollectionRunItem {
+  requestId: string;
+  name: string;
+  method: string;
+  url: string;
+  succeeded: boolean;
+  statusCode?: number;
+  elapsedMs?: number;
+  errorMessage?: string;
+}
+
+export interface CollectionRunResult {
+  collectionId: string;
+  totalRequests: number;
+  passed: number;
+  failed: number;
+  results: CollectionRunItem[];
 }
 
 export interface OrganizationMember {

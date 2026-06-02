@@ -358,6 +358,17 @@
                 <h3>Collections</h3>
                 <app-badge [label]="collections().length + ''" tone="accent"></app-badge>
               </div>
+              <div class="rail-actions">
+                <button class="secondary-action" type="button" (click)="createNewRequest()">New request</button>
+                <button class="ghost-button" type="button" (click)="runSelectedCollection()" [disabled]="!selectedCollectionId() || pageLoading()">Run</button>
+              </div>
+              <div class="rail-actions">
+                <button class="ghost-button" type="button" (click)="exportSelectedCollection()" [disabled]="!selectedCollectionId()">Export</button>
+                <label class="file-action">
+                  Import
+                  <input type="file" accept="application/json,.json" (change)="importCollectionFile($event)" hidden />
+                </label>
+              </div>
               <input class="rail-search" placeholder="Search collections" [(ngModel)]="globalSearch" />
 
               @for (collection of collections(); track collection.id) {
@@ -406,16 +417,18 @@
               </div>
 
               <div class="request-bar">
-                <select [ngModel]="selectedRequest()?.method || 'GET'">
+                <select [(ngModel)]="requestMethod">
                   <option>GET</option>
                   <option>POST</option>
                   <option>PUT</option>
                   <option>PATCH</option>
                   <option>DELETE</option>
+                  <option>HEAD</option>
+                  <option>OPTIONS</option>
                 </select>
-                <input class="url-input" [ngModel]="selectedRequest()?.url || ''" readonly />
+                <input class="url-input" [(ngModel)]="requestUrl" [placeholder]="'https://api.example.com/users/{{id}}'" />
                 <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">Send</button>
-                <button class="secondary-action" type="button" (click)="notifyPhase('Request editing uses the existing PUT endpoint and is the next save workflow slice.')">Save</button>
+                <button class="secondary-action" type="button" (click)="saveSelectedRequest()" [disabled]="pageLoading()">Save</button>
               </div>
 
               <div class="request-workbench">
@@ -428,60 +441,56 @@
                   </div>
 
                   @if (!requestDetail()) {
-                    <app-empty-state title="Select a request" description="Request configuration loads from the request detail API."></app-empty-state>
+                    <app-empty-state title="Select a request" description="Request configuration loads from the request detail API. Use New request to create one."></app-empty-state>
                   } @else if (requestConfigTab === 'Params') {
                     <div class="kv-section">
                       <h3>Query params</h3>
-                      @for (param of requestDetail()?.queryParams ?? []; track param.key) {
-                        <div class="kv-row">
-                          <app-badge [label]="param.enabled ? 'On' : 'Off'" [tone]="param.enabled ? 'success' : 'default'"></app-badge>
-                          <code>{{ param.key }}</code>
-                          <span>{{ maskValue(param.value, param.isSecret) }}</span>
-                        </div>
-                      } @empty {
-                        <app-empty-state title="No query params" description="This request does not define query parameters."></app-empty-state>
-                      }
+                      <textarea class="code-textarea" rows="7" [(ngModel)]="requestQueryText" placeholder="limit: 25&#10;status: active"></textarea>
                       <h3>Path params</h3>
-                      @for (param of requestDetail()?.pathParams ?? []; track param.key) {
-                        <div class="kv-row">
-                          <app-badge [label]="param.enabled ? 'On' : 'Off'" [tone]="param.enabled ? 'success' : 'default'"></app-badge>
-                          <code>{{ param.key }}</code>
-                          <span>{{ maskValue(param.value, param.isSecret) }}</span>
-                        </div>
-                      } @empty {
-                        <div class="compact-empty">No path parameters.</div>
-                      }
+                      <textarea class="code-textarea" rows="5" [(ngModel)]="requestPathText" placeholder="id: 123&#10;accountId: abc"></textarea>
                     </div>
                   } @else if (requestConfigTab === 'Headers') {
                     <div class="kv-section">
-                      @for (header of requestDetail()?.headers ?? []; track header.key) {
-                        <div class="kv-row">
-                          <app-badge [label]="header.enabled ? 'On' : 'Off'" [tone]="header.enabled ? 'success' : 'default'"></app-badge>
-                          <code>{{ header.key }}</code>
-                          <span>{{ maskValue(header.value, header.isSecret) }}</span>
-                        </div>
-                      } @empty {
-                        <app-empty-state title="No headers" description="This request does not define custom headers."></app-empty-state>
-                      }
+                      <textarea class="code-textarea" rows="12" [(ngModel)]="requestHeadersText" [placeholder]="'Content-Type: application/json\nAuthorization: Bearer {{token}}'"></textarea>
                     </div>
                   } @else if (requestConfigTab === 'Auth') {
                     <div class="auth-config">
-                      <app-badge [label]="requestDetail()?.authType || 'No Auth'" tone="accent"></app-badge>
-                      <pre>{{ requestDetail()?.authConfigJson || 'No authentication configuration saved for this request.' }}</pre>
+                      <label>
+                        Auth type
+                        <select [(ngModel)]="requestAuthType">
+                          <option value="">No Auth</option>
+                          <option value="Bearer">Bearer</option>
+                          <option value="Basic">Basic</option>
+                        </select>
+                      </label>
+                      <textarea class="code-textarea" rows="9" [(ngModel)]="requestAuthConfigJson" [placeholder]="'{&quot;token&quot;:&quot;{{token}}&quot;}'"></textarea>
                     </div>
                   } @else if (requestConfigTab === 'Body') {
+                    <div class="body-toolbar">
+                      <label>
+                        Body type
+                        <select [(ngModel)]="requestBodyType">
+                          <option value="none">none</option>
+                          <option value="rawJson">raw JSON</option>
+                          <option value="text">text</option>
+                        </select>
+                      </label>
+                    </div>
                     <div class="editor-shell request-editor">
-                      <app-monaco-editor [value]="requestDetail()?.bodyContent || ''" language="json" [readonly]="true"></app-monaco-editor>
+                      <app-monaco-editor [(value)]="requestBodyContent" language="json"></app-monaco-editor>
                     </div>
                   } @else if (requestConfigTab === 'Settings') {
                     <div class="settings-grid">
-                      <div><span>Timeout</span><strong>{{ requestDetail()?.timeoutMs }}ms</strong></div>
-                      <div><span>Follow redirects</span><strong>{{ requestDetail()?.followRedirects ? 'Enabled' : 'Disabled' }}</strong></div>
-                      <div><span>SSL verification</span><strong>{{ requestDetail()?.sslVerification ? 'Enabled' : 'Disabled' }}</strong></div>
+                      <label>Timeout<input type="number" min="1000" max="120000" step="1000" [(ngModel)]="requestTimeoutMs" /></label>
+                      <label class="toggle-row"><input type="checkbox" [(ngModel)]="requestFollowRedirects" /> Follow redirects</label>
+                      <label class="toggle-row"><input type="checkbox" [(ngModel)]="requestSslVerification" /> SSL verification</label>
                       <div><span>Version</span><strong>v{{ requestDetail()?.versionNumber }}</strong></div>
                     </div>
                   } @else {
-                    <app-empty-state title="Tests are not saved for this request yet" description="The test runner backend exists in the roadmap; this panel is ready for the saved assertions endpoint."></app-empty-state>
+                    <div class="script-grid">
+                      <label>Pre-request script<textarea class="code-textarea" rows="6" [(ngModel)]="requestPreScript" placeholder="// Placeholder for future script execution"></textarea></label>
+                      <label>Test script<textarea class="code-textarea" rows="6" [(ngModel)]="requestTestScript" placeholder="// status equals 200"></textarea></label>
+                    </div>
                   }
                 </article>
 
@@ -519,12 +528,40 @@
                         <app-empty-state title="No cookies" description="No cookies were returned by the last response."></app-empty-state>
                       }
                     </div>
-                  } @else {
+                  } @else if (responseTab === 'Timeline') {
                     <div class="settings-grid">
                       <div><span>Started</span><strong>{{ apiResponse()?.startedOnUtc | date:'short' }}</strong></div>
                       <div><span>Completed</span><strong>{{ apiResponse()?.completedOnUtc | date:'short' }}</strong></div>
                       <div><span>Content type</span><strong>{{ apiResponse()?.contentType || '-' }}</strong></div>
                       <div><span>Run id</span><strong>{{ apiResponse()?.runId || '-' }}</strong></div>
+                    </div>
+                  }
+                  @if (responseTab === 'History') {
+                    <div class="history-list">
+                      @if (collectionRun()) {
+                        <div class="run-summary">
+                          <strong>{{ collectionRun()?.passed }}/{{ collectionRun()?.totalRequests }} passed</strong>
+                          <span>{{ collectionRun()?.failed }} failed</span>
+                        </div>
+                        @for (item of collectionRun()?.results ?? []; track item.requestId) {
+                          <div class="history-row">
+                            <app-badge [label]="item.method" [tone]="methodTone(item.method)"></app-badge>
+                            <strong>{{ item.name }}</strong>
+                            <span>{{ item.statusCode || '-' }} · {{ item.elapsedMs || 0 }}ms</span>
+                          </div>
+                        }
+                      }
+                      @for (run of requestHistory(); track run.id) {
+                        <div class="history-row">
+                          <app-badge [label]="run.statusCode ? 'Status ' + run.statusCode : run.status" [tone]="run.succeeded ? 'success' : 'danger'"></app-badge>
+                          <strong>{{ run.actorName }}</strong>
+                          <span>{{ run.elapsedMs || 0 }}ms · {{ run.createdOn | date:'short' }}</span>
+                        </div>
+                      } @empty {
+                        @if (!collectionRun()) {
+                          <app-empty-state title="No request history" description="Send this request or run the collection to populate history."></app-empty-state>
+                        }
+                      }
                     </div>
                   }
                 </article>
@@ -534,10 +571,11 @@
                   <article class="panel">
                     <span class="eyebrow">Request context</span>
                     <h3>{{ requestDetail()?.name || selectedRequest()?.name || 'No request selected' }}</h3>
-                    <p>{{ requestDetail()?.description || 'No request documentation has been saved yet.' }}</p>
+                    <textarea class="code-textarea compact-editor" rows="4" [(ngModel)]="requestDescription" placeholder="Request documentation"></textarea>
                     <div class="context-list">
-                      <span>Method <strong>{{ selectedRequest()?.method || '-' }}</strong></span>
-                      <span>Body <strong>{{ requestDetail()?.bodyType || 'none' }}</strong></span>
+                      <span>Name <input [(ngModel)]="requestName" /></span>
+                      <span>Method <strong>{{ requestMethod || '-' }}</strong></span>
+                      <span>Body <strong>{{ requestBodyType || 'none' }}</strong></span>
                       <span>Modified <strong>{{ selectedRequest()?.modifiedOn | date:'short' }}</strong></span>
                     </div>
                   </article>

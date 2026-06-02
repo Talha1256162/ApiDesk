@@ -8,11 +8,17 @@ import {
   ApiResult,
   AuthResponse,
   Collection,
+  CollectionExport,
+  CollectionImportResult,
+  CollectionRunResult,
   EnvironmentModel,
+  ImportCollectionPayload,
   ManagerSummary,
   Organization,
   OrganizationMember,
   PagedResult,
+  RequestRun,
+  SaveApiRequestPayload,
   Workspace,
   WorkspaceDashboard
 } from './api.models';
@@ -90,6 +96,36 @@ export class ApiClientService {
 
   requestDetail(requestId: string) {
     return this.http.get<ApiResult<ApiRequestDetail>>(`${this.apiBaseUrl}/requests/${requestId}`);
+  }
+
+  createRequest(collectionId: string, payload: SaveApiRequestPayload) {
+    return this.http.post<ApiResult<ApiRequestDetail>>(`${this.apiBaseUrl}/collections/${collectionId}/requests`, payload);
+  }
+
+  updateRequest(requestId: string, payload: SaveApiRequestPayload) {
+    return this.http.put<ApiResult<ApiRequestDetail>>(`${this.apiBaseUrl}/requests/${requestId}`, payload);
+  }
+
+  requestHistory(requestId: string, count = 25) {
+    return this.http.get<ApiResult<RequestRun[]>>(`${this.apiBaseUrl}/requests/${requestId}/history`, {
+      params: new HttpParams().set('count', count)
+    });
+  }
+
+  exportCollection(collectionId: string) {
+    return this.http.get<ApiResult<CollectionExport>>(`${this.apiBaseUrl}/collections/${collectionId}/export`);
+  }
+
+  importCollection(workspaceId: string, payload: ImportCollectionPayload) {
+    return this.http.post<ApiResult<CollectionImportResult>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/collections/import`, payload);
+  }
+
+  runCollection(collectionId: string, environmentId?: string) {
+    return this.http.post<ApiResult<CollectionRunResult>>(`${this.apiBaseUrl}/collections/${collectionId}/run`, {
+      environmentId: environmentId || null,
+      requestIds: null,
+      delayMs: 0
+    });
   }
 
   environments(workspaceId: string) {

@@ -83,4 +83,38 @@ public sealed class RequestRunRepository(ISqlConnectionFactory connectionFactory
             new { RunId = runId, ErrorMessage = errorMessage, ElapsedMs = elapsedMs, CompletedOnUtc = completedOnUtc },
             cancellationToken: cancellationToken));
     }
+
+    public async Task<IReadOnlyList<RequestRunDto>> GetHistoryAsync(Guid requestId, int count, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<RequestRunDto>(new CommandDefinition("""
+            select top (@Count)
+                rr.id,
+                rr.requestId,
+                r.name as requestName,
+                r.method,
+                r.url,
+                u.fullName as actorName,
+                rr.status,
+                rr.userId,
+                rr.statusCode,
+                rr.succeeded,
+                rr.elapsedMs,
+                rr.sizeBytes,
+                rr.errorMessage,
+                rrr.bodyPreview,
+                rr.startedOn,
+                rr.completedOn,
+                rr.createdOn
+            from requestRuns rr
+            join requests r on r.id = rr.requestId and r.isDeleted = 0
+            join users u on u.id = rr.userId and u.isDeleted = 0
+            left join requestRunResults rrr on rrr.requestRunId = rr.id and rrr.isDeleted = 0
+            where rr.requestId = @RequestId and rr.isDeleted = 0
+            order by rr.createdOn desc;
+            """,
+            new { RequestId = requestId, Count = Math.Clamp(count, 1, 100) },
+            cancellationToken: cancellationToken));
+        return rows.AsList();
+    }
 }

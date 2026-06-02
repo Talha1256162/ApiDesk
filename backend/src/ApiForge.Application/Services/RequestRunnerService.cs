@@ -62,4 +62,74 @@ public sealed class RequestRunnerService(
             return Result<ApiResponseDto>.Failure("Request execution failed.", new ErrorDetail("request.execution_failed", ex.Message));
         }
     }
+
+    public async Task<Result<IReadOnlyList<RequestRunDto>>> GetHistoryAsync(Guid requestId, int count, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<IReadOnlyList<RequestRunDto>>();
+        }
+
+        var scope = await collectionRepository.GetRequestScopeAsync(requestId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<IReadOnlyList<RequestRunDto>>.Failure("Request was not found.", new ErrorDetail("request.not_found", "Request was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.ViewRequestHistory, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<IReadOnlyList<RequestRunDto>>(PermissionKeys.ViewRequestHistory);
+        }
+
+        var history = await requestRunRepository.GetHistoryAsync(requestId, Math.Clamp(count, 1, 100), cancellationToken);
+        return Result<IReadOnlyList<RequestRunDto>>.Success(history);
+    }
+
+    public async Task<Result<CollectionRunResultDto>> RunCollectionAsync(Guid collectionId, RunCollectionRequest request, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<CollectionRunResultDto>();
+        }
+
+        var scope = await collectionRepository.GetCollectionScopeAsync(collectionId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<CollectionRunResultDto>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.RunRequests, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<CollectionRunResultDto>(PermissionKeys.RunRequests);
+        }
+
+        var requests = await collectionRepository.GetCollectionRequestsAsync(collectionId, cancellationToken);
+        var selectedIds = request.RequestIds?.Count > 0 ? request.RequestIds.ToHashSet() : null;
+        var runList = selectedIds is null ? requests : requests.Where(item => selectedIds.Contains(item.Id)).ToList();
+        var results = new List<CollectionRunItemDto>(runList.Count);
+
+        foreach (var item in runList)
+        {
+            if (request.DelayMs > 0 && results.Count > 0)
+            {
+                await Task.Delay(Math.Clamp(request.DelayMs, 0, 30000), cancellationToken);
+            }
+
+            var result = await SendAsync(item.Id, new SendApiRequestRequest(request.EnvironmentId), cancellationToken);
+            if (result.Succeeded && result.Data is not null)
+            {
+                results.Add(new CollectionRunItemDto(item.Id, item.Name, item.Method, item.Url, result.Data.Succeeded, result.Data.StatusCode, result.Data.ElapsedMs, null));
+            }
+            else
+            {
+                results.Add(new CollectionRunItemDto(item.Id, item.Name, item.Method, item.Url, false, null, null, result.Message));
+            }
+        }
+
+        var summary = new CollectionRunResultDto(collectionId, results.Count, results.Count(item => item.Succeeded), results.Count(item => !item.Succeeded), results);
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "CollectionRunCompleted", "Collection", collectionId, "Collection run", "Run", summary.Failed == 0 ? "Success" : "Failure", summary.Failed == 0 ? "Info" : "Warning", $"{summary.Passed}/{summary.TotalRequests} requests passed.", null, cancellationToken);
+        return Result<CollectionRunResultDto>.Success(summary, "Collection run completed.");
+    }
 }

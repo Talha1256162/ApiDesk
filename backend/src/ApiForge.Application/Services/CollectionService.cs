@@ -167,6 +167,35 @@ public sealed class CollectionService(
         return Result<ApiRequestDetailDto>.Success(apiRequest, "Request created.");
     }
 
+    public async Task<Result<ApiRequestDetailDto>> CreateRequestInCollectionAsync(Guid collectionId, SaveApiRequestRequest request, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<ApiRequestDetailDto>();
+        }
+
+        var scope = await collectionRepository.GetCollectionScopeAsync(collectionId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<ApiRequestDetailDto>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+        }
+
+        if (request.CollectionId != collectionId || request.WorkspaceId != scope.Value.WorkspaceId)
+        {
+            return Result<ApiRequestDetailDto>.Failure("Request scope does not match the selected collection.", new ErrorDetail("request.scope_mismatch", "Request scope does not match the selected collection."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.EditCollection, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<ApiRequestDetailDto>(PermissionKeys.EditCollection);
+        }
+
+        var apiRequest = await collectionRepository.CreateRequestAsync(null, request, CurrentUser.UserId, cancellationToken);
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "RequestCreated", "Request", apiRequest.Id, apiRequest.Name, "Create", "Success", "Info", "Request created.", null, cancellationToken);
+        return Result<ApiRequestDetailDto>.Success(apiRequest, "Request created.");
+    }
+
     public async Task<Result<ApiRequestDetailDto>> GetRequestAsync(Guid requestId, CancellationToken cancellationToken)
     {
         if (CurrentUser is null)
@@ -207,5 +236,63 @@ public sealed class CollectionService(
 
         await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "RequestUpdated", "Request", requestId, apiRequest.Name, "Update", "Success", "Info", "Request updated.", null, cancellationToken);
         return Result<ApiRequestDetailDto>.Success(apiRequest, "Request updated.");
+    }
+
+    public async Task<Result<CollectionExportDto>> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<CollectionExportDto>();
+        }
+
+        var scope = await collectionRepository.GetCollectionScopeAsync(collectionId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<CollectionExportDto>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.ExportCollections, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<CollectionExportDto>(PermissionKeys.ExportCollections);
+        }
+
+        var export = await collectionRepository.ExportCollectionAsync(collectionId, cancellationToken);
+        if (export is null)
+        {
+            return Result<CollectionExportDto>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+        }
+
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "CollectionExported", "Collection", collectionId, export.Collection.Name, "Export", "Success", "Info", "Collection exported.", null, cancellationToken);
+        return Result<CollectionExportDto>.Success(export, "Collection exported.");
+    }
+
+    public async Task<Result<CollectionImportResultDto>> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<CollectionImportResultDto>();
+        }
+
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<CollectionImportResultDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, organizationId.Value, workspaceId, PermissionKeys.ImportCollections, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<CollectionImportResultDto>(PermissionKeys.ImportCollections);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Requests.Count == 0)
+        {
+            return Result<CollectionImportResultDto>.Failure("Import file must include a collection name and at least one request.", new ErrorDetail("collection.import_invalid", "Import file must include a collection name and at least one request."));
+        }
+
+        var imported = await collectionRepository.ImportCollectionAsync(workspaceId, request, CurrentUser.UserId, cancellationToken);
+        await RecordActivityAsync(organizationId.Value, workspaceId, "CollectionImported", "Collection", imported.CollectionId, imported.Name, "Import", "Success", "Info", $"{imported.RequestCount} requests imported.", null, cancellationToken);
+        return Result<CollectionImportResultDto>.Success(imported, "Collection imported.");
     }
 }

@@ -18,4 +18,6 @@ public interface ICollectionRepository
     Task<ApiRequestDetailDto> CreateRequestAsync(Guid? folderId, SaveApiRequestRequest request, Guid userId, CancellationToken cancellationToken);
     Task<ApiRequestDetailDto?> GetRequestAsync(Guid requestId, CancellationToken cancellationToken);
     Task<ApiRequestDetailDto?> UpdateRequestAsync(Guid requestId, SaveApiRequestRequest request, Guid userId, CancellationToken cancellationToken);
+    Task<CollectionExportDto?> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken);
+    Task<CollectionImportResultDto> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, Guid userId, CancellationToken cancellationToken);
 }

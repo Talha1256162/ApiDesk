@@ -13,6 +13,9 @@ public interface ICollectionService
     Task<Result> DeleteCollectionAsync(Guid collectionId, CancellationToken cancellationToken);
     Task<Result<FolderDto>> CreateFolderAsync(Guid collectionId, CreateFolderRequest request, CancellationToken cancellationToken);
     Task<Result<ApiRequestDetailDto>> CreateRequestAsync(Guid folderId, SaveApiRequestRequest request, CancellationToken cancellationToken);
+    Task<Result<ApiRequestDetailDto>> CreateRequestInCollectionAsync(Guid collectionId, SaveApiRequestRequest request, CancellationToken cancellationToken);
     Task<Result<ApiRequestDetailDto>> GetRequestAsync(Guid requestId, CancellationToken cancellationToken);
     Task<Result<ApiRequestDetailDto>> UpdateRequestAsync(Guid requestId, SaveApiRequestRequest request, CancellationToken cancellationToken);
+    Task<Result<CollectionExportDto>> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken);
+    Task<Result<CollectionImportResultDto>> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, CancellationToken cancellationToken);
 }

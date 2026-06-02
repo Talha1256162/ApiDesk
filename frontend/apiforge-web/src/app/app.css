@@ -120,13 +120,12 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
-  min-height: 40px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   background: var(--surface-muted);
-  padding: 0 13px;
   outline: none;
   transition:
     border-color 150ms ease,
@@ -134,12 +133,25 @@ select {
     box-shadow 150ms ease;
 }
 
+input,
+select {
+  min-height: 40px;
+  padding: 0 13px;
+}
+
+textarea {
+  min-height: 92px;
+  resize: vertical;
+  padding: 12px 13px;
+}
+
 input::placeholder {
   color: var(--text-tertiary);
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-muted);
 }
@@ -875,6 +887,21 @@ select option {
   margin-bottom: 12px;
 }
 
+.rail-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rail-actions .secondary-action,
+.rail-actions .ghost-button,
+.rail-actions .file-action {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
 .collection-rail button {
   width: 100%;
   display: grid;
@@ -1040,6 +1067,31 @@ select option {
   min-height: 394px;
 }
 
+.body-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.body-toolbar label {
+  width: min(220px, 100%);
+}
+
+.code-textarea {
+  color: var(--text-primary);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  line-height: 1.5;
+}
+
+.compact-editor {
+  min-height: 96px;
+}
+
+.script-grid {
+  display: grid;
+  gap: 14px;
+}
+
 .kv-section {
   display: grid;
   gap: 10px;
@@ -1112,6 +1164,27 @@ select option {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.settings-grid label {
+  align-content: start;
+  min-height: 78px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 10px;
+}
+
+.settings-grid .toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.toggle-row input {
+  width: auto;
+  min-height: 0;
+}
+
 .settings-grid div,
 .context-list span {
   display: grid;
@@ -1139,6 +1212,50 @@ select option {
   text-overflow: ellipsis;
   white-space: nowrap;
   text-transform: none;
+}
+
+.context-list input {
+  min-height: 34px;
+  margin-top: 6px;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.history-row,
+.run-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 10px;
+}
+
+.run-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+}
+
+.history-row strong,
+.run-summary strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-row span,
+.run-summary span {
+  color: var(--text-tertiary);
+  font-size: 12px;
 }
 
 .context-panel {

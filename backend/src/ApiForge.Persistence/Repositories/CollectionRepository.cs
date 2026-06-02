@@ -330,6 +330,195 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         return await GetRequestAsync(requestId, cancellationToken);
     }
 
+    public async Task<CollectionExportDto?> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        using var grid = await connection.QueryMultipleAsync(new CommandDefinition("""
+            select c.id, c.workspaceId, c.name, c.description, c.ownerUserId, u.fullName as ownerName,
+                   (select count(1) from requests r where r.collectionId = c.id and r.isDeleted = 0) as requestCount,
+                   c.versionNumber, c.createdOn, c.modifiedOn
+            from collections c
+            join users u on u.id = c.ownerUserId
+            where c.id = @CollectionId and c.isDeleted = 0;
+
+            select r.id, r.name, r.description, r.method, r.url, r.authType, r.authConfigJson, r.bodyType,
+                   rb.content as bodyContent, r.preRequestScript, r.testScript, r.timeoutMs, r.followRedirects, r.sslVerification
+            from requests r
+            outer apply (
+                select top 1 content
+                from requestBodies rb
+                where rb.requestId = r.id and rb.isDeleted = 0
+                order by rb.createdOn desc
+            ) rb
+            where r.collectionId = @CollectionId and r.isDeleted = 0
+            order by coalesce(r.modifiedOn, r.createdOn), r.name;
+
+            select h.requestId, h.[key], h.[value], h.enabled, h.isSecret
+            from requestHeaders h
+            join requests r on r.id = h.requestId and r.isDeleted = 0
+            where r.collectionId = @CollectionId and h.isDeleted = 0
+            order by h.requestId, h.sortOrder;
+
+            select p.requestId, p.paramType, p.[key], p.[value], p.enabled, p.isSecret
+            from requestParams p
+            join requests r on r.id = p.requestId and r.isDeleted = 0
+            where r.collectionId = @CollectionId and p.isDeleted = 0
+            order by p.requestId, p.paramType, p.sortOrder;
+            """,
+            new { CollectionId = collectionId },
+            cancellationToken: cancellationToken));
+
+        var collection = await grid.ReadSingleOrDefaultAsync<CollectionDto>();
+        if (collection is null)
+        {
+            return null;
+        }
+
+        var requestRows = (await grid.ReadAsync<ExportRequestRow>()).AsList();
+        var headers = (await grid.ReadAsync<ChildKeyValueRow>()).GroupBy(row => row.RequestId).ToDictionary(group => group.Key, group => group.Select(ToKeyValue).ToList());
+        var parameters = (await grid.ReadAsync<ParameterKeyValueRow>()).GroupBy(row => row.RequestId).ToDictionary(group => group.Key, group => group.ToList());
+
+        var requests = requestRows.Select(row =>
+        {
+            parameters.TryGetValue(row.Id, out var paramRows);
+            var queryParams = paramRows?.Where(item => item.ParamType.Equals("Query", StringComparison.OrdinalIgnoreCase)).Select(ToKeyValue).ToList() ?? [];
+            var pathParams = paramRows?.Where(item => item.ParamType.Equals("Path", StringComparison.OrdinalIgnoreCase)).Select(ToKeyValue).ToList() ?? [];
+            return new ApiRequestExportDto(
+                row.Id,
+                row.Name,
+                row.Description,
+                row.Method,
+                row.Url,
+                row.AuthType,
+                row.AuthConfigJson,
+                row.BodyType,
+                row.BodyContent,
+                row.PreRequestScript,
+                row.TestScript,
+                row.TimeoutMs,
+                row.FollowRedirects,
+                row.SslVerification,
+                headers.TryGetValue(row.Id, out var headerRows) ? headerRows : [],
+                queryParams,
+                pathParams);
+        }).ToList();
+
+        return new CollectionExportDto("apidesk.collection.v1", collection, requests);
+    }
+
+    public async Task<CollectionImportResultDto> ImportCollectionAsync(Guid workspaceId, ImportCollectionRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var organizationId = await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(
+            "select organizationId from workspaces where id = @WorkspaceId and isDeleted = 0;",
+            new { WorkspaceId = workspaceId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        var collectionId = Guid.NewGuid();
+        await connection.ExecuteAsync(new CommandDefinition("""
+            insert into collections (id, organizationId, workspaceId, name, description, ownerUserId, createdOn, createdBy, isDeleted, versionNumber)
+            values (@CollectionId, @OrganizationId, @WorkspaceId, @Name, @Description, @UserId, sysutcdatetime(), @UserId, 0, 1);
+            """,
+            new { CollectionId = collectionId, OrganizationId = organizationId, WorkspaceId = workspaceId, request.Name, request.Description, UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        var importedRequests = request.Requests ?? [];
+        var requestRows = importedRequests.Select(item => new ImportRequestRow
+        {
+            Id = Guid.NewGuid(),
+            OrganizationId = organizationId,
+            WorkspaceId = workspaceId,
+            CollectionId = collectionId,
+            Name = string.IsNullOrWhiteSpace(item.Name) ? "Imported request" : item.Name.Trim(),
+            Description = item.Description,
+            Method = string.IsNullOrWhiteSpace(item.Method) ? "GET" : item.Method.Trim().ToUpperInvariant(),
+            Url = string.IsNullOrWhiteSpace(item.Url) ? "https://example.com" : item.Url.Trim(),
+            AuthType = item.AuthType,
+            AuthConfigJson = item.AuthConfigJson,
+            BodyType = string.IsNullOrWhiteSpace(item.BodyType) ? "none" : item.BodyType,
+            BodyContent = item.BodyContent,
+            PreRequestScript = item.PreRequestScript,
+            TestScript = item.TestScript,
+            TimeoutMs = item.TimeoutMs <= 0 ? 30000 : Math.Clamp(item.TimeoutMs, 1000, 120000),
+            FollowRedirects = item.FollowRedirects,
+            SslVerification = item.SslVerification,
+            UserId = userId,
+            Source = item
+        }).ToList();
+
+        if (requestRows.Count > 0)
+        {
+            await connection.ExecuteAsync(new CommandDefinition("""
+                insert into requests
+                (id, organizationId, workspaceId, collectionId, folderId, name, description, method, url, authType, authConfigJson, bodyType,
+                 preRequestScript, testScript, timeoutMs, followRedirects, sslVerification, ownerUserId, lastModifiedByUserId, createdOn, createdBy, isDeleted, versionNumber)
+                values
+                (@Id, @OrganizationId, @WorkspaceId, @CollectionId, null, @Name, @Description, @Method, @Url, @AuthType, @AuthConfigJson, @BodyType,
+                 @PreRequestScript, @TestScript, @TimeoutMs, @FollowRedirects, @SslVerification, @UserId, @UserId, sysutcdatetime(), @UserId, 0, 1);
+                """,
+                requestRows,
+                transaction,
+                cancellationToken: cancellationToken));
+
+            var headerRows = requestRows.SelectMany(row => (row.Source.Headers ?? []).Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select((item, index) => new
+            {
+                Id = Guid.NewGuid(),
+                RequestId = row.Id,
+                item.Key,
+                item.Value,
+                item.Enabled,
+                item.IsSecret,
+                SortOrder = index,
+                UserId = userId
+            })).ToList();
+
+            if (headerRows.Count > 0)
+            {
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    insert into requestHeaders (id, requestId, [key], [value], enabled, isSecret, sortOrder, createdOn, createdBy, isDeleted, versionNumber)
+                    values (@Id, @RequestId, @Key, @Value, @Enabled, @IsSecret, @SortOrder, sysutcdatetime(), @UserId, 0, 1);
+                    """, headerRows, transaction, cancellationToken: cancellationToken));
+            }
+
+            var paramRows = requestRows.SelectMany(row =>
+                    (row.Source.QueryParams ?? []).Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select((item, index) => ToImportParam(row.Id, item, "Query", index, userId))
+                    .Concat((row.Source.PathParams ?? []).Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select((item, index) => ToImportParam(row.Id, item, "Path", index, userId))))
+                .ToList();
+
+            if (paramRows.Count > 0)
+            {
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    insert into requestParams (id, requestId, paramType, [key], [value], enabled, isSecret, sortOrder, createdOn, createdBy, isDeleted, versionNumber)
+                    values (@Id, @RequestId, @ParamType, @Key, @Value, @Enabled, @IsSecret, @SortOrder, sysutcdatetime(), @UserId, 0, 1);
+                    """, paramRows, transaction, cancellationToken: cancellationToken));
+            }
+
+            await connection.ExecuteAsync(new CommandDefinition("""
+                insert into requestBodies (id, requestId, bodyType, content, createdOn, createdBy, isDeleted, versionNumber)
+                values (newid(), @Id, @BodyType, @BodyContent, sysutcdatetime(), @UserId, 0, 1);
+                """, requestRows, transaction, cancellationToken: cancellationToken));
+
+            var versionRows = requestRows.Select(row => new
+            {
+                RequestId = row.Id,
+                SnapshotJson = JsonSerializer.Serialize(ToSaveRequest(workspaceId, collectionId, row.Source)),
+                UserId = userId
+            }).ToList();
+            await connection.ExecuteAsync(new CommandDefinition("""
+                insert into requestVersions (id, requestId, versionNumber, snapshotJson, createdOn, createdBy, isDeleted)
+                values (newid(), @RequestId, 1, @SnapshotJson, sysutcdatetime(), @UserId, 0);
+                """, versionRows, transaction, cancellationToken: cancellationToken));
+        }
+
+        transaction.Commit();
+        return new CollectionImportResultDto(collectionId, request.Name, requestRows.Count);
+    }
+
     private static async Task ReplaceRequestChildrenAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, Guid requestId, SaveApiRequestRequest request, Guid userId, CancellationToken cancellationToken)
     {
         await connection.ExecuteAsync(new CommandDefinition("""
@@ -366,6 +555,43 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
             """, new { RequestId = requestId, VersionNumber = versionNumber, SnapshotJson = snapshot, UserId = userId }, transaction, cancellationToken: cancellationToken));
     }
 
+    private static KeyValueItemDto ToKeyValue(ChildKeyValueRow row) => new(row.Key, row.Value, row.Enabled, row.IsSecret);
+    private static KeyValueItemDto ToKeyValue(ParameterKeyValueRow row) => new(row.Key, row.Value, row.Enabled, row.IsSecret);
+
+    private static object ToImportParam(Guid requestId, KeyValueItemDto item, string paramType, int sortOrder, Guid userId) => new
+    {
+        Id = Guid.NewGuid(),
+        RequestId = requestId,
+        ParamType = paramType,
+        item.Key,
+        item.Value,
+        item.Enabled,
+        item.IsSecret,
+        SortOrder = sortOrder,
+        UserId = userId
+    };
+
+    private static SaveApiRequestRequest ToSaveRequest(Guid workspaceId, Guid collectionId, ImportApiRequestRequest request) => new(
+        workspaceId,
+        collectionId,
+        request.Name,
+        request.Description,
+        request.Method,
+        request.Url,
+        request.AuthType,
+        request.AuthConfigJson,
+        request.BodyType,
+        request.BodyContent,
+        request.PreRequestScript,
+        request.TestScript,
+        request.TimeoutMs,
+        request.FollowRedirects,
+        request.SslVerification,
+        request.Headers ?? [],
+        request.QueryParams ?? [],
+        request.PathParams ?? [],
+        1);
+
     private sealed class RequestRow
     {
         public Guid Id { get; init; }
@@ -386,5 +612,76 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         public int VersionNumber { get; init; }
         public DateTime CreatedOn { get; init; }
         public DateTime? ModifiedOn { get; init; }
+    }
+
+    private sealed class ExportRequestRow
+    {
+        public Guid Id { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public string? Description { get; init; }
+        public string Method { get; init; } = "GET";
+        public string Url { get; init; } = string.Empty;
+        public string? AuthType { get; init; }
+        public string? AuthConfigJson { get; init; }
+        public string BodyType { get; init; } = "none";
+        public string? BodyContent { get; init; }
+        public string? PreRequestScript { get; init; }
+        public string? TestScript { get; init; }
+        public int TimeoutMs { get; init; }
+        public bool FollowRedirects { get; init; }
+        public bool SslVerification { get; init; }
+    }
+
+    private class ChildKeyValueRow
+    {
+        public Guid RequestId { get; init; }
+        public string Key { get; init; } = string.Empty;
+        public string? Value { get; init; }
+        public bool Enabled { get; init; }
+        public bool IsSecret { get; init; }
+    }
+
+    private sealed class ParameterKeyValueRow : ChildKeyValueRow
+    {
+        public string ParamType { get; init; } = string.Empty;
+    }
+
+    private sealed class ImportRequestRow
+    {
+        public Guid Id { get; init; }
+        public Guid OrganizationId { get; init; }
+        public Guid WorkspaceId { get; init; }
+        public Guid CollectionId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public string? Description { get; init; }
+        public string Method { get; init; } = "GET";
+        public string Url { get; init; } = string.Empty;
+        public string? AuthType { get; init; }
+        public string? AuthConfigJson { get; init; }
+        public string BodyType { get; init; } = "none";
+        public string? BodyContent { get; init; }
+        public string? PreRequestScript { get; init; }
+        public string? TestScript { get; init; }
+        public int TimeoutMs { get; init; }
+        public bool FollowRedirects { get; init; }
+        public bool SslVerification { get; init; }
+        public Guid UserId { get; init; }
+        public ImportApiRequestRequest Source { get; init; } = new(
+            string.Empty,
+            null,
+            "GET",
+            string.Empty,
+            null,
+            null,
+            "none",
+            null,
+            null,
+            null,
+            30000,
+            true,
+            true,
+            [],
+            [],
+            []);
     }
 }

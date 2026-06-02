@@ -65,3 +65,45 @@ public sealed record SaveApiRequestRequest(
     IReadOnlyList<KeyValueItemDto> QueryParams,
     IReadOnlyList<KeyValueItemDto> PathParams,
     int VersionNumber);
+
+public sealed record ImportApiRequestRequest(
+    string Name,
+    string? Description,
+    string Method,
+    string Url,
+    string? AuthType,
+    string? AuthConfigJson,
+    string BodyType,
+    string? BodyContent,
+    string? PreRequestScript,
+    string? TestScript,
+    int TimeoutMs,
+    bool FollowRedirects,
+    bool SslVerification,
+    IReadOnlyList<KeyValueItemDto> Headers,
+    IReadOnlyList<KeyValueItemDto> QueryParams,
+    IReadOnlyList<KeyValueItemDto> PathParams);
+
+public sealed record ImportCollectionRequest(string Name, string? Description, IReadOnlyList<ImportApiRequestRequest> Requests);
+public sealed record CollectionImportResultDto(Guid CollectionId, string Name, int RequestCount);
+
+public sealed record ApiRequestExportDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    string Method,
+    string Url,
+    string? AuthType,
+    string? AuthConfigJson,
+    string BodyType,
+    string? BodyContent,
+    string? PreRequestScript,
+    string? TestScript,
+    int TimeoutMs,
+    bool FollowRedirects,
+    bool SslVerification,
+    IReadOnlyList<KeyValueItemDto> Headers,
+    IReadOnlyList<KeyValueItemDto> QueryParams,
+    IReadOnlyList<KeyValueItemDto> PathParams);
+
+public sealed record CollectionExportDto(string FormatVersion, CollectionDto Collection, IReadOnlyList<ApiRequestExportDto> Requests);
