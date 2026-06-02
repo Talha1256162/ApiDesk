@@ -107,6 +107,30 @@ export interface ApiRequestSummary {
   modifiedOn: string;
 }
 
+export interface KeyValueItem {
+  key: string;
+  value?: string;
+  enabled: boolean;
+  isSecret: boolean;
+}
+
+export interface ApiRequestDetail extends ApiRequestSummary {
+  workspaceId: string;
+  description?: string;
+  authType?: string;
+  authConfigJson?: string;
+  bodyType: string;
+  bodyContent?: string;
+  timeoutMs: number;
+  followRedirects: boolean;
+  sslVerification: boolean;
+  headers: KeyValueItem[];
+  queryParams: KeyValueItem[];
+  pathParams: KeyValueItem[];
+  versionNumber: number;
+  createdOn: string;
+}
+
 export interface EnvironmentModel {
   id: string;
   workspaceId: string;
@@ -159,4 +183,16 @@ export interface ApiResponse {
   bodyPreview: string;
   startedOnUtc: string;
   completedOnUtc: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string;
+  status: string;
+  roleName: string;
+  lastActiveOn?: string;
+  createdOn: string;
 }

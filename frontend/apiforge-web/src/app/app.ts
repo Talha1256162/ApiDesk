@@ -4,12 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { ApiClientService } from './core/api-client.service';
 import {
   ActivityEvent,
+  ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
   Collection,
   EnvironmentModel,
   ManagerSummary,
   Organization,
+  OrganizationMember,
   Workspace,
   WorkspaceDashboard
 } from './core/api.models';
@@ -39,6 +41,9 @@ type ToastState = {
   message: string;
   tone: 'default' | 'success' | 'danger';
 };
+
+type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
+type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline';
 
 @Component({
   selector: 'app-root',
@@ -71,8 +76,10 @@ export class App implements OnInit {
   readonly workspaces = signal<Workspace[]>([]);
   readonly collections = signal<Collection[]>([]);
   readonly requests = signal<ApiRequestSummary[]>([]);
+  readonly requestDetail = signal<ApiRequestDetail | null>(null);
   readonly environments = signal<EnvironmentModel[]>([]);
   readonly activity = signal<ActivityEvent[]>([]);
+  readonly members = signal<OrganizationMember[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
   readonly managerSummary = signal<ManagerSummary | null>(null);
   readonly apiResponse = signal<ApiResponse | null>(null);
@@ -86,13 +93,34 @@ export class App implements OnInit {
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
   readonly selectedCollection = computed(() => this.collections().find((collection) => collection.id === this.selectedCollectionId()));
-  readonly selectedRequest = computed(() => this.requests().find((request) => request.id === this.selectedRequestId()));
+  readonly selectedRequestSummary = computed(() => this.requests().find((request) => request.id === this.selectedRequestId()));
+  readonly selectedRequest = computed(() => this.requestDetail() ?? this.selectedRequestSummary());
   readonly selectedRequestNeedsEnvironment = computed(() => (this.selectedRequest()?.url ?? '').includes('{{'));
   readonly canSendRequest = computed(
     () => !!this.selectedRequestId() && !this.pageLoading() && (!this.selectedRequestNeedsEnvironment() || !!this.selectedEnvironmentId())
   );
+  readonly requestActivity = computed(() => {
+    const selected = this.selectedRequest();
+    if (!selected) {
+      return this.activity().slice(0, 6);
+    }
+    return this.activity()
+      .filter((event) => event.entityName === selected.name || event.summary?.includes(selected.url))
+      .slice(0, 6);
+  });
+  readonly apiHealthScore = computed(() => {
+    const summary = this.managerSummary();
+    if (!summary || summary.requestsSentToday === 0) {
+      return 100;
+    }
+    return Math.max(0, Math.round(((summary.requestsSentToday - summary.failedApisToday) / summary.requestsSentToday) * 100));
+  });
+  readonly maxRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.requestsPerDay ?? []).map((point) => point.value))));
+  readonly maxFailedRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.failedRequestsPerDay ?? []).map((point) => point.value))));
   readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'ApiForge user');
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
+  readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
+  readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline'];
   readonly navItems: { key: ViewKey; label: string; hint: string }[] = [
     { key: 'dashboard', label: 'Dashboard', hint: 'Overview' },
     { key: 'workspaces', label: 'Workspaces', hint: 'Teams' },
@@ -123,7 +151,12 @@ export class App implements OnInit {
   jsonStats?: JsonStats;
   jsonDiffs: JsonDiff[] = [];
   jsonPath = '$';
+  requestConfigTab: RequestConfigTab = 'Params';
+  responseTab: ResponseTab = 'Body';
   utilityTool = 'Base64';
+  utilityPattern = '';
+  utilityFlags = 'g';
+  hashAlgorithm: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512' = 'SHA-256';
   utilityInput = '';
   utilityOutput = '';
 
@@ -187,8 +220,10 @@ export class App implements OnInit {
     this.workspaces.set([]);
     this.collections.set([]);
     this.requests.set([]);
+    this.requestDetail.set(null);
     this.environments.set([]);
     this.activity.set([]);
+    this.members.set([]);
     this.dashboard.set(null);
     this.managerSummary.set(null);
     this.apiResponse.set(null);
@@ -215,6 +250,7 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set('');
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.requestDetail.set(null);
     this.loadWorkspaces();
   }
 
@@ -222,12 +258,14 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set(workspaceId);
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.requestDetail.set(null);
     this.loadWorkspaceData();
   }
 
   onCollectionChange(collectionId: string): void {
     this.selectedCollectionId.set(collectionId);
     this.selectedRequestId.set('');
+    this.requestDetail.set(null);
     this.loadRequests();
   }
 
@@ -280,6 +318,7 @@ export class App implements OnInit {
     this.loadCollections();
     this.loadEnvironments();
     this.loadActivity();
+    this.loadMembers();
   }
 
   loadDashboard(): void {
@@ -331,8 +370,29 @@ export class App implements OnInit {
         if (!this.selectedRequestId()) {
           this.selectedRequestId.set(this.requests()[0]?.id ?? '');
         }
+        this.loadRequestDetail();
       },
       error: () => this.showToast('Requests failed', 'Could not load collection requests.', 'danger')
+    });
+  }
+
+  selectRequest(requestId: string): void {
+    this.selectedRequestId.set(requestId);
+    this.requestDetail.set(null);
+    this.apiResponse.set(null);
+    this.responseBody.set('');
+    this.loadRequestDetail();
+  }
+
+  loadRequestDetail(): void {
+    if (!this.selectedRequestId()) {
+      this.requestDetail.set(null);
+      return;
+    }
+
+    this.api.requestDetail(this.selectedRequestId()).subscribe({
+      next: (result) => this.requestDetail.set(result.data),
+      error: () => this.showToast('Request detail failed', 'Could not load request configuration.', 'danger')
     });
   }
 
@@ -356,6 +416,17 @@ export class App implements OnInit {
     this.api.activity(this.selectedOrganizationId(), this.selectedWorkspaceId()).subscribe({
       next: (result) => this.activity.set(result.data?.items ?? []),
       error: () => this.showToast('Activity failed', 'Could not load activity feed.', 'danger')
+    });
+  }
+
+  loadMembers(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.members(this.selectedOrganizationId()).subscribe({
+      next: (result) => this.members.set(result.data?.items ?? []),
+      error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
     });
   }
 
@@ -439,6 +510,59 @@ export class App implements OnInit {
     this.showToast('Copied', 'Output copied to clipboard.', 'success');
   }
 
+  async pasteJsonFromClipboard(): Promise<void> {
+    this.jsonInput = await navigator.clipboard.readText();
+    this.showToast('Pasted', 'Clipboard content loaded into the JSON editor.', 'success');
+  }
+
+  uploadJsonFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      this.jsonInput = String(reader.result ?? '');
+      this.showToast('File loaded', `${file.name} is ready in the editor.`, 'success');
+      input.value = '';
+    };
+    reader.readAsText(file);
+  }
+
+  downloadJsonOutput(): void {
+    const blob = new Blob([this.jsonOutput || this.jsonInput || ''], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'apiforge-json-output.json';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  maskJsonSecrets(): void {
+    try {
+      this.jsonOutput = this.developerTools.maskSensitiveJson(this.jsonInput);
+      this.jsonStats = this.developerTools.stats(this.jsonOutput);
+      this.showToast('Masked', 'Sensitive keys were masked in the output.', 'success');
+    } catch (error) {
+      this.jsonError = error instanceof Error ? error.message : 'Could not mask JSON.';
+    }
+  }
+
+  escapeJsonInput(): void {
+    this.jsonOutput = this.developerTools.escapeJsonString(this.jsonInput);
+  }
+
+  unescapeJsonInput(): void {
+    try {
+      this.jsonOutput = this.developerTools.unescapeJsonString(this.jsonInput);
+    } catch (error) {
+      this.jsonError = error instanceof Error ? error.message : 'Could not unescape JSON string.';
+    }
+  }
+
   copyResponseBody(): void {
     navigator.clipboard.writeText(this.responseBody() || this.apiResponse()?.body || '');
     this.showToast('Copied', 'Response body copied to clipboard.', 'success');
@@ -448,7 +572,7 @@ export class App implements OnInit {
     this.showToast('Planned workflow', message, 'default');
   }
 
-  runUtility(): void {
+  async runUtility(): Promise<void> {
     try {
       if (this.utilityTool === 'Base64') {
         this.utilityOutput = btoa(this.utilityInput);
@@ -467,8 +591,13 @@ export class App implements OnInit {
         this.utilityOutput = JSON.stringify({ iso: date.toISOString(), unixSeconds: Math.floor(date.getTime() / 1000), local: date.toString() }, null, 2);
       } else if (this.utilityTool === 'cURL Parser') {
         this.utilityOutput = this.developerTools.parseCurl(this.utilityInput);
+      } else if (this.utilityTool === 'Hash Generator') {
+        const digest = await this.developerTools.hash(this.utilityInput, this.hashAlgorithm);
+        this.utilityOutput = JSON.stringify({ algorithm: this.hashAlgorithm, digest }, null, 2);
+      } else if (this.utilityTool === 'Regex Tester') {
+        this.utilityOutput = JSON.stringify(this.developerTools.testRegex(this.utilityPattern, this.utilityInput, this.utilityFlags), null, 2);
       } else {
-        this.utilityOutput = 'This utility is reserved for Phase 3.';
+        this.utilityOutput = 'Select a supported utility.';
       }
     } catch (error) {
       this.utilityOutput = error instanceof Error ? error.message : 'Utility failed.';
@@ -510,6 +639,30 @@ export class App implements OnInit {
       return `${(size / 1024).toFixed(1)} KB`;
     }
     return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  responseHeaderEntries(): { key: string; value: string }[] {
+    return Object.entries(this.apiResponse()?.headers ?? {}).map(([key, value]) => ({ key, value: value.join(', ') }));
+  }
+
+  responseCookieEntries(): { key: string; value: string }[] {
+    return Object.entries(this.apiResponse()?.cookies ?? {}).map(([key, value]) => ({ key, value: value.join(', ') }));
+  }
+
+  chartHeight(value: number, max: number): number {
+    return Math.max(6, Math.round((value / Math.max(1, max)) * 92));
+  }
+
+  collectionFreshness(collection: Collection): string {
+    const value = collection.modifiedOn ?? collection.createdOn;
+    return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  }
+
+  maskValue(value?: string, isSecret = false): string {
+    if (!value) {
+      return '';
+    }
+    return isSecret ? '********' : value;
   }
 
   private isAuthFormValid(): boolean {

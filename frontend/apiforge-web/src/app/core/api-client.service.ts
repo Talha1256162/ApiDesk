@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
 import {
   ActivityEvent,
+  ApiRequestDetail,
   ApiRequestSummary,
   ApiResponse,
   ApiResult,
@@ -10,6 +11,7 @@ import {
   EnvironmentModel,
   ManagerSummary,
   Organization,
+  OrganizationMember,
   PagedResult,
   Workspace,
   WorkspaceDashboard
@@ -86,6 +88,10 @@ export class ApiClientService {
     return this.http.get<ApiResult<ApiRequestSummary[]>>(`${this.apiBaseUrl}/collections/${collectionId}/requests`);
   }
 
+  requestDetail(requestId: string) {
+    return this.http.get<ApiResult<ApiRequestDetail>>(`${this.apiBaseUrl}/requests/${requestId}`);
+  }
+
   environments(workspaceId: string) {
     return this.http.get<ApiResult<PagedResult<EnvironmentModel>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/environments`, {
       params: new HttpParams().set('count', 100)
@@ -103,6 +109,12 @@ export class ApiClientService {
   managerSummary(workspaceId: string) {
     return this.http.get<ApiResult<ManagerSummary>>(`${this.apiBaseUrl}/activity/manager-summary`, {
       params: new HttpParams().set('workspaceId', workspaceId)
+    });
+  }
+
+  members(organizationId: string) {
+    return this.http.get<ApiResult<PagedResult<OrganizationMember>>>(`${this.apiBaseUrl}/organizations/${organizationId}/members`, {
+      params: new HttpParams().set('count', 100)
     });
   }
 

@@ -85,7 +85,7 @@
 
       <nav class="side-nav">
         @for (item of navItems; track item.key) {
-          <button [class.active]="activeView() === item.key" (click)="selectView(item.key)">
+          <button [attr.data-view]="item.key" [class.active]="activeView() === item.key" (click)="selectView(item.key)">
             <span>{{ item.label }}</span>
             <small>{{ item.hint }}</small>
           </button>
@@ -143,6 +143,34 @@
             <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh data</button>
           </section>
 
+          <section class="manager-strip">
+            <div class="manager-kpi">
+              <span>Health score</span>
+              <strong>{{ apiHealthScore() }}%</strong>
+              <small>Success ratio today</small>
+            </div>
+            <div class="manager-kpi">
+              <span>Active users</span>
+              <strong>{{ managerSummary()?.activeUsersToday ?? 0 }}</strong>
+              <small>Team members today</small>
+            </div>
+            <div class="manager-kpi">
+              <span>Collections changed</span>
+              <strong>{{ managerSummary()?.collectionsChangedToday ?? 0 }}</strong>
+              <small>Design work today</small>
+            </div>
+            <div class="manager-kpi">
+              <span>Environment changes</span>
+              <strong>{{ managerSummary()?.environmentsChangedToday ?? 0 }}</strong>
+              <small>Shared config edits</small>
+            </div>
+            <div class="manager-kpi">
+              <span>Pending approvals</span>
+              <strong>{{ managerSummary()?.pendingApprovals ?? 0 }}</strong>
+              <small>Governance queue</small>
+            </div>
+          </section>
+
           @if (pageLoading() && !dashboard()) {
             <section class="metric-grid">
               <app-skeleton [rows]="6" [height]="132"></app-skeleton>
@@ -159,6 +187,46 @@
           }
 
           <section class="dashboard-grid">
+            <article class="panel chart-panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Throughput</span>
+                  <h3>Requests sent per day</h3>
+                </div>
+                <app-badge [label]="(managerSummary()?.requestsSentToday ?? 0) + ' today'" tone="success"></app-badge>
+              </div>
+              <div class="bar-chart">
+                @for (point of managerSummary()?.requestsPerDay ?? []; track point.date) {
+                  <div class="bar-column">
+                    <span [style.height.px]="chartHeight(point.value, maxRequestsPerDay())"></span>
+                    <small>{{ point.date | date:'EEE' }}</small>
+                  </div>
+                } @empty {
+                  <app-empty-state title="No request trend" description="Run saved requests to populate the throughput chart."></app-empty-state>
+                }
+              </div>
+            </article>
+
+            <article class="panel chart-panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Reliability</span>
+                  <h3>Failures per day</h3>
+                </div>
+                <app-badge [label]="(managerSummary()?.failedApisToday ?? 0) + ' today'" [tone]="(managerSummary()?.failedApisToday ?? 0) > 0 ? 'danger' : 'success'"></app-badge>
+              </div>
+              <div class="bar-chart danger-chart">
+                @for (point of managerSummary()?.failedRequestsPerDay ?? []; track point.date) {
+                  <div class="bar-column">
+                    <span [style.height.px]="chartHeight(point.value, maxFailedRequestsPerDay())"></span>
+                    <small>{{ point.date | date:'EEE' }}</small>
+                  </div>
+                } @empty {
+                  <app-empty-state title="No failure trend" description="Failure trend appears after request history is recorded."></app-empty-state>
+                }
+              </div>
+            </article>
+
             <article class="panel activity-panel">
               <div class="panel-title">
                 <div>
@@ -249,10 +317,13 @@
           </section>
           <section class="panel">
             @for (workspace of workspaces(); track workspace.id) {
-              <div class="table-row">
-                <strong>{{ workspace.name }}</strong>
-                <span>{{ workspace.type }}</span>
-                <small>{{ workspace.description || 'No description' }}</small>
+              <div class="workspace-card">
+                <div>
+                  <app-badge [label]="workspace.type" tone="accent"></app-badge>
+                  <strong>{{ workspace.name }}</strong>
+                  <span>{{ workspace.description || 'No description has been added for this workspace.' }}</span>
+                </div>
+                <button class="secondary-action" type="button" (click)="onWorkspaceChange(workspace.id)">Open</button>
               </div>
             } @empty {
               <app-empty-state title="No workspaces" description="Create a workspace to organize API collaboration."></app-empty-state>
@@ -280,9 +351,32 @@
             </aside>
 
             <section class="api-client">
+              @if (activeView() === 'collections') {
+                <section class="collection-overview">
+                  @for (collection of collections(); track collection.id) {
+                    <article class="collection-card" [class.active]="selectedCollectionId() === collection.id" (click)="onCollectionChange(collection.id)">
+                      <div class="collection-card-top">
+                        <app-badge label="Collection" tone="accent"></app-badge>
+                        <span>v{{ collection.versionNumber }}</span>
+                      </div>
+                      <strong>{{ collection.name }}</strong>
+                      <p>{{ collection.description || 'No description yet.' }}</p>
+                      <div class="collection-card-meta">
+                        <span>{{ collection.requestCount }} requests</span>
+                        <span>{{ collection.ownerName }}</span>
+                        <span>{{ collectionFreshness(collection) }}</span>
+                      </div>
+                    </article>
+                  } @empty {
+                    <app-empty-state title="No collections" description="Create collections to group APIs, tests, docs, and history."></app-empty-state>
+                  }
+                </section>
+              }
+
+              @if (activeView() === 'api-client') {
               <div class="request-tabs">
                 @for (request of requests(); track request.id) {
-                  <button [class.active]="selectedRequestId() === request.id" (click)="selectedRequestId.set(request.id)">
+                  <button [class.active]="selectedRequestId() === request.id" (click)="selectRequest(request.id)">
                     <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
                     <span>{{ request.name }}</span>
                   </button>
@@ -301,20 +395,74 @@
                 </select>
                 <input class="url-input" [ngModel]="selectedRequest()?.url || ''" readonly />
                 <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">Send</button>
-                <button class="secondary-action" type="button">Save</button>
+                <button class="secondary-action" type="button" (click)="notifyPhase('Request editing uses the existing PUT endpoint and is the next save workflow slice.')">Save</button>
               </div>
 
-              <div class="request-panels">
+              <div class="request-workbench">
+                <section class="request-main">
                 <article class="panel request-config">
                   <div class="tab-strip">
-                    <button class="active">Params</button>
-                    <button>Auth</button>
-                    <button>Headers</button>
-                    <button>Body</button>
-                    <button>Tests</button>
-                    <button>Settings</button>
+                    @for (tab of requestConfigTabs; track tab) {
+                      <button [class.active]="requestConfigTab === tab" (click)="requestConfigTab = tab">{{ tab }}</button>
+                    }
                   </div>
-                  <app-empty-state title="Request editor queued for Phase 2" description="The request model is real and loaded from the API. Editable tables and Monaco request body controls are the next implementation slice."></app-empty-state>
+
+                  @if (!requestDetail()) {
+                    <app-empty-state title="Select a request" description="Request configuration loads from the request detail API."></app-empty-state>
+                  } @else if (requestConfigTab === 'Params') {
+                    <div class="kv-section">
+                      <h3>Query params</h3>
+                      @for (param of requestDetail()?.queryParams ?? []; track param.key) {
+                        <div class="kv-row">
+                          <app-badge [label]="param.enabled ? 'On' : 'Off'" [tone]="param.enabled ? 'success' : 'default'"></app-badge>
+                          <code>{{ param.key }}</code>
+                          <span>{{ maskValue(param.value, param.isSecret) }}</span>
+                        </div>
+                      } @empty {
+                        <app-empty-state title="No query params" description="This request does not define query parameters."></app-empty-state>
+                      }
+                      <h3>Path params</h3>
+                      @for (param of requestDetail()?.pathParams ?? []; track param.key) {
+                        <div class="kv-row">
+                          <app-badge [label]="param.enabled ? 'On' : 'Off'" [tone]="param.enabled ? 'success' : 'default'"></app-badge>
+                          <code>{{ param.key }}</code>
+                          <span>{{ maskValue(param.value, param.isSecret) }}</span>
+                        </div>
+                      } @empty {
+                        <div class="compact-empty">No path parameters.</div>
+                      }
+                    </div>
+                  } @else if (requestConfigTab === 'Headers') {
+                    <div class="kv-section">
+                      @for (header of requestDetail()?.headers ?? []; track header.key) {
+                        <div class="kv-row">
+                          <app-badge [label]="header.enabled ? 'On' : 'Off'" [tone]="header.enabled ? 'success' : 'default'"></app-badge>
+                          <code>{{ header.key }}</code>
+                          <span>{{ maskValue(header.value, header.isSecret) }}</span>
+                        </div>
+                      } @empty {
+                        <app-empty-state title="No headers" description="This request does not define custom headers."></app-empty-state>
+                      }
+                    </div>
+                  } @else if (requestConfigTab === 'Auth') {
+                    <div class="auth-config">
+                      <app-badge [label]="requestDetail()?.authType || 'No Auth'" tone="accent"></app-badge>
+                      <pre>{{ requestDetail()?.authConfigJson || 'No authentication configuration saved for this request.' }}</pre>
+                    </div>
+                  } @else if (requestConfigTab === 'Body') {
+                    <div class="editor-shell request-editor">
+                      <app-monaco-editor [value]="requestDetail()?.bodyContent || ''" language="json" [readonly]="true"></app-monaco-editor>
+                    </div>
+                  } @else if (requestConfigTab === 'Settings') {
+                    <div class="settings-grid">
+                      <div><span>Timeout</span><strong>{{ requestDetail()?.timeoutMs }}ms</strong></div>
+                      <div><span>Follow redirects</span><strong>{{ requestDetail()?.followRedirects ? 'Enabled' : 'Disabled' }}</strong></div>
+                      <div><span>SSL verification</span><strong>{{ requestDetail()?.sslVerification ? 'Enabled' : 'Disabled' }}</strong></div>
+                      <div><span>Version</span><strong>v{{ requestDetail()?.versionNumber }}</strong></div>
+                    </div>
+                  } @else {
+                    <app-empty-state title="Tests are not saved for this request yet" description="The test runner backend exists in the roadmap; this panel is ready for the saved assertions endpoint."></app-empty-state>
+                  }
                 </article>
 
                 <article class="panel response-panel">
@@ -326,11 +474,67 @@
                     </div>
                     <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
                   </div>
-                  <div class="editor-shell">
-                    <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
+                  <div class="tab-strip response-tabs">
+                    @for (tab of responseTabs; track tab) {
+                      <button [class.active]="responseTab === tab" (click)="responseTab = tab">{{ tab }}</button>
+                    }
                   </div>
+                  @if (responseTab === 'Body') {
+                    <div class="editor-shell">
+                      <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
+                    </div>
+                  } @else if (responseTab === 'Headers') {
+                    <div class="kv-section">
+                      @for (header of responseHeaderEntries(); track header.key) {
+                        <div class="kv-row"><code>{{ header.key }}</code><span>{{ header.value }}</span></div>
+                      } @empty {
+                        <app-empty-state title="No response headers" description="Send a request to inspect response headers."></app-empty-state>
+                      }
+                    </div>
+                  } @else if (responseTab === 'Cookies') {
+                    <div class="kv-section">
+                      @for (cookie of responseCookieEntries(); track cookie.key) {
+                        <div class="kv-row"><code>{{ cookie.key }}</code><span>{{ cookie.value }}</span></div>
+                      } @empty {
+                        <app-empty-state title="No cookies" description="No cookies were returned by the last response."></app-empty-state>
+                      }
+                    </div>
+                  } @else {
+                    <div class="settings-grid">
+                      <div><span>Started</span><strong>{{ apiResponse()?.startedOnUtc | date:'short' }}</strong></div>
+                      <div><span>Completed</span><strong>{{ apiResponse()?.completedOnUtc | date:'short' }}</strong></div>
+                      <div><span>Content type</span><strong>{{ apiResponse()?.contentType || '-' }}</strong></div>
+                      <div><span>Run id</span><strong>{{ apiResponse()?.runId || '-' }}</strong></div>
+                    </div>
+                  }
                 </article>
+                </section>
+
+                <aside class="context-panel">
+                  <article class="panel">
+                    <span class="eyebrow">Request context</span>
+                    <h3>{{ requestDetail()?.name || selectedRequest()?.name || 'No request selected' }}</h3>
+                    <p>{{ requestDetail()?.description || 'No request documentation has been saved yet.' }}</p>
+                    <div class="context-list">
+                      <span>Method <strong>{{ selectedRequest()?.method || '-' }}</strong></span>
+                      <span>Body <strong>{{ requestDetail()?.bodyType || 'none' }}</strong></span>
+                      <span>Modified <strong>{{ selectedRequest()?.modifiedOn | date:'short' }}</strong></span>
+                    </div>
+                  </article>
+                  <article class="panel">
+                    <span class="eyebrow">Request activity</span>
+                    @for (event of requestActivity(); track event.id) {
+                      <div class="mini-activity">
+                        <strong>{{ event.eventType }}</strong>
+                        <span>{{ event.actorName }} &middot; {{ event.createdOn | date:'short' }}</span>
+                      </div>
+                    } @empty {
+                      <app-empty-state title="No request activity" description="Send or update this request to populate its activity trail."></app-empty-state>
+                    }
+                  </article>
+                </aside>
               </div>
+              }
             </section>
           </section>
         }
@@ -366,6 +570,42 @@
             </div>
             <button class="secondary-action" type="button" (click)="loadActivity()">Refresh</button>
           </section>
+          @if (activeView() === 'reports') {
+            <section class="report-grid">
+              <article class="panel chart-panel">
+                <div class="panel-title">
+                  <div>
+                    <span class="eyebrow">Endpoint quality</span>
+                    <h3>Average response time</h3>
+                  </div>
+                </div>
+                @for (endpoint of managerSummary()?.averageResponseTimeByEndpoint ?? []; track endpoint.endpoint) {
+                  <div class="rank-row">
+                    <span>{{ endpoint.endpoint }}</span>
+                    <strong>{{ endpoint.averageMs }}ms</strong>
+                  </div>
+                } @empty {
+                  <app-empty-state title="No endpoint timing" description="Average response time appears after requests are run."></app-empty-state>
+                }
+              </article>
+              <article class="panel chart-panel">
+                <div class="panel-title">
+                  <div>
+                    <span class="eyebrow">Failures</span>
+                    <h3>Top failed endpoints</h3>
+                  </div>
+                </div>
+                @for (endpoint of managerSummary()?.topFailedEndpoints ?? []; track endpoint.endpoint) {
+                  <div class="rank-row danger">
+                    <span>{{ endpoint.endpoint }}</span>
+                    <strong>{{ endpoint.failureCount }}</strong>
+                  </div>
+                } @empty {
+                  <app-empty-state title="No failed endpoints" description="There are no failed endpoint rankings for this workspace."></app-empty-state>
+                }
+              </article>
+            </section>
+          }
           <section class="panel activity-panel">
             @for (event of activity(); track event.id) {
               <div class="timeline-row wide">
@@ -387,11 +627,25 @@
             <div>
               <span class="eyebrow">RBAC</span>
               <h2>Team and roles</h2>
-              <p>Backend member APIs exist; the premium member grid is scheduled after Phase 1 shell polish.</p>
+              <p>Organization members are loaded from the secured members API and displayed with status, role, and activity signals.</p>
             </div>
+            <button class="primary-action" type="button" (click)="notifyPhase('Invite creation is available in the API; the drawer workflow is next.')">Invite member</button>
           </section>
-          <section class="panel">
-            <app-empty-state title="Team grid pending" description="Phase 4 will add permission-gated member actions, role changes, and invite tracking."></app-empty-state>
+          <section class="member-grid">
+            @for (member of members(); track member.id) {
+              <article class="member-card">
+                <div class="member-avatar">{{ member.fullName.slice(0, 2).toUpperCase() }}</div>
+                <div>
+                  <strong>{{ member.fullName }}</strong>
+                  <span>{{ member.email }}</span>
+                </div>
+                <app-badge [label]="member.roleName" tone="accent"></app-badge>
+                <app-badge [label]="member.status" [tone]="member.status === 'Active' ? 'success' : 'default'"></app-badge>
+                <small>Last active {{ member.lastActiveOn ? (member.lastActiveOn | date:'short') : 'not recorded' }}</small>
+              </article>
+            } @empty {
+              <app-empty-state title="No team members" description="Members will appear here after users join the organization."></app-empty-state>
+            }
           </section>
         }
 
@@ -403,9 +657,18 @@
               <p>Formatter, validator, tree view, compare, convert, and JSON path tools run with real logic.</p>
             </div>
             <div class="toolbar">
+              <label class="file-action">
+                Upload
+                <input type="file" accept="application/json,.json" (change)="uploadJsonFile($event)" />
+              </label>
+              <button class="secondary-action" type="button" (click)="pasteJsonFromClipboard()">Paste</button>
               <button class="secondary-action" type="button" (click)="runJsonTool()">Run</button>
               <button class="secondary-action" type="button" (click)="sortAndFormat()">Sort keys</button>
+              <button class="secondary-action" type="button" (click)="maskJsonSecrets()">Mask secrets</button>
+              <button class="secondary-action" type="button" (click)="escapeJsonInput()">Escape</button>
+              <button class="secondary-action" type="button" (click)="unescapeJsonInput()">Unescape</button>
               <button class="secondary-action" type="button" (click)="copyJsonOutput()">Copy</button>
+              <button class="secondary-action" type="button" (click)="downloadJsonOutput()">Download</button>
             </div>
           </section>
 
@@ -466,6 +729,19 @@
                   <option [value]="tool">{{ tool }}</option>
                 }
               </select>
+              @if (utilityTool === 'Hash Generator') {
+                <select [(ngModel)]="hashAlgorithm">
+                  @for (algorithm of ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512']; track algorithm) {
+                    <option [value]="algorithm">{{ algorithm }}</option>
+                  }
+                </select>
+              }
+              @if (utilityTool === 'Regex Tester') {
+                <div class="utility-options">
+                  <input placeholder="Pattern, for example \\b[A-Z]+\\b" [(ngModel)]="utilityPattern" />
+                  <input placeholder="Flags" [(ngModel)]="utilityFlags" />
+                </div>
+              }
               <div class="editor-shell tall">
                 <app-monaco-editor [(value)]="utilityInput" language="text"></app-monaco-editor>
               </div>

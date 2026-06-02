@@ -22,8 +22,15 @@ export interface JsonDiff {
   type: 'added' | 'removed' | 'changed';
 }
 
+export interface RegexTestResult {
+  matched: boolean;
+  matches: { value: string; index: number; groups: string[] }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class DeveloperToolsService {
+  private readonly sensitiveKeyPattern = /(password|token|secret|apikey|api_key|authorization|cookie)/i;
+
   beautify(input: string, sortKeys = false): string {
     const parsed = JSON.parse(input);
     return JSON.stringify(sortKeys ? this.sortObjectKeys(parsed) : parsed, null, 2);
@@ -167,6 +174,32 @@ export class DeveloperToolsService {
     return JSON.stringify({ method, url, headers, body }, null, 2);
   }
 
+  maskSensitiveJson(input: string): string {
+    const parsed = JSON.parse(input);
+    return JSON.stringify(this.maskSensitiveValue(parsed), null, 2);
+  }
+
+  async hash(input: string, algorithm: 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512' = 'SHA-256'): Promise<string> {
+    const bytes = new TextEncoder().encode(input);
+    const digest = await crypto.subtle.digest(algorithm, bytes);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  testRegex(pattern: string, input: string, flags = 'g'): RegexTestResult {
+    const normalizedFlags = flags.includes('g') ? flags : `${flags}g`;
+    const regex = new RegExp(pattern, normalizedFlags);
+    const matches = [...input.matchAll(regex)].map((match) => ({
+      value: match[0],
+      index: match.index ?? 0,
+      groups: match.slice(1)
+    }));
+
+    return {
+      matched: matches.length > 0,
+      matches
+    };
+  }
+
   private sortObjectKeys(value: unknown): unknown {
     if (Array.isArray(value)) {
       return value.map((item) => this.sortObjectKeys(item));
@@ -279,5 +312,24 @@ export class DeveloperToolsService {
 
   private isPlainObject(value: unknown): boolean {
     return !!value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  private maskSensitiveValue(value: unknown, key = ''): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.maskSensitiveValue(item, key));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>((acc, [childKey, childValue]) => {
+        acc[childKey] = this.maskSensitiveValue(childValue, childKey);
+        return acc;
+      }, {});
+    }
+
+    if (this.sensitiveKeyPattern.test(key)) {
+      return value == null || value === '' ? value : '********';
+    }
+
+    return value;
   }
 }
