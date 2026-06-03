@@ -21,6 +21,7 @@ import {
   CollectionRunResult,
   EnvironmentModel,
   ImportApiRequestPayload,
+  ImportApiRequestWithFolderPayload,
   ImportCollectionPayload,
   KeyValueItem,
   ManagerSummary,
@@ -1911,6 +1912,7 @@ export class App implements OnInit {
       return {
         name: payload.info.name ?? fallbackName,
         description: payload.info.description,
+        folders: this.collectPostmanFolderPaths(payload.item),
         requests: this.flattenPostmanItems(payload.item)
       };
     }
@@ -1926,10 +1928,11 @@ export class App implements OnInit {
     throw new Error('Only API DESK exports, simplified collection JSON, and Postman collection JSON are supported.');
   }
 
-  private flattenPostmanItems(items: any[]): ImportApiRequestPayload[] {
+  private flattenPostmanItems(items: any[], folderPath: string[] = []): ImportApiRequestWithFolderPayload[] {
     return items.flatMap((item) => {
       if (Array.isArray(item.item)) {
-        return this.flattenPostmanItems(item.item);
+        const nextPath = item.request ? folderPath : [...folderPath, item.name ?? 'Folder'];
+        return this.flattenPostmanItems(item.item, nextPath);
       }
 
       const request = item.request;
@@ -1956,7 +1959,8 @@ export class App implements OnInit {
         : [];
 
       return [
-        this.normalizeApiRequest({
+        {
+          ...this.normalizeApiRequest({
           name: item.name ?? request.name ?? 'Imported request',
           description: request.description,
           method: request.method ?? 'GET',
@@ -1966,8 +1970,21 @@ export class App implements OnInit {
           headers,
           queryParams,
           pathParams: []
-        })
+          }),
+          folderPath
+        }
       ];
+    });
+  }
+
+  private collectPostmanFolderPaths(items: any[], folderPath: string[] = []): string[][] {
+    return items.flatMap((item) => {
+      if (!Array.isArray(item.item) || item.request) {
+        return [];
+      }
+
+      const nextPath = [...folderPath, item.name ?? 'Folder'];
+      return [nextPath, ...this.collectPostmanFolderPaths(item.item, nextPath)];
     });
   }
 

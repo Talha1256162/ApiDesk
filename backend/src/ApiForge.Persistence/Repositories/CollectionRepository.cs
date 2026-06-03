@@ -429,28 +429,91 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
             cancellationToken: cancellationToken));
 
         var importedRequests = request.Requests ?? [];
-        var requestRows = importedRequests.Select(item => new ImportRequestRow
+        var folderMap = new Dictionary<string, Guid>(StringComparer.OrdinalIgnoreCase);
+
+        async Task<Guid?> EnsureFolderPathAsync(IReadOnlyList<string>? path)
         {
-            Id = Guid.NewGuid(),
-            OrganizationId = organizationId,
-            WorkspaceId = workspaceId,
-            CollectionId = collectionId,
-            Name = string.IsNullOrWhiteSpace(item.Name) ? "Imported request" : item.Name.Trim(),
-            Description = item.Description,
-            Method = string.IsNullOrWhiteSpace(item.Method) ? "GET" : item.Method.Trim().ToUpperInvariant(),
-            Url = string.IsNullOrWhiteSpace(item.Url) ? "https://example.com" : item.Url.Trim(),
-            AuthType = item.AuthType,
-            AuthConfigJson = item.AuthConfigJson,
-            BodyType = string.IsNullOrWhiteSpace(item.BodyType) ? "none" : item.BodyType,
-            BodyContent = item.BodyContent,
-            PreRequestScript = item.PreRequestScript,
-            TestScript = item.TestScript,
-            TimeoutMs = item.TimeoutMs <= 0 ? 30000 : Math.Clamp(item.TimeoutMs, 1000, 120000),
-            FollowRedirects = item.FollowRedirects,
-            SslVerification = item.SslVerification,
-            UserId = userId,
-            Source = item
-        }).ToList();
+            if (path is null || path.Count == 0)
+            {
+                return null;
+            }
+
+            Guid? parentId = null;
+            var parts = new List<string>();
+            for (var index = 0; index < path.Count; index++)
+            {
+                var name = path[index].Trim();
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                parts.Add(name);
+                var key = string.Join("/", parts);
+                if (folderMap.TryGetValue(key, out var existingId))
+                {
+                    parentId = existingId;
+                    continue;
+                }
+
+                var folderId = Guid.NewGuid();
+                await connection.ExecuteAsync(new CommandDefinition("""
+                    insert into folders (id, organizationId, workspaceId, collectionId, parentFolderId, name, sortOrder, createdOn, createdBy, isDeleted, versionNumber)
+                    values (@FolderId, @OrganizationId, @WorkspaceId, @CollectionId, @ParentFolderId, @Name, @SortOrder, sysutcdatetime(), @UserId, 0, 1);
+                    """,
+                    new
+                    {
+                        FolderId = folderId,
+                        OrganizationId = organizationId,
+                        WorkspaceId = workspaceId,
+                        CollectionId = collectionId,
+                        ParentFolderId = parentId,
+                        Name = name,
+                        SortOrder = index,
+                        UserId = userId
+                    },
+                    transaction,
+                    cancellationToken: cancellationToken));
+
+                folderMap[key] = folderId;
+                parentId = folderId;
+            }
+
+            return parentId;
+        }
+
+        foreach (var folderPath in request.Folders ?? [])
+        {
+            await EnsureFolderPathAsync(folderPath);
+        }
+
+        var requestRows = new List<ImportRequestRow>();
+        foreach (var item in importedRequests)
+        {
+            requestRows.Add(new ImportRequestRow
+            {
+                Id = Guid.NewGuid(),
+                OrganizationId = organizationId,
+                WorkspaceId = workspaceId,
+                CollectionId = collectionId,
+                FolderId = await EnsureFolderPathAsync(item.FolderPath),
+                Name = string.IsNullOrWhiteSpace(item.Name) ? "Imported request" : item.Name.Trim(),
+                Description = item.Description,
+                Method = string.IsNullOrWhiteSpace(item.Method) ? "GET" : item.Method.Trim().ToUpperInvariant(),
+                Url = string.IsNullOrWhiteSpace(item.Url) ? "https://example.com" : item.Url.Trim(),
+                AuthType = item.AuthType,
+                AuthConfigJson = item.AuthConfigJson,
+                BodyType = string.IsNullOrWhiteSpace(item.BodyType) ? "none" : item.BodyType,
+                BodyContent = item.BodyContent,
+                PreRequestScript = item.PreRequestScript,
+                TestScript = item.TestScript,
+                TimeoutMs = item.TimeoutMs <= 0 ? 30000 : Math.Clamp(item.TimeoutMs, 1000, 120000),
+                FollowRedirects = item.FollowRedirects,
+                SslVerification = item.SslVerification,
+                UserId = userId,
+                Source = item
+            });
+        }
 
         if (requestRows.Count > 0)
         {
@@ -459,7 +522,7 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
                 (id, organizationId, workspaceId, collectionId, folderId, name, description, method, url, authType, authConfigJson, bodyType,
                  preRequestScript, testScript, timeoutMs, followRedirects, sslVerification, ownerUserId, lastModifiedByUserId, createdOn, createdBy, isDeleted, versionNumber)
                 values
-                (@Id, @OrganizationId, @WorkspaceId, @CollectionId, null, @Name, @Description, @Method, @Url, @AuthType, @AuthConfigJson, @BodyType,
+                (@Id, @OrganizationId, @WorkspaceId, @CollectionId, @FolderId, @Name, @Description, @Method, @Url, @AuthType, @AuthConfigJson, @BodyType,
                  @PreRequestScript, @TestScript, @TimeoutMs, @FollowRedirects, @SslVerification, @UserId, @UserId, sysutcdatetime(), @UserId, 0, 1);
                 """,
                 requestRows,
@@ -700,6 +763,7 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         public Guid OrganizationId { get; init; }
         public Guid WorkspaceId { get; init; }
         public Guid CollectionId { get; init; }
+        public Guid? FolderId { get; init; }
         public string Name { get; init; } = string.Empty;
         public string? Description { get; init; }
         public string Method { get; init; } = "GET";
@@ -728,6 +792,7 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
             30000,
             true,
             true,
+            [],
             [],
             [],
             []);

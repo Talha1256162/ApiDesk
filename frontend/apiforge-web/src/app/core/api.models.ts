@@ -155,11 +155,13 @@ export interface SaveApiRequestPayload {
 }
 
 export type ImportApiRequestPayload = Omit<SaveApiRequestPayload, 'workspaceId' | 'collectionId' | 'versionNumber'>;
+export type ImportApiRequestWithFolderPayload = ImportApiRequestPayload & { folderPath?: string[] };
 
 export interface ImportCollectionPayload {
   name: string;
   description?: string;
-  requests: ImportApiRequestPayload[];
+  folders?: string[][];
+  requests: ImportApiRequestWithFolderPayload[];
 }
 
 export interface CollectionImportResult {

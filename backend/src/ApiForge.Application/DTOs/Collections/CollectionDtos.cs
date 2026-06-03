@@ -82,9 +82,10 @@ public sealed record ImportApiRequestRequest(
     bool SslVerification,
     IReadOnlyList<KeyValueItemDto> Headers,
     IReadOnlyList<KeyValueItemDto> QueryParams,
-    IReadOnlyList<KeyValueItemDto> PathParams);
+    IReadOnlyList<KeyValueItemDto> PathParams,
+    IReadOnlyList<string>? FolderPath = null);
 
-public sealed record ImportCollectionRequest(string Name, string? Description, IReadOnlyList<ImportApiRequestRequest> Requests);
+public sealed record ImportCollectionRequest(string Name, string? Description, IReadOnlyList<ImportApiRequestRequest> Requests, IReadOnlyList<IReadOnlyList<string>>? Folders = null);
 public sealed record CollectionImportResultDto(Guid CollectionId, string Name, int RequestCount);
 
 public sealed record ApiRequestExportDto(
