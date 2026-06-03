@@ -181,7 +181,7 @@ export class App implements OnInit {
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
-      .join('') || 'AF'
+      .join('') || 'AD'
   );
   readonly activeViewTitle = computed(() => this.navItems.find((item) => item.key === this.activeView())?.label ?? 'Dashboard');
   readonly organizationOptions = computed<PremiumSelectOption[]>(() => this.organizations().map((organization) => ({ value: organization.id, label: organization.name, meta: organization.slug })));
