@@ -154,7 +154,7 @@ end
 if not exists (select 1 from dbo.environmentVariables where environmentId = @environment and [key] = 'base_url')
 begin
     insert into dbo.environmentVariables (id, organizationId, workspaceId, collectionId, environmentId, userId, [key], [value], scope, isSecret, enabled, createdOn, createdBy, isDeleted, versionNumber)
-    values (newid(), @org, @workspace, null, @environment, null, 'base_url', 'http://localhost:5108', 'Environment', 0, 1, sysutcdatetime(), @adminUser, 0, 1);
+    values (newid(), @org, @workspace, null, @environment, null, 'base_url', 'https://apidesk.tryasp.net', 'Environment', 0, 1, sysutcdatetime(), @adminUser, 0, 1);
 end
 
 if not exists (select 1 from dbo.environmentVariables where environmentId = @environment and [key] = 'access_token')

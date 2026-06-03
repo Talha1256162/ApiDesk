@@ -66,6 +66,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSignalR();
+builder.Services.AddHostedService<DatabaseBootstrapWorker>();
 builder.Services.AddHostedService<MonitorSchedulerWorker>();
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
@@ -94,7 +95,7 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
     app.MapOpenApi();
     app.UseSwagger();
@@ -102,11 +103,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.UseCors("ApiForgeCors");
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<CollaborationHub>("/hubs/collaboration");
+app.MapFallbackToFile("index.html");
 
 app.Run();

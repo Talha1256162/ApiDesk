@@ -46,7 +46,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
-  private readonly apiBaseUrl = 'http://localhost:5108/api';
+  private readonly apiBaseUrl = '/api';
   private readonly sessionKey = 'apiforge.session';
   private readonly tokenKey = 'apiforge.accessToken';
   private readonly refreshTokenKey = 'apiforge.refreshToken';
