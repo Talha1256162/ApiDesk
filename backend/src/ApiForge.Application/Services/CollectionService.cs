@@ -21,6 +21,17 @@ public sealed class CollectionService(
             return Unauthorized<PagedResult<CollectionDto>>();
         }
 
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<PagedResult<CollectionDto>>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, workspaceId, cancellationToken))
+        {
+            return Forbidden<PagedResult<CollectionDto>>("workspace.member");
+        }
+
         var collections = await collectionRepository.GetCollectionsAsync(workspaceId, request, cancellationToken);
         return Result<PagedResult<CollectionDto>>.Success(collections);
     }
@@ -36,6 +47,11 @@ public sealed class CollectionService(
         if (scope is null)
         {
             return Result<IReadOnlyList<ApiRequestSummaryDto>>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<IReadOnlyList<ApiRequestSummaryDto>>("workspace.member");
         }
 
         var requests = await collectionRepository.GetCollectionRequestsAsync(collectionId, cancellationToken);
@@ -203,6 +219,17 @@ public sealed class CollectionService(
             return Unauthorized<ApiRequestDetailDto>();
         }
 
+        var scope = await collectionRepository.GetRequestScopeAsync(requestId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<ApiRequestDetailDto>.Failure("Request was not found.", new ErrorDetail("request.not_found", "Request was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<ApiRequestDetailDto>("workspace.member");
+        }
+
         var apiRequest = await collectionRepository.GetRequestAsync(requestId, cancellationToken);
         return apiRequest is null
             ? Result<ApiRequestDetailDto>.Failure("Request was not found.", new ErrorDetail("request.not_found", "Request was not found."))
@@ -303,6 +330,17 @@ public sealed class CollectionService(
             return Unauthorized<IReadOnlyList<CommentDto>>();
         }
 
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<IReadOnlyList<CommentDto>>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, workspaceId, cancellationToken))
+        {
+            return Forbidden<IReadOnlyList<CommentDto>>("workspace.member");
+        }
+
         return Result<IReadOnlyList<CommentDto>>.Success(await collectionRepository.GetCommentsAsync(workspaceId, entityType, entityId, cancellationToken));
     }
 
@@ -322,6 +360,11 @@ public sealed class CollectionService(
         if (organizationId is null)
         {
             return Result<CommentDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, workspaceId, cancellationToken))
+        {
+            return Forbidden<CommentDto>("workspace.member");
         }
 
         var comment = await collectionRepository.CreateCommentAsync(workspaceId, request, CurrentUser.UserId, cancellationToken);

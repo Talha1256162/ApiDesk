@@ -63,11 +63,16 @@ public sealed class Phase4Service(
         if (CurrentUser is null) return Unauthorized<AiAssistantActionDto>();
         var orgId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
         if (orgId is null) return Result<AiAssistantActionDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        if (!await HasWorkspacePermissionAsync(CurrentUser.UserId, orgId.Value, workspaceId, PermissionKeys.RunRequests, cancellationToken))
+            return Forbidden<AiAssistantActionDto>(PermissionKeys.RunRequests);
         var config = await phase4Repository.GetAiConfigAsync(orgId.Value, cancellationToken);
         var providerStatus = config?.IsEnabled == true ? $"{config.Provider} configured" : "Provider disabled or not configured";
         var context = request.Input ?? string.Empty;
         if (request.RequestId is Guid requestId)
         {
+            var scope = await collectionRepository.GetRequestScopeAsync(requestId, cancellationToken);
+            if (scope is null || scope.Value.OrganizationId != orgId.Value || scope.Value.WorkspaceId != workspaceId)
+                return Result<AiAssistantActionDto>.Failure("Request was not found in this workspace.", new ErrorDetail("request.scope_mismatch", "Request was not found in this workspace."));
             var apiRequest = await collectionRepository.GetRequestAsync(requestId, cancellationToken);
             if (apiRequest is not null) context = $"{apiRequest.Method} {apiRequest.Url} {apiRequest.Description}";
         }

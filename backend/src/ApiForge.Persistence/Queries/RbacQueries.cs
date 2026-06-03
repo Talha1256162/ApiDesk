@@ -28,4 +28,27 @@ public static class RbacQueries
                 and p.[key] = @PermissionKey
         ) then 1 else 0 end as bit);
         """;
+
+    public const string IsOrganizationMember = """
+        select cast(case when exists (
+            select 1
+            from organizationMembers
+            where userId = @UserId
+                and organizationId = @OrganizationId
+                and status = 'Active'
+                and isDeleted = 0
+        ) then 1 else 0 end as bit);
+        """;
+
+    public const string IsWorkspaceMember = """
+        select cast(case when exists (
+            select 1
+            from workspaceMembers
+            where userId = @UserId
+                and organizationId = @OrganizationId
+                and workspaceId = @WorkspaceId
+                and status = 'Active'
+                and isDeleted = 0
+        ) then 1 else 0 end as bit);
+        """;
 }

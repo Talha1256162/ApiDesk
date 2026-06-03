@@ -6,6 +6,9 @@ namespace ApiForge.Application.Abstractions.Persistence;
 public interface IProductOpsRepository
 {
     Task<(Guid OrganizationId, Guid WorkspaceId, string CollectionName)?> GetCollectionScopeAsync(Guid collectionId, CancellationToken cancellationToken);
+    Task<(Guid OrganizationId, Guid WorkspaceId)?> GetMockServerScopeAsync(Guid mockServerId, CancellationToken cancellationToken);
+    Task<(Guid OrganizationId, Guid WorkspaceId)?> GetPublishedDocScopeAsync(Guid docId, CancellationToken cancellationToken);
+    Task<(Guid OrganizationId, Guid WorkspaceId)?> GetApiSpecScopeAsync(Guid specId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MockServerDto>> GetMockServersAsync(Guid workspaceId, CancellationToken cancellationToken);
     Task<MockServerDto> CreateMockServerAsync(Guid workspaceId, CreateMockServerRequest request, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MockRouteDto>> GetMockRoutesAsync(Guid mockServerId, CancellationToken cancellationToken);

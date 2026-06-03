@@ -21,6 +21,11 @@ public sealed class WorkspaceService(
             return Unauthorized<PagedResult<WorkspaceDto>>();
         }
 
+        if (!await permissionService.IsOrganizationMemberAsync(CurrentUser.UserId, organizationId, cancellationToken))
+        {
+            return Forbidden<PagedResult<WorkspaceDto>>("organization.member");
+        }
+
         var workspaces = await workspaceRepository.GetByOrganizationAsync(organizationId, request, cancellationToken);
         return Result<PagedResult<WorkspaceDto>>.Success(workspaces);
     }
@@ -112,6 +117,11 @@ public sealed class WorkspaceService(
         if (organizationId is null)
         {
             return Result<WorkspaceDashboardDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, workspaceId, cancellationToken))
+        {
+            return Forbidden<WorkspaceDashboardDto>("workspace.member");
         }
 
         var dashboard = await workspaceRepository.GetDashboardAsync(workspaceId, cancellationToken);

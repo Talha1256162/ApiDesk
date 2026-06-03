@@ -62,6 +62,17 @@ public sealed class ProductOpsService(
             return Unauthorized<IReadOnlyList<MockRouteDto>>();
         }
 
+        var scope = await productOpsRepository.GetMockServerScopeAsync(mockServerId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<IReadOnlyList<MockRouteDto>>.Failure("Mock server was not found.", new ErrorDetail("mock.not_found", "Mock server was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<IReadOnlyList<MockRouteDto>>("workspace.member");
+        }
+
         return Result<IReadOnlyList<MockRouteDto>>.Success(await productOpsRepository.GetMockRoutesAsync(mockServerId, cancellationToken));
     }
 
@@ -70,6 +81,17 @@ public sealed class ProductOpsService(
         if (CurrentUser is null)
         {
             return Unauthorized<IReadOnlyList<MockLogDto>>();
+        }
+
+        var scope = await productOpsRepository.GetMockServerScopeAsync(mockServerId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<IReadOnlyList<MockLogDto>>.Failure("Mock server was not found.", new ErrorDetail("mock.not_found", "Mock server was not found."));
+        }
+
+        if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<IReadOnlyList<MockLogDto>>("workspace.member");
         }
 
         return Result<IReadOnlyList<MockLogDto>>.Success(await productOpsRepository.GetMockLogsAsync(mockServerId, count, cancellationToken));
@@ -135,6 +157,12 @@ public sealed class ProductOpsService(
             return Result<CollectionRunResultDto>.Failure("Monitor was not found.", new ErrorDetail("monitor.not_found", "Monitor was not found."));
         }
 
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(monitor.WorkspaceId, cancellationToken);
+        if (organizationId is null || !await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, monitor.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<CollectionRunResultDto>("workspace.member");
+        }
+
         var started = Stopwatch.StartNew();
         var result = await requestRunnerService.RunCollectionAsync(monitor.CollectionId, new RunCollectionRequest(monitor.EnvironmentId), cancellationToken);
         started.Stop();
@@ -152,6 +180,18 @@ public sealed class ProductOpsService(
         if (CurrentUser is null)
         {
             return Unauthorized<IReadOnlyList<MonitorRunDto>>();
+        }
+
+        var monitor = await productOpsRepository.GetMonitorAsync(monitorId, cancellationToken);
+        if (monitor is null)
+        {
+            return Result<IReadOnlyList<MonitorRunDto>>.Failure("Monitor was not found.", new ErrorDetail("monitor.not_found", "Monitor was not found."));
+        }
+
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(monitor.WorkspaceId, cancellationToken);
+        if (organizationId is null || !await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, monitor.WorkspaceId, cancellationToken))
+        {
+            return Forbidden<IReadOnlyList<MonitorRunDto>>("workspace.member");
         }
 
         return Result<IReadOnlyList<MonitorRunDto>>.Success(await productOpsRepository.GetMonitorRunsAsync(monitorId, count, cancellationToken));
@@ -197,6 +237,17 @@ public sealed class ProductOpsService(
         if (CurrentUser is null)
         {
             return Unauthorized();
+        }
+
+        var scope = await productOpsRepository.GetPublishedDocScopeAsync(docId, cancellationToken);
+        if (scope is null)
+        {
+            return Result.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."));
+        }
+
+        if (!await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.ApproveApiChanges, cancellationToken))
+        {
+            return Forbidden(PermissionKeys.ApproveApiChanges);
         }
 
         var deleted = await productOpsRepository.UnpublishDocsAsync(docId, CurrentUser.UserId, cancellationToken);
@@ -246,6 +297,17 @@ public sealed class ProductOpsService(
         if (CurrentUser is null)
         {
             return Unauthorized<ApiSpecValidationDto>();
+        }
+
+        var scope = await productOpsRepository.GetApiSpecScopeAsync(specId, cancellationToken);
+        if (scope is null)
+        {
+            return Result<ApiSpecValidationDto>.Failure("API spec was not found.", new ErrorDetail("spec.not_found", "API spec was not found."));
+        }
+
+        if (!await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.ApproveApiChanges, cancellationToken))
+        {
+            return Forbidden<ApiSpecValidationDto>(PermissionKeys.ApproveApiChanges);
         }
 
         var content = await productOpsRepository.GetApiSpecContentAsync(specId, cancellationToken);

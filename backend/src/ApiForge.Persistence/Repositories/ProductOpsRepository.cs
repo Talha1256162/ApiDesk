@@ -20,6 +20,39 @@ public sealed class ProductOpsRepository(ISqlConnectionFactory connectionFactory
         return row.OrganizationId == Guid.Empty ? null : row;
     }
 
+    public async Task<(Guid OrganizationId, Guid WorkspaceId)?> GetMockServerScopeAsync(Guid mockServerId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<(Guid OrganizationId, Guid WorkspaceId)>(new CommandDefinition("""
+            select organizationId, workspaceId
+            from mockServers
+            where id = @MockServerId and isDeleted = 0;
+            """, new { MockServerId = mockServerId }, cancellationToken: cancellationToken));
+        return row.OrganizationId == Guid.Empty ? null : row;
+    }
+
+    public async Task<(Guid OrganizationId, Guid WorkspaceId)?> GetPublishedDocScopeAsync(Guid docId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<(Guid OrganizationId, Guid WorkspaceId)>(new CommandDefinition("""
+            select organizationId, workspaceId
+            from publishedDocs
+            where id = @DocId and isDeleted = 0;
+            """, new { DocId = docId }, cancellationToken: cancellationToken));
+        return row.OrganizationId == Guid.Empty ? null : row;
+    }
+
+    public async Task<(Guid OrganizationId, Guid WorkspaceId)?> GetApiSpecScopeAsync(Guid specId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<(Guid OrganizationId, Guid WorkspaceId)>(new CommandDefinition("""
+            select organizationId, workspaceId
+            from apiSpecs
+            where id = @SpecId and isDeleted = 0;
+            """, new { SpecId = specId }, cancellationToken: cancellationToken));
+        return row.OrganizationId == Guid.Empty ? null : row;
+    }
+
     public async Task<IReadOnlyList<MockServerDto>> GetMockServersAsync(Guid workspaceId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();

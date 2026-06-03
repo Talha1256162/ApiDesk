@@ -9,4 +9,14 @@ public sealed class PermissionService(IRbacRepository rbacRepository) : IPermiss
     {
         return rbacRepository.HasPermissionAsync(userId, organizationId, workspaceId, permissionKey, cancellationToken);
     }
+
+    public Task<bool> IsOrganizationMemberAsync(Guid userId, Guid organizationId, CancellationToken cancellationToken)
+    {
+        return rbacRepository.IsOrganizationMemberAsync(userId, organizationId, cancellationToken);
+    }
+
+    public Task<bool> IsWorkspaceMemberAsync(Guid userId, Guid organizationId, Guid workspaceId, CancellationToken cancellationToken)
+    {
+        return rbacRepository.IsWorkspaceMemberAsync(userId, organizationId, workspaceId, cancellationToken);
+    }
 }

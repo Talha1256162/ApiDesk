@@ -11,6 +11,7 @@ namespace ApiForge.Application.Services;
 public sealed class ActivityService(
     IActivityRepository activityRepository,
     IPermissionService permissionService,
+    IWorkspaceRepository workspaceRepository,
     ICurrentUserContext currentUserContext) : IActivityService
 {
     public async Task<Result<PagedResult<ActivityEventDto>>> GetActivityAsync(ActivityFilterRequest request, CancellationToken cancellationToken)
@@ -35,6 +36,18 @@ public sealed class ActivityService(
         if (currentUserContext.User is null)
         {
             return Result<ManagerSummaryDto>.Failure("Authentication is required.", new ErrorDetail("auth.required", "Authentication is required."));
+        }
+
+        var organizationId = await workspaceRepository.GetOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<ManagerSummaryDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        var allowed = await permissionService.IsWorkspaceMemberAsync(currentUserContext.User.UserId, organizationId.Value, workspaceId, cancellationToken);
+        if (!allowed)
+        {
+            return Result<ManagerSummaryDto>.Failure("You do not have access to this workspace.", new ErrorDetail("workspace.access_denied", "You do not have access to this workspace."));
         }
 
         var summary = await activityRepository.GetManagerSummaryAsync(workspaceId, cancellationToken);
