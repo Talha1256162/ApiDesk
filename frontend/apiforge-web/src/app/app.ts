@@ -78,6 +78,7 @@ type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
 type NavSection = { title: string; items: NavItem[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
 type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
+type ResponseViewMode = 'pretty' | 'raw' | 'tree';
 type EditableKeyValue = KeyValueItem & { id: string };
 type EditableKeyValueKind = 'headers' | 'query' | 'path';
 type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummary[] };
@@ -142,6 +143,7 @@ export class App implements OnInit {
   readonly apiResponse = signal<ApiResponse | null>(null);
   readonly collectionRun = signal<CollectionRunResult | null>(null);
   readonly responseBody = signal('');
+  readonly responseViewMode = signal<ResponseViewMode>('pretty');
   readonly realtimeStatus = signal('offline');
   readonly selectedOrganizationId = signal('');
   readonly selectedWorkspaceId = signal('');
@@ -185,6 +187,31 @@ export class App implements OnInit {
       requests
     }));
   });
+  readonly responseViewerBody = computed(() => {
+    const body = this.responseBody() || this.apiResponse()?.body || '';
+    if (!body) {
+      return '';
+    }
+    if (this.responseViewMode() === 'raw') {
+      return body;
+    }
+    if (this.responseViewMode() === 'tree') {
+      try {
+        return this.developerTools.tree(body);
+      } catch {
+        return body;
+      }
+    }
+    if (this.looksLikeJson(body)) {
+      try {
+        return this.developerTools.beautify(body);
+      } catch {
+        return body;
+      }
+    }
+    return body;
+  });
+  readonly responseViewerLanguage = computed(() => (this.responseViewMode() === 'tree' || !this.looksLikeJson(this.responseViewerBody()) ? 'plaintext' : 'json'));
   readonly canSendRequest = computed(
     () => !!this.selectedRequestId() && !this.pageLoading() && (!this.selectedRequestNeedsEnvironment() || !!this.selectedEnvironmentId())
   );
@@ -232,7 +259,9 @@ export class App implements OnInit {
   readonly authTypeOptions = computed<PremiumSelectOption[]>(() => [
     { value: '', label: 'No Auth', meta: 'Public request' },
     { value: 'Bearer', label: 'Bearer token', meta: 'Authorization header' },
-    { value: 'Basic', label: 'Basic auth', meta: 'Username/password' }
+    { value: 'Basic', label: 'Basic auth', meta: 'Username/password' },
+    { value: 'ApiKey', label: 'API key', meta: 'Header or query param' },
+    { value: 'OAuth2', label: 'OAuth 2.0', meta: 'Bearer token workflow' }
   ]);
   readonly bodyTypeOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'none', label: 'none', meta: 'No request body' },
@@ -270,6 +299,7 @@ export class App implements OnInit {
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
+  readonly responseViewModes: ResponseViewMode[] = ['pretty', 'raw', 'tree'];
   readonly navSections: NavSection[] = [
     {
       title: 'Main',
@@ -343,12 +373,20 @@ export class App implements OnInit {
   jsonPath = '$';
   requestConfigTab: RequestConfigTab = 'Params';
   responseTab: ResponseTab = 'Body';
+  responseSearch = '';
   requestName = '';
   requestDescription = '';
   requestMethod = 'GET';
   requestUrl = '';
   requestAuthType = '';
   requestAuthConfigJson = '';
+  authBearerToken = '';
+  authBasicUsername = '';
+  authBasicPassword = '';
+  authApiKeyName = 'X-API-Key';
+  authApiKeyValue = '';
+  authApiKeyLocation: 'header' | 'query' = 'header';
+  authOauthToken = '';
   requestBodyType = 'none';
   requestBodyContent = '';
   requestPreScript = '';
@@ -1461,8 +1499,54 @@ export class App implements OnInit {
   }
 
   copyResponseBody(): void {
-    navigator.clipboard.writeText(this.responseBody() || this.apiResponse()?.body || '');
+    navigator.clipboard.writeText(this.responseViewerBody() || this.responseBody() || this.apiResponse()?.body || '');
     this.showToast('Copied', 'Response body copied to clipboard.', 'success');
+  }
+
+  copyRequestAsCurl(): void {
+    const headers = this.toPayloadKeyValues(this.requestHeadersRows)
+      .map((header) => `-H "${header.key}: ${header.value ?? ''}"`)
+      .join(' ');
+    const body = this.requestBodyType !== 'none' && this.requestBodyContent.trim()
+      ? ` --data '${this.requestBodyContent.replace(/'/g, "\\'")}'`
+      : '';
+    navigator.clipboard.writeText(`curl -X ${this.requestMethod} "${this.requestUrl}" ${headers}${body}`.trim());
+    this.showToast('Copied', 'Current request copied as cURL.', 'success');
+  }
+
+  onAuthTypeChange(value: string): void {
+    this.requestAuthType = value;
+    this.hydrateAuthFieldsFromConfig();
+    if (!value) {
+      this.requestAuthConfigJson = '';
+    }
+  }
+
+  applyAuthToRequest(): void {
+    this.syncAuthConfigFromFields();
+
+    if (this.requestAuthType === 'Bearer' || this.requestAuthType === 'OAuth2') {
+      const token = this.requestAuthType === 'OAuth2' ? this.authOauthToken : this.authBearerToken;
+      if (token.trim()) {
+        this.upsertKeyValueRow('headers', 'Authorization', `Bearer ${token.trim()}`, true);
+      }
+    }
+
+    if (this.requestAuthType === 'ApiKey') {
+      const key = this.authApiKeyName.trim();
+      if (key && this.authApiKeyValue.trim()) {
+        this.upsertKeyValueRow(this.authApiKeyLocation === 'query' ? 'query' : 'headers', key, this.authApiKeyValue.trim(), true);
+      }
+    }
+
+    this.showToast('Auth applied', 'Auth settings were applied to the request safely.', 'success');
+  }
+
+  insertVariableIntoUrl(variableName: string): void {
+    const token = `{{${variableName}}}`;
+    if (!this.requestUrl.includes(token)) {
+      this.requestUrl = `${this.requestUrl}${this.requestUrl.endsWith('/') || !this.requestUrl ? '' : '/'}${token}`;
+    }
   }
 
   openCurlImport(): void {
@@ -1726,6 +1810,24 @@ export class App implements OnInit {
     return Object.entries(this.apiResponse()?.cookies ?? {}).map(([key, value]) => ({ key, value: value.join(', ') }));
   }
 
+  requestVariables(): string[] {
+    return this.uniqueValues([
+      ...this.extractVariables(this.requestUrl),
+      ...this.extractVariables(this.requestBodyContent),
+      ...this.extractVariables(this.requestHeadersRows.map((row) => `${row.key}:${row.value ?? ''}`).join('\n')),
+      ...this.extractVariables(this.requestQueryRows.map((row) => `${row.key}:${row.value ?? ''}`).join('\n'))
+    ]);
+  }
+
+  responseSearchMatches(): number {
+    const search = this.responseSearch.trim().toLowerCase();
+    const body = (this.responseBody() || this.apiResponse()?.body || '').toLowerCase();
+    if (!search || !body) {
+      return 0;
+    }
+    return body.split(search).length - 1;
+  }
+
   keyValuePreviewRows(value: string): KeyValueItem[] {
     return this.parseKeyValueText(value);
   }
@@ -1766,6 +1868,7 @@ export class App implements OnInit {
     this.requestHeadersRows = this.toEditableRows(request.headers ?? []);
     this.requestQueryRows = this.toEditableRows(request.queryParams ?? []);
     this.requestPathRows = this.toEditableRows(request.pathParams ?? []);
+    this.hydrateAuthFieldsFromConfig();
   }
 
   private resetRequestEditor(): void {
@@ -1788,9 +1891,17 @@ export class App implements OnInit {
     this.requestHeadersRows = [];
     this.requestQueryRows = [];
     this.requestPathRows = [];
+    this.authBearerToken = '';
+    this.authBasicUsername = '';
+    this.authBasicPassword = '';
+    this.authApiKeyName = 'X-API-Key';
+    this.authApiKeyValue = '';
+    this.authApiKeyLocation = 'header';
+    this.authOauthToken = '';
   }
 
   private buildRequestPayload(versionNumber: number): SaveApiRequestPayload {
+    this.syncAuthConfigFromFields();
     return {
       workspaceId: this.selectedWorkspaceId(),
       collectionId: this.selectedCollectionId(),
@@ -1829,6 +1940,57 @@ export class App implements OnInit {
 
   private rowsFromText(value: string): EditableKeyValue[] {
     return this.parseKeyValueText(value).map((item) => this.toEditableKeyValue(item.key, item.value, item.enabled, item.isSecret));
+  }
+
+  private syncAuthConfigFromFields(): void {
+    if (this.requestAuthType === 'Bearer') {
+      this.requestAuthConfigJson = JSON.stringify({ token: this.authBearerToken }, null, 2);
+      return;
+    }
+    if (this.requestAuthType === 'Basic') {
+      this.requestAuthConfigJson = JSON.stringify({ username: this.authBasicUsername, password: this.authBasicPassword }, null, 2);
+      return;
+    }
+    if (this.requestAuthType === 'ApiKey') {
+      this.requestAuthConfigJson = JSON.stringify({ name: this.authApiKeyName, value: this.authApiKeyValue, location: this.authApiKeyLocation }, null, 2);
+      return;
+    }
+    if (this.requestAuthType === 'OAuth2') {
+      this.requestAuthConfigJson = JSON.stringify({ token: this.authOauthToken, grantType: 'manual_bearer' }, null, 2);
+      return;
+    }
+  }
+
+  private hydrateAuthFieldsFromConfig(): void {
+    if (!this.requestAuthConfigJson.trim()) {
+      return;
+    }
+
+    try {
+      const config = JSON.parse(this.requestAuthConfigJson) as Record<string, string>;
+      this.authBearerToken = config['token'] ?? this.authBearerToken;
+      this.authOauthToken = config['token'] ?? this.authOauthToken;
+      this.authBasicUsername = config['username'] ?? this.authBasicUsername;
+      this.authBasicPassword = config['password'] ?? this.authBasicPassword;
+      this.authApiKeyName = config['name'] ?? this.authApiKeyName;
+      this.authApiKeyValue = config['value'] ?? this.authApiKeyValue;
+      this.authApiKeyLocation = config['location'] === 'query' ? 'query' : 'header';
+    } catch {
+      // Keep raw config editable if an older request has non-standard auth JSON.
+    }
+  }
+
+  private upsertKeyValueRow(kind: EditableKeyValueKind, key: string, value: string, isSecret = false): void {
+    const rows = this.rowsFor(kind);
+    const existing = rows.find((row) => row.key.toLowerCase() === key.toLowerCase());
+    if (existing) {
+      existing.value = value;
+      existing.enabled = true;
+      existing.isSecret = isSecret || this.isSensitiveKey(key);
+    } else {
+      rows.unshift(this.toEditableKeyValue(key, value, true, isSecret || this.isSensitiveKey(key)));
+    }
+    this.syncTextFromRows(kind);
   }
 
   private toEditableRows(items: KeyValueItem[]): EditableKeyValue[] {
@@ -1896,6 +2058,16 @@ export class App implements OnInit {
 
   private isSensitiveKey(key: string): boolean {
     return /(password|token|secret|api[-_]?key|authorization|cookie)/i.test(key);
+  }
+
+  private extractVariables(value: string): string[] {
+    return [...value.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)]
+      .map((match) => match[1]?.trim())
+      .filter((item): item is string => !!item);
+  }
+
+  private uniqueValues(values: string[]): string[] {
+    return [...new Set(values)].slice(0, 14);
   }
 
   private normalizeCollectionImport(raw: unknown, fallbackName: string): ImportCollectionPayload {

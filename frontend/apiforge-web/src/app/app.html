@@ -434,6 +434,15 @@
                 <input class="url-input" [(ngModel)]="requestUrl" [placeholder]="'https://api.example.com/users/{{id}}'" />
                 <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">Send</button>
                 <button class="secondary-action" type="button" (click)="saveSelectedRequest()" [disabled]="pageLoading()">Save</button>
+                <button class="ghost-button" type="button" (click)="copyRequestAsCurl()">cURL</button>
+              </div>
+              <div class="request-helper-row">
+                <span>Variables</span>
+                @for (variable of requestVariables(); track variable) {
+                  <button type="button" class="variable-chip" (click)="insertVariableIntoUrl(variable)">{{ '{{' + variable + '}}' }}</button>
+                } @empty {
+                  <small>No variables detected in this request yet.</small>
+                }
               </div>
 
               <div class="request-workbench" [class.context-open]="contextPanelOpen">
@@ -522,8 +531,41 @@
                     </div>
                   } @else if (requestConfigTab === 'Auth') {
                     <div class="auth-config">
-                      <app-premium-select label="Auth type" [options]="authTypeOptions()" [value]="requestAuthType" (valueChange)="requestAuthType = $event"></app-premium-select>
-                      <textarea class="code-textarea" rows="9" [(ngModel)]="requestAuthConfigJson" [placeholder]="'{&quot;token&quot;:&quot;{{token}}&quot;}'"></textarea>
+                      <div class="auth-topline">
+                        <app-premium-select label="Auth type" [options]="authTypeOptions()" [value]="requestAuthType" (valueChange)="onAuthTypeChange($event)"></app-premium-select>
+                        <button class="secondary-action" type="button" (click)="applyAuthToRequest()">Apply to request</button>
+                      </div>
+                      @if (!requestAuthType) {
+                        <app-empty-state title="No authentication selected" description="Choose Bearer, Basic, API key, or OAuth 2.0 to configure request authorization."></app-empty-state>
+                      } @else if (requestAuthType === 'Bearer') {
+                        <div class="auth-card">
+                          <label>Bearer token<input [(ngModel)]="authBearerToken" type="password" [placeholder]="'{{access_token}}'" /></label>
+                          <p>Applied as a secret Authorization header and saved as structured auth JSON.</p>
+                        </div>
+                      } @else if (requestAuthType === 'Basic') {
+                        <div class="auth-card two-cols">
+                          <label>Username<input [(ngModel)]="authBasicUsername" autocomplete="off" placeholder="api-user" /></label>
+                          <label>Password<input [(ngModel)]="authBasicPassword" type="password" autocomplete="off" [placeholder]="'{{password}}'" /></label>
+                        </div>
+                      } @else if (requestAuthType === 'ApiKey') {
+                        <div class="auth-card api-key-card">
+                          <label>Key name<input [(ngModel)]="authApiKeyName" placeholder="X-API-Key" /></label>
+                          <label>Value<input [(ngModel)]="authApiKeyValue" type="password" [placeholder]="'{{api_key}}'" /></label>
+                          <div class="segmented-control">
+                            <button type="button" [class.active]="authApiKeyLocation === 'header'" (click)="authApiKeyLocation = 'header'">Header</button>
+                            <button type="button" [class.active]="authApiKeyLocation === 'query'" (click)="authApiKeyLocation = 'query'">Query</button>
+                          </div>
+                        </div>
+                      } @else if (requestAuthType === 'OAuth2') {
+                        <div class="auth-card">
+                          <label>Access token<input [(ngModel)]="authOauthToken" type="password" [placeholder]="'{{oauth_token}}'" /></label>
+                          <p>OAuth 2.0 full token exchange can be added later; current request execution uses the supplied bearer token.</p>
+                        </div>
+                      }
+                      <details class="raw-auth-config">
+                        <summary>Raw auth JSON</summary>
+                        <textarea class="code-textarea" rows="7" [(ngModel)]="requestAuthConfigJson" [placeholder]="'{&quot;token&quot;:&quot;{{token}}&quot;}'"></textarea>
+                      </details>
                     </div>
                   } @else if (requestConfigTab === 'Body') {
                     <div class="body-toolbar">
@@ -566,8 +608,19 @@
                   </div>
                   @if (responseTab === 'Body') {
                     @if (apiResponse()) {
+                      <div class="response-body-tools">
+                        <div class="segmented-control">
+                          @for (mode of responseViewModes; track mode) {
+                            <button type="button" [class.active]="responseViewMode() === mode" (click)="responseViewMode.set(mode)">{{ mode }}</button>
+                          }
+                        </div>
+                        <label class="response-search">
+                          <input [(ngModel)]="responseSearch" placeholder="Search response" />
+                          <span>{{ responseSearchMatches() }} matches</span>
+                        </label>
+                      </div>
                       <div class="editor-shell">
-                        <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
+                        <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
                       </div>
                     } @else {
                       <div class="response-empty-state">
