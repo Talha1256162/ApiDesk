@@ -514,3 +514,16 @@ export interface OrganizationMember {
   lastActiveOn?: string;
   createdOn: string;
 }
+
+export interface OrganizationRole {
+  id: string;
+  name: string;
+  scope: string;
+}
+
+export interface Invitation {
+  id: string;
+  email: string;
+  status: string;
+  expiresOn: string;
+}

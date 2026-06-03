@@ -78,6 +78,29 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
         return new PagedResult<OrganizationMemberDto>(items, total, request.SafeOffset, request.SafeCount);
     }
 
+    public async Task<IReadOnlyList<OrganizationRoleDto>> GetRolesAsync(CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var roles = await connection.QueryAsync<OrganizationRoleDto>(new CommandDefinition("""
+            select id, name, scope
+            from roles
+            where isDeleted = 0 and isSystemRole = 1
+            order by
+                case name
+                    when 'Owner' then 1
+                    when 'Admin' then 2
+                    when 'Manager' then 3
+                    when 'Team Lead' then 4
+                    when 'Developer' then 5
+                    when 'QA' then 6
+                    when 'Viewer' then 7
+                    when 'Guest' then 8
+                    else 99
+                end;
+            """, cancellationToken: cancellationToken));
+        return roles.AsList();
+    }
+
     public async Task<InvitationDto> InviteAsync(Guid organizationId, InviteMemberRequest request, Guid invitedByUserId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();

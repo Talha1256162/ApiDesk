@@ -1243,6 +1243,29 @@ select option {
   border: 1px solid transparent;
 }
 
+.request-tabs button.dragging,
+.request-tree-item.dragging {
+  opacity: 0.55;
+  outline: 1px dashed var(--accent);
+}
+
+.tab-close {
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  margin-left: auto;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.tab-close:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+}
+
 .tab-strip button {
   min-height: 34px;
   padding: 0 11px;
@@ -1779,6 +1802,12 @@ select option {
   white-space: nowrap;
 }
 
+.response-tree-shell {
+  min-height: 344px;
+  height: 100%;
+  overflow: hidden;
+}
+
 .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -1974,6 +2003,134 @@ select option {
 
 .settings-panel {
   max-width: 560px;
+}
+
+.billing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 18px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.billing-hero h3,
+.pricing-card h3 {
+  margin: 6px 0 4px;
+  font-size: 22px;
+}
+
+.billing-hero p,
+.pricing-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.billing-meter {
+  display: grid;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.billing-meter div {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.billing-meter i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+}
+
+.pricing-grid,
+.team-console {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.team-console {
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+}
+
+.pricing-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.008)),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 20px;
+}
+
+.pricing-card.featured {
+  border-color: var(--accent-border);
+  background:
+    linear-gradient(135deg, rgba(80, 111, 255, 0.16), transparent 44%),
+    var(--surface-card);
+}
+
+.pricing-card > strong {
+  color: var(--text-primary);
+  font-size: 30px;
+}
+
+.pricing-card small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.feature-list {
+  display: grid;
+  gap: 8px;
+}
+
+.feature-list span {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 8px 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.invite-panel {
+  min-height: 214px;
+}
+
+.invite-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 0.8fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.invite-message {
+  grid-column: 1 / 3;
+}
+
+.member-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.danger-action:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .report-grid {
@@ -2210,7 +2367,10 @@ select option {
   .scope-bar,
   .client-layout,
   .json-workbench,
-  .request-config-grid {
+  .request-config-grid,
+  .pricing-grid,
+  .team-console,
+  .billing-hero {
     grid-template-columns: 1fr;
   }
 
@@ -2268,6 +2428,17 @@ select option {
 
   .request-bar {
     grid-template-columns: 1fr;
+  }
+
+  .auth-topline,
+  .auth-card.two-cols,
+  .auth-card.api-key-card,
+  .invite-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .invite-message {
+    grid-column: auto;
   }
 
   .table-row,

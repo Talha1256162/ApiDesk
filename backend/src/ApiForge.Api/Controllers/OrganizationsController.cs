@@ -28,6 +28,12 @@ public sealed class OrganizationsController(IOrganizationService organizationSer
         return FromResult(await organizationService.GetMembersAsync(organizationId, request, cancellationToken));
     }
 
+    [HttpGet("{organizationId:guid}/roles")]
+    public async Task<IActionResult> GetRoles(Guid organizationId, CancellationToken cancellationToken)
+    {
+        return FromResult(await organizationService.GetRolesAsync(organizationId, cancellationToken));
+    }
+
     [HttpPost("{organizationId:guid}/invites")]
     public async Task<IActionResult> Invite(Guid organizationId, InviteMemberRequest request, CancellationToken cancellationToken)
     {

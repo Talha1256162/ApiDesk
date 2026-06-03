@@ -54,6 +54,23 @@ public sealed class OrganizationService(
         return Result<PagedResult<OrganizationMemberDto>>.Success(members);
     }
 
+    public async Task<Result<IReadOnlyList<OrganizationRoleDto>>> GetRolesAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<IReadOnlyList<OrganizationRoleDto>>();
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, organizationId, null, PermissionKeys.ViewTeamActivity, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<IReadOnlyList<OrganizationRoleDto>>(PermissionKeys.ViewTeamActivity);
+        }
+
+        var roles = await organizationRepository.GetRolesAsync(cancellationToken);
+        return Result<IReadOnlyList<OrganizationRoleDto>>.Success(roles);
+    }
+
     public async Task<Result<InvitationDto>> InviteAsync(Guid organizationId, InviteMemberRequest request, CancellationToken cancellationToken)
     {
         if (CurrentUser is null)

@@ -20,3 +20,5 @@ public sealed record InviteMemberRequest(string Email, Guid RoleId, string? Mess
 public sealed record InvitationDto(Guid Id, string Email, string Status, DateTime ExpiresOn);
 
 public sealed record UpdateMemberStatusRequest(string Status);
+
+public sealed record OrganizationRoleDto(Guid Id, string Name, string Scope);

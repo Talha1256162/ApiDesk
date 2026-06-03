@@ -369,7 +369,15 @@
                             <small>{{ group.requests.length }}</small>
                           </div>
                           @for (request of group.requests; track request.id) {
-                            <button class="request-tree-item" [class.active]="selectedRequestId() === request.id" type="button" (click)="selectRequest(request.id)">
+                            <button
+                              class="request-tree-item"
+                              draggable="true"
+                              [class.active]="selectedRequestId() === request.id"
+                              [class.dragging]="draggedRequestId() === request.id"
+                              type="button"
+                              (dragstart)="dragRequestTab(request.id)"
+                              (dragend)="draggedRequestId.set('')"
+                              (click)="selectRequest(request.id)">
                               <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
                               <span>{{ request.name }}</span>
                               <small>{{ request.url }}</small>
@@ -413,13 +421,21 @@
               @if (activeView() === 'api-client') {
               <div class="api-client-toolbar">
                 <div class="request-tabs">
-                  @for (request of filteredRequests(); track request.id) {
-                    <button [class.active]="selectedRequestId() === request.id" (click)="selectRequest(request.id)">
+                  @for (request of openRequestTabs(); track request.id) {
+                    <button
+                      draggable="true"
+                      [class.active]="selectedRequestId() === request.id"
+                      [class.dragging]="draggedRequestId() === request.id"
+                      (dragstart)="dragRequestTab(request.id)"
+                      (dragover)="$event.preventDefault()"
+                      (drop)="dropRequestTab(request.id)"
+                      (click)="selectRequest(request.id)">
                       <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
                       <span>{{ request.name }}</span>
+                      <span class="tab-close" (click)="closeRequestTab(request.id, $event)">x</span>
                     </button>
                   } @empty {
-                    <span class="muted">No requests in selected collection</span>
+                    <span class="muted">Open a request from the collection tree</span>
                   }
                 </div>
                 <div class="api-client-toolbar-actions">
@@ -619,9 +635,15 @@
                           <span>{{ responseSearchMatches() }} matches</span>
                         </label>
                       </div>
-                      <div class="editor-shell">
-                        <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
-                      </div>
+                      @if (responseViewMode() === 'tree' && responseTreeValue()) {
+                        <div class="response-tree-shell">
+                          <app-json-tree [value]="responseTreeValue()" rootLabel="response"></app-json-tree>
+                        </div>
+                      } @else {
+                        <div class="editor-shell">
+                          <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
+                        </div>
+                      }
                     } @else {
                       <div class="response-empty-state">
                         <app-empty-state title="No response yet" description="Send the selected request to inspect body, headers, cookies, timing, and saved history."></app-empty-state>
@@ -979,10 +1001,16 @@
             <div><span class="eyebrow">SaaS control</span><h2>Billing and settings</h2><p>Plan catalog, usage, product name, retention, and API keys are SQL-backed.</p></div>
             <button class="secondary-action" type="button" (click)="loadBillingOverview(); loadOrganizationSettings(); loadApiKeys()">Refresh</button>
           </section>
-          <section class="panel filter-panel">
-            <label>Product name<input [(ngModel)]="settingsProductName" /></label>
-            <label>Audit retention days<input type="number" min="30" max="3650" [(ngModel)]="settingsRetentionDays" /></label>
-            <button class="primary-action" type="button" (click)="saveOrganizationSettings()">Save settings</button>
+          <section class="billing-hero panel">
+            <div>
+              <span class="eyebrow">Current subscription</span>
+              <h3>{{ billingOverview()?.subscription?.planName || 'No plan assigned' }}</h3>
+              <p>{{ billingOverview()?.subscription?.status || 'Use the seeded plans below to assign subscriptions from backend/admin workflows.' }}</p>
+            </div>
+            <div class="billing-meter">
+              <span>{{ billingOverview()?.requestsThisPeriod ?? 0 }} requests this period</span>
+              <div><i [style.width.%]="billingUsagePercent()"></i></div>
+            </div>
           </section>
           <section class="report-grid">
             <article class="panel">
@@ -993,12 +1021,31 @@
                 <div><span>Workspaces</span><strong>{{ billingOverview()?.workspaces ?? 0 }}</strong></div>
                 <div><span>Subscription</span><strong>{{ billingOverview()?.subscription?.planName || 'Not assigned' }}</strong></div>
               </div>
-              @for (plan of billingOverview()?.plans ?? []; track plan.id) {
-                <div class="table-row">
-                  <strong>{{ plan.name }}</strong><span>${{ plan.monthlyPrice }}/mo</span><span>{{ plan.includedRequests }} requests</span><app-badge label="DB plan" tone="accent"></app-badge>
-                </div>
-              }
             </article>
+            <article class="panel settings-panel">
+              <div class="panel-title"><div><span class="eyebrow">Tenant settings</span><h3>Organization controls</h3></div></div>
+              <label>Product name<input [(ngModel)]="settingsProductName" /></label>
+              <label>Audit retention days<input type="number" min="30" max="3650" [(ngModel)]="settingsRetentionDays" /></label>
+              <button class="primary-action wide" type="button" (click)="saveOrganizationSettings()">Save settings</button>
+            </article>
+          </section>
+          <section class="pricing-grid">
+              @for (plan of billingOverview()?.plans ?? []; track plan.id) {
+                <article class="pricing-card" [class.featured]="plan.code === 'business'">
+                  <span class="eyebrow">{{ plan.code }}</span>
+                  <h3>{{ plan.name }}</h3>
+                  <strong>${{ plan.monthlyPrice }}<small>/mo</small></strong>
+                  <p>{{ plan.includedRequests }} included requests · {{ plan.includedMembers || 'Unlimited' }} members</p>
+                  <div class="feature-list">
+                    @for (feature of planFeatures(plan); track feature) {
+                      <span>{{ feature }}</span>
+                    }
+                  </div>
+                  <app-badge [label]="billingOverview()?.subscription?.billingPlanId === plan.id ? 'Current plan' : 'Available plan'" [tone]="billingOverview()?.subscription?.billingPlanId === plan.id ? 'success' : 'accent'"></app-badge>
+                </article>
+              }
+          </section>
+          <section class="report-grid">
             <article class="panel">
               <div class="panel-title"><div><span class="eyebrow">API access</span><h3>API keys</h3></div></div>
               <div class="toolbar"><input [(ngModel)]="apiKeyName" placeholder="Key name" /><button class="secondary-action" type="button" (click)="createApiKey()">Create key</button></div>
@@ -1129,7 +1176,26 @@
               <h2>Team and roles</h2>
               <p>Organization members are loaded from the secured members API and displayed with status, role, and activity signals.</p>
             </div>
-            <button class="primary-action" type="button" (click)="notifyPhase('Invite creation is available in the API; the drawer workflow is next.')">Invite member</button>
+            <button class="secondary-action" type="button" (click)="loadMembers(); loadOrganizationRoles()">Refresh team</button>
+          </section>
+          <section class="team-console">
+            <article class="panel invite-panel">
+              <div class="panel-title"><div><span class="eyebrow">Invite workflow</span><h3>Add a member</h3></div></div>
+              <div class="invite-grid">
+                <label>Email<input [(ngModel)]="inviteEmail" type="email" placeholder="qa.lead@company.com" /></label>
+                <app-premium-select label="Role" [options]="roleOptions()" [value]="inviteRoleId" (valueChange)="inviteRoleId = $event"></app-premium-select>
+                <label class="invite-message">Message<input [(ngModel)]="inviteMessage" placeholder="Join the Platform APIs workspace review." /></label>
+                <button class="primary-action" type="button" (click)="inviteMember()" [disabled]="pageLoading()">Send invite</button>
+              </div>
+            </article>
+            <article class="panel invite-panel">
+              <div class="panel-title"><div><span class="eyebrow">Pending</span><h3>Recent invitations</h3></div></div>
+              @for (invite of invitations(); track invite.id) {
+                <div class="table-row compact"><strong>{{ invite.email }}</strong><span>{{ invite.status }}</span><span>Expires {{ invite.expiresOn | date:'mediumDate' }}</span></div>
+              } @empty {
+                <app-empty-state title="No pending invites" description="New invitations created from this screen appear here immediately."></app-empty-state>
+              }
+            </article>
           </section>
           <section class="member-grid">
             @for (member of members(); track member.id) {
@@ -1142,6 +1208,11 @@
                 <app-badge [label]="member.roleName" tone="accent"></app-badge>
                 <app-badge [label]="member.status" [tone]="member.status === 'Active' ? 'success' : 'default'"></app-badge>
                 <small>Last active {{ member.lastActiveOn ? (member.lastActiveOn | date:'short') : 'not recorded' }}</small>
+                <div class="member-actions">
+                  <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Active')" [disabled]="member.status === 'Active'">Activate</button>
+                  <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Suspended')" [disabled]="member.status === 'Suspended'">Suspend</button>
+                  <button class="ghost-button danger-action" type="button" (click)="updateMemberStatus(member, 'Removed')" [disabled]="member.status === 'Removed'">Remove</button>
+                </div>
               </article>
             } @empty {
               <app-empty-state title="No team members" description="Members will appear here after users join the organization."></app-empty-state>

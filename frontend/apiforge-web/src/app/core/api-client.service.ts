@@ -31,7 +31,9 @@ import {
   Monitor,
   MonitorRun,
   Organization,
+  Invitation,
   OrganizationMember,
+  OrganizationRole,
   OrganizationSaasSettings,
   PublishedDoc,
   PagedResult,
@@ -216,6 +218,18 @@ export class ApiClientService {
     return this.http.get<ApiResult<PagedResult<OrganizationMember>>>(`${this.apiBaseUrl}/organizations/${organizationId}/members`, {
       params: new HttpParams().set('count', 100)
     });
+  }
+
+  organizationRoles(organizationId: string) {
+    return this.http.get<ApiResult<OrganizationRole[]>>(`${this.apiBaseUrl}/organizations/${organizationId}/roles`);
+  }
+
+  inviteMember(organizationId: string, payload: { email: string; roleId: string; message?: string }) {
+    return this.http.post<ApiResult<Invitation>>(`${this.apiBaseUrl}/organizations/${organizationId}/invites`, payload);
+  }
+
+  updateMemberStatus(organizationId: string, memberId: string, status: string) {
+    return this.http.patch<ApiResult<unknown>>(`${this.apiBaseUrl}/organizations/${organizationId}/members/${memberId}/status`, { status });
   }
 
   sendRequest(requestId: string, environmentId?: string) {

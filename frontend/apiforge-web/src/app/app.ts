@@ -16,6 +16,7 @@ import {
   ApiSpecValidation,
   ApiKeyModel,
   BillingOverview,
+  BillingPlan,
   CommentModel,
   Collection,
   CollectionRunResult,
@@ -23,6 +24,7 @@ import {
   ImportApiRequestPayload,
   ImportApiRequestWithFolderPayload,
   ImportCollectionPayload,
+  Invitation,
   KeyValueItem,
   ManagerSummary,
   MockLog,
@@ -32,6 +34,7 @@ import {
   MonitorRun,
   Organization,
   OrganizationMember,
+  OrganizationRole,
   OrganizationSaasSettings,
   PublishedDoc,
   RequestRun,
@@ -43,6 +46,7 @@ import { DeveloperToolsService, JsonDiff, JsonStats } from './features/developer
 import { MonacoEditorComponent } from './shared/monaco-editor.component';
 import { BadgeComponent } from './shared/ui/badge.component';
 import { EmptyStateComponent } from './shared/ui/empty-state.component';
+import { JsonTreeComponent } from './shared/ui/json-tree.component';
 import { PremiumSelectComponent, PremiumSelectOption } from './shared/ui/premium-select.component';
 import { SkeletonComponent } from './shared/ui/skeleton.component';
 import { StatCardComponent } from './shared/ui/stat-card.component';
@@ -91,6 +95,7 @@ type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummar
     MonacoEditorComponent,
     BadgeComponent,
     EmptyStateComponent,
+    JsonTreeComponent,
     PremiumSelectComponent,
     SkeletonComponent,
     StatCardComponent,
@@ -137,6 +142,8 @@ export class App implements OnInit {
   readonly saasSettings = signal<OrganizationSaasSettings | null>(null);
   readonly apiKeys = signal<ApiKeyModel[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
+  readonly organizationRoles = signal<OrganizationRole[]>([]);
+  readonly invitations = signal<Invitation[]>([]);
   readonly requestHistory = signal<RequestRun[]>([]);
   readonly dashboard = signal<WorkspaceDashboard | null>(null);
   readonly managerSummary = signal<ManagerSummary | null>(null);
@@ -150,6 +157,8 @@ export class App implements OnInit {
   readonly selectedCollectionId = signal('');
   readonly selectedRequestId = signal('');
   readonly selectedEnvironmentId = signal('');
+  readonly openRequestIds = signal<string[]>([]);
+  readonly draggedRequestId = signal('');
 
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
@@ -212,6 +221,26 @@ export class App implements OnInit {
     return body;
   });
   readonly responseViewerLanguage = computed(() => (this.responseViewMode() === 'tree' || !this.looksLikeJson(this.responseViewerBody()) ? 'plaintext' : 'json'));
+  readonly responseTreeValue = computed(() => {
+    const body = this.responseBody() || this.apiResponse()?.body || '';
+    if (!body || !this.looksLikeJson(body)) {
+      return null;
+    }
+    try {
+      return JSON.parse(body) as unknown;
+    } catch {
+      return null;
+    }
+  });
+  readonly openRequestTabs = computed(() => {
+    const requests = this.requests();
+    const selectedId = this.selectedRequestId();
+    const ids = this.openRequestIds().filter((id) => requests.some((request) => request.id === id));
+    const normalized = selectedId && !ids.includes(selectedId) ? [selectedId, ...ids] : ids;
+    return normalized
+      .map((id) => requests.find((request) => request.id === id))
+      .filter((request): request is ApiRequestSummary => !!request);
+  });
   readonly canSendRequest = computed(
     () => !!this.selectedRequestId() && !this.pageLoading() && (!this.selectedRequestNeedsEnvironment() || !!this.selectedEnvironmentId())
   );
@@ -276,6 +305,7 @@ export class App implements OnInit {
     { value: '', label: 'All members', meta: 'Organization team' },
     ...this.members().map((member) => ({ value: member.userId, label: member.fullName, meta: member.roleName }))
   ]);
+  readonly roleOptions = computed<PremiumSelectOption[]>(() => this.organizationRoles().map((role) => ({ value: role.id, label: role.name, meta: role.scope })));
   readonly activityStatusOptions = computed<PremiumSelectOption[]>(() => [
     { value: '', label: 'Any status', meta: 'Success and failure' },
     { value: 'Success', label: 'Success', meta: 'Completed events' },
@@ -404,6 +434,9 @@ export class App implements OnInit {
   activityUserFilter = '';
   activityEventFilter = '';
   activityStatusFilter = '';
+  inviteEmail = '';
+  inviteRoleId = '';
+  inviteMessage = '';
   commentText = '';
   mockName = '';
   mockDelayMs = 0;
@@ -521,12 +554,15 @@ export class App implements OnInit {
     this.saasSettings.set(null);
     this.apiKeys.set([]);
     this.members.set([]);
+    this.organizationRoles.set([]);
+    this.invitations.set([]);
     this.requestHistory.set([]);
     this.dashboard.set(null);
     this.managerSummary.set(null);
     this.apiResponse.set(null);
     this.collectionRun.set(null);
     this.responseBody.set('');
+    this.openRequestIds.set([]);
     this.resetRequestEditor();
     this.activeView.set('dashboard');
     void this.hub?.stop();
@@ -629,6 +665,7 @@ export class App implements OnInit {
     this.loadManagerActivity();
     this.loadAuditLogs();
     this.loadMembers();
+    this.loadOrganizationRoles();
     this.loadPhase3Data();
     this.joinRealtimeWorkspace();
   }
@@ -698,6 +735,9 @@ export class App implements OnInit {
         if (!this.selectedRequestId()) {
           this.selectedRequestId.set(this.requests()[0]?.id ?? '');
         }
+        if (this.selectedRequestId()) {
+          this.rememberOpenRequest(this.selectedRequestId());
+        }
         this.loadRequestDetail();
       },
       error: () => this.showToast('Requests failed', 'Could not load collection requests.', 'danger')
@@ -706,12 +746,51 @@ export class App implements OnInit {
 
   selectRequest(requestId: string): void {
     this.selectedRequestId.set(requestId);
+    this.rememberOpenRequest(requestId);
     this.requestDetail.set(null);
     this.requestHistory.set([]);
     this.apiResponse.set(null);
     this.responseBody.set('');
     this.collectionRun.set(null);
     this.loadRequestDetail();
+  }
+
+  closeRequestTab(requestId: string, event: Event): void {
+    event.stopPropagation();
+    const remaining = this.openRequestIds().filter((id) => id !== requestId);
+    this.openRequestIds.set(remaining);
+    if (this.selectedRequestId() === requestId) {
+      const nextId = remaining[0] ?? this.requests()[0]?.id ?? '';
+      this.selectedRequestId.set(nextId);
+      if (nextId) {
+        this.loadRequestDetail();
+      } else {
+        this.resetRequestEditor();
+        this.requestDetail.set(null);
+      }
+    }
+  }
+
+  dragRequestTab(requestId: string): void {
+    this.draggedRequestId.set(requestId);
+  }
+
+  dropRequestTab(targetRequestId: string): void {
+    const sourceId = this.draggedRequestId();
+    if (!sourceId || sourceId === targetRequestId) {
+      this.draggedRequestId.set('');
+      return;
+    }
+
+    const ids = [...this.openRequestIds()];
+    const from = ids.indexOf(sourceId);
+    const to = ids.indexOf(targetRequestId);
+    if (from > -1 && to > -1) {
+      ids.splice(from, 1);
+      ids.splice(to, 0, sourceId);
+      this.openRequestIds.set(ids);
+    }
+    this.draggedRequestId.set('');
   }
 
   loadRequestDetail(): void {
@@ -817,6 +896,77 @@ export class App implements OnInit {
     this.api.members(this.selectedOrganizationId()).subscribe({
       next: (result) => this.members.set(result.data?.items ?? []),
       error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
+    });
+  }
+
+  loadOrganizationRoles(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.organizationRoles(this.selectedOrganizationId()).subscribe({
+      next: (result) => {
+        this.organizationRoles.set(result.data ?? []);
+        if (!this.inviteRoleId) {
+          this.inviteRoleId = this.organizationRoles().find((role) => role.name === 'Developer')?.id ?? this.organizationRoles()[0]?.id ?? '';
+        }
+      },
+      error: () => this.showToast('Roles failed', 'Could not load organization roles.', 'danger')
+    });
+  }
+
+  inviteMember(): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+    if (!this.inviteEmail.trim() || !this.inviteRoleId) {
+      this.showToast('Invite incomplete', 'Email and role are required.', 'danger');
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.inviteMember(this.selectedOrganizationId(), {
+      email: this.inviteEmail.trim(),
+      roleId: this.inviteRoleId,
+      message: this.inviteMessage.trim() || undefined
+    }).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Invite failed', result.message, 'danger');
+          return;
+        }
+        this.invitations.update((items) => [result.data, ...items]);
+        this.inviteEmail = '';
+        this.inviteMessage = '';
+        this.loadActivity();
+        this.loadManagerActivity();
+        this.showToast('Invitation created', `${result.data.email} was invited.`, 'success');
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Invite failed', error?.error?.message ?? 'Could not create invitation.', 'danger');
+      }
+    });
+  }
+
+  updateMemberStatus(member: OrganizationMember, status: string): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+
+    this.api.updateMemberStatus(this.selectedOrganizationId(), member.id, status).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Status failed', result.message, 'danger');
+          return;
+        }
+        this.members.update((items) => items.map((item) => item.id === member.id ? { ...item, status } : item));
+        this.loadActivity();
+        this.loadManagerActivity();
+        this.showToast('Member updated', `${member.fullName} is now ${status}.`, 'success');
+      },
+      error: (error) => this.showToast('Status failed', error?.error?.message ?? 'Could not update member status.', 'danger')
     });
   }
 
@@ -1828,6 +1978,21 @@ export class App implements OnInit {
     return body.split(search).length - 1;
   }
 
+  billingUsagePercent(): number {
+    const overview = this.billingOverview();
+    const limit = overview?.plans.find((plan) => plan.id === overview.subscription?.billingPlanId)?.includedRequests ?? 50000;
+    return Math.min(100, Math.round(((overview?.requestsThisPeriod ?? 0) / Math.max(1, limit)) * 100));
+  }
+
+  planFeatures(plan: BillingPlan): string[] {
+    try {
+      const parsed = JSON.parse(plan.featuresJson) as unknown;
+      return Array.isArray(parsed) ? parsed.map((item) => String(item)) : [];
+    } catch {
+      return [];
+    }
+  }
+
   keyValuePreviewRows(value: string): KeyValueItem[] {
     return this.parseKeyValueText(value);
   }
@@ -1995,6 +2160,14 @@ export class App implements OnInit {
 
   private toEditableRows(items: KeyValueItem[]): EditableKeyValue[] {
     return items.map((item) => this.toEditableKeyValue(item.key, item.value, item.enabled, item.isSecret));
+  }
+
+  private rememberOpenRequest(requestId: string): void {
+    if (!requestId) {
+      return;
+    }
+
+    this.openRequestIds.update((ids) => [requestId, ...ids.filter((id) => id !== requestId)].slice(0, 9));
   }
 
   private toEditableKeyValue(key: string, value?: string, enabled = true, isSecret?: boolean): EditableKeyValue {
