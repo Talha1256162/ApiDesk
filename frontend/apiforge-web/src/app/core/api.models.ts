@@ -101,6 +101,7 @@ export interface ApiRequestSummary {
   id: string;
   collectionId: string;
   folderId?: string;
+  folderName?: string;
   name: string;
   method: string;
   url: string;

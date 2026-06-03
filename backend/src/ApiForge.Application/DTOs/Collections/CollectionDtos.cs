@@ -20,7 +20,7 @@ public sealed record UpdateCollectionRequest(string Name, string? Description, i
 public sealed record FolderDto(Guid Id, Guid CollectionId, Guid? ParentFolderId, string Name, int SortOrder, DateTime CreatedOn);
 public sealed record CreateFolderRequest(string Name, Guid? ParentFolderId, int SortOrder);
 
-public sealed record ApiRequestSummaryDto(Guid Id, Guid CollectionId, Guid? FolderId, string Name, string Method, string Url, DateTime ModifiedOn);
+public sealed record ApiRequestSummaryDto(Guid Id, Guid CollectionId, Guid? FolderId, string? FolderName, string Name, string Method, string Url, DateTime ModifiedOn);
 
 public sealed record ApiRequestDetailDto(
     Guid Id,

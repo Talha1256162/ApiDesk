@@ -83,10 +83,11 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
     {
         using var connection = connectionFactory.CreateConnection();
         var rows = await connection.QueryAsync<ApiRequestSummaryDto>(new CommandDefinition("""
-            select id, collectionId, folderId, name, method, url, coalesce(modifiedOn, createdOn) as modifiedOn
-            from requests
-            where collectionId = @CollectionId and isDeleted = 0
-            order by coalesce(modifiedOn, createdOn) desc;
+            select r.id, r.collectionId, r.folderId, f.name as folderName, r.name, r.method, r.url, coalesce(r.modifiedOn, r.createdOn) as modifiedOn
+            from requests r
+            left join folders f on f.id = r.folderId and f.isDeleted = 0
+            where r.collectionId = @CollectionId and r.isDeleted = 0
+            order by coalesce(f.sortOrder, 0), f.name, coalesce(r.modifiedOn, r.createdOn) desc;
             """,
             new { CollectionId = collectionId },
             cancellationToken: cancellationToken));

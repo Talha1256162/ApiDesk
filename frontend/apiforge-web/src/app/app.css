@@ -719,6 +719,11 @@ select option {
   padding: 36px 0 62px;
 }
 
+.content.client-content {
+  width: min(1540px, calc(100vw - 286px));
+  padding-top: 30px;
+}
+
 .scope-bar {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -1006,16 +1011,22 @@ select option {
 
 .client-layout {
   display: grid;
-  grid-template-columns: 276px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
 }
 
 .collection-rail {
   min-width: 0;
+  position: sticky;
+  top: 88px;
+  max-height: calc(100vh - 118px);
+  overflow: auto;
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-card);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--surface-card);
   padding: 14px;
 }
 
@@ -1045,6 +1056,17 @@ select option {
   padding: 10px;
 }
 
+.collection-tree-node {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.collection-tree-node.active {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+}
+
 .collection-rail button strong,
 .request-tabs button span {
   min-width: 0;
@@ -1058,6 +1080,58 @@ select option {
 .collection-rail button span {
   color: var(--text-tertiary);
   font-size: 12px;
+}
+
+.request-tree {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+  margin: 2px 8px 10px;
+  padding-top: 10px;
+}
+
+.request-search {
+  margin-bottom: 0;
+}
+
+.request-tree-group {
+  display: grid;
+  gap: 6px;
+}
+
+.request-tree-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.request-tree-group-title span,
+.request-tree-group-title small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.collection-rail .request-tree-item {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.018);
+  padding: 8px;
+}
+
+.request-tree-item small {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .collection-rail button.active,
@@ -1132,6 +1206,18 @@ select option {
   margin-bottom: 12px;
 }
 
+.api-client-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.request-inline-search {
+  width: 220px;
+  min-height: 38px;
+}
+
 .api-client-toolbar .request-tabs {
   margin-bottom: 0;
 }
@@ -1148,7 +1234,7 @@ select option {
 }
 
 .request-tabs button {
-  min-width: 154px;
+  min-width: 178px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1166,7 +1252,7 @@ select option {
 
 .request-bar {
   display: grid;
-  grid-template-columns: 128px minmax(260px, 1fr) 96px 88px;
+  grid-template-columns: 150px minmax(380px, 1fr) 112px 96px;
   gap: 10px;
   margin-bottom: 16px;
   border: 1px solid var(--border-subtle);
@@ -1190,10 +1276,14 @@ select option {
 
 .request-workbench {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(278px, 320px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   align-items: start;
   min-width: 0;
+}
+
+.request-workbench.context-open {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
 }
 
 .request-main {
@@ -1218,12 +1308,12 @@ select option {
 }
 
 .request-config {
-  min-height: 360px;
+  min-height: 430px;
   overflow: visible;
 }
 
 .response-panel {
-  min-height: 430px;
+  min-height: 500px;
 }
 
 .response-panel {
@@ -1253,7 +1343,7 @@ select option {
 }
 
 .editor-shell {
-  min-height: 286px;
+  min-height: 344px;
   height: 100%;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
@@ -1271,7 +1361,7 @@ select option {
 }
 
 .request-editor {
-  min-height: 356px;
+  min-height: 430px;
 }
 
 .body-toolbar {
@@ -1348,8 +1438,8 @@ select option {
 .editable-kv-table {
   display: grid;
   gap: 6px;
-  min-height: 168px;
-  max-height: 286px;
+  min-height: 220px;
+  max-height: 420px;
   overflow: auto;
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
@@ -1360,8 +1450,8 @@ select option {
 }
 
 .large-kv-table {
-  min-height: 268px;
-  max-height: 384px;
+  min-height: 420px;
+  max-height: 560px;
 }
 
 .editable-kv-head,

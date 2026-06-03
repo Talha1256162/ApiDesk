@@ -79,6 +79,7 @@ type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Sett
 type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
 type EditableKeyValue = KeyValueItem & { id: string };
 type EditableKeyValueKind = 'headers' | 'query' | 'path';
+type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummary[] };
 
 @Component({
   selector: 'app-root',
@@ -153,6 +154,36 @@ export class App implements OnInit {
   readonly selectedRequestSummary = computed(() => this.requests().find((request) => request.id === this.selectedRequestId()));
   readonly selectedRequest = computed(() => this.requestDetail() ?? this.selectedRequestSummary());
   readonly selectedRequestNeedsEnvironment = computed(() => (this.selectedRequest()?.url ?? '').includes('{{'));
+  readonly filteredCollections = computed(() => {
+    const search = this.collectionSearch.trim().toLowerCase();
+    if (!search) {
+      return this.collections();
+    }
+    return this.collections().filter((collection) =>
+      [collection.name, collection.description, collection.ownerName].some((value) => (value ?? '').toLowerCase().includes(search))
+    );
+  });
+  readonly filteredRequests = computed(() => {
+    const search = this.requestSearch.trim().toLowerCase();
+    if (!search) {
+      return this.requests();
+    }
+    return this.requests().filter((request) =>
+      [request.name, request.method, request.url].some((value) => (value ?? '').toLowerCase().includes(search))
+    );
+  });
+  readonly requestTreeGroups = computed<RequestTreeGroup[]>(() => {
+    const groups = new Map<string, ApiRequestSummary[]>();
+    for (const request of this.filteredRequests()) {
+      const key = request.folderId || 'root';
+      groups.set(key, [...(groups.get(key) ?? []), request]);
+    }
+    return [...groups.entries()].map(([key, requests]) => ({
+      key,
+      label: key === 'root' ? 'Root requests' : requests[0]?.folderName || `Folder ${key.slice(0, 8)}`,
+      requests
+    }));
+  });
   readonly canSendRequest = computed(
     () => !!this.selectedRequestId() && !this.pageLoading() && (!this.selectedRequestNeedsEnvironment() || !!this.selectedEnvironmentId())
   );
@@ -297,6 +328,9 @@ export class App implements OnInit {
   registerOrganization = '';
   registerWorkspace = '';
   globalSearch = '';
+  collectionSearch = '';
+  requestSearch = '';
+  contextPanelOpen = false;
 
   jsonTab: (typeof this.jsonTabs)[number] = 'Beautify';
   jsonInput = '';
@@ -499,6 +533,7 @@ export class App implements OnInit {
     this.requestDetail.set(null);
     this.requestHistory.set([]);
     this.collectionRun.set(null);
+    this.requestSearch = '';
     this.resetRequestEditor();
     this.loadRequests();
   }

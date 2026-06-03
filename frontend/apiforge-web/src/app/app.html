@@ -128,7 +128,7 @@
         </div>
       </header>
 
-      <main class="content">
+      <main class="content" [class.client-content]="activeView() === 'api-client'">
         <section class="scope-bar">
           <app-premium-select label="Organization" [options]="organizationOptions()" [value]="selectedOrganizationId()" (valueChange)="onOrganizationChange($event)"></app-premium-select>
           <app-premium-select label="Workspace" [options]="workspaceOptions()" [value]="selectedWorkspaceId()" (valueChange)="onWorkspaceChange($event)"></app-premium-select>
@@ -351,13 +351,37 @@
                   <input type="file" accept="application/json,.json" (change)="importCollectionFile($event)" hidden />
                 </label>
               </div>
-              <input class="rail-search" placeholder="Search collections" [(ngModel)]="globalSearch" />
+              <input class="rail-search" placeholder="Search collections" [(ngModel)]="collectionSearch" />
 
-              @for (collection of collections(); track collection.id) {
-                <button [class.active]="selectedCollectionId() === collection.id" (click)="onCollectionChange(collection.id)">
-                  <strong>{{ collection.name }}</strong>
-                  <span>{{ collection.requestCount }} requests &middot; v{{ collection.versionNumber }}</span>
-                </button>
+              @for (collection of filteredCollections(); track collection.id) {
+                <div class="collection-tree-node" [class.active]="selectedCollectionId() === collection.id">
+                  <button [class.active]="selectedCollectionId() === collection.id" (click)="onCollectionChange(collection.id)">
+                    <strong>{{ collection.name }}</strong>
+                    <span>{{ collection.requestCount }} requests &middot; v{{ collection.versionNumber }}</span>
+                  </button>
+                  @if (selectedCollectionId() === collection.id) {
+                    <div class="request-tree">
+                      <input class="rail-search request-search" placeholder="Search requests in collection" [(ngModel)]="requestSearch" />
+                      @for (group of requestTreeGroups(); track group.key) {
+                        <div class="request-tree-group">
+                          <div class="request-tree-group-title">
+                            <span>{{ group.label }}</span>
+                            <small>{{ group.requests.length }}</small>
+                          </div>
+                          @for (request of group.requests; track request.id) {
+                            <button class="request-tree-item" [class.active]="selectedRequestId() === request.id" type="button" (click)="selectRequest(request.id)">
+                              <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
+                              <span>{{ request.name }}</span>
+                              <small>{{ request.url }}</small>
+                            </button>
+                          }
+                        </div>
+                      } @empty {
+                        <div class="compact-empty">No requests match this search.</div>
+                      }
+                    </div>
+                  }
+                </div>
               } @empty {
                 <app-empty-state title="No collections" description="Collections will appear here after they are created through the API."></app-empty-state>
               }
@@ -389,7 +413,7 @@
               @if (activeView() === 'api-client') {
               <div class="api-client-toolbar">
                 <div class="request-tabs">
-                  @for (request of requests(); track request.id) {
+                  @for (request of filteredRequests(); track request.id) {
                     <button [class.active]="selectedRequestId() === request.id" (click)="selectRequest(request.id)">
                       <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
                       <span>{{ request.name }}</span>
@@ -398,7 +422,11 @@
                     <span class="muted">No requests in selected collection</span>
                   }
                 </div>
-                <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
+                <div class="api-client-toolbar-actions">
+                  <input class="request-inline-search" placeholder="Search requests" [(ngModel)]="requestSearch" />
+                  <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
+                  <button class="ghost-button compact-action" type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>
+                </div>
               </div>
 
               <div class="request-bar">
@@ -408,7 +436,7 @@
                 <button class="secondary-action" type="button" (click)="saveSelectedRequest()" [disabled]="pageLoading()">Save</button>
               </div>
 
-              <div class="request-workbench">
+              <div class="request-workbench" [class.context-open]="contextPanelOpen">
                 <section class="request-main">
                 <article class="panel request-config">
                   <div class="tab-strip">
@@ -601,6 +629,7 @@
                 </article>
                 </section>
 
+                @if (contextPanelOpen) {
                 <aside class="context-panel">
                   <article class="panel">
                     <span class="eyebrow">Request context</span>
@@ -641,6 +670,7 @@
                     }
                   </article>
                 </aside>
+                }
               </div>
               }
             </section>
