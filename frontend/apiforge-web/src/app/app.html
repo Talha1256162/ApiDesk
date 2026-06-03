@@ -385,15 +385,18 @@
               }
 
               @if (activeView() === 'api-client') {
-              <div class="request-tabs">
-                @for (request of requests(); track request.id) {
-                  <button [class.active]="selectedRequestId() === request.id" (click)="selectRequest(request.id)">
-                    <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
-                    <span>{{ request.name }}</span>
-                  </button>
-                } @empty {
-                  <span class="muted">No requests in selected collection</span>
-                }
+              <div class="api-client-toolbar">
+                <div class="request-tabs">
+                  @for (request of requests(); track request.id) {
+                    <button [class.active]="selectedRequestId() === request.id" (click)="selectRequest(request.id)">
+                      <app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge>
+                      <span>{{ request.name }}</span>
+                    </button>
+                  } @empty {
+                    <span class="muted">No requests in selected collection</span>
+                  }
+                </div>
+                <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
               </div>
 
               <div class="request-bar">
@@ -417,39 +420,75 @@
                   } @else if (requestConfigTab === 'Params') {
                     <div class="request-config-grid">
                       <section class="kv-editor-card">
-                        <div class="mini-panel-title"><h3>Query params</h3><span>{{ keyValuePreviewRows(requestQueryText).length }} active</span></div>
-                        <div class="kv-preview">
-                          @for (item of keyValuePreviewRows(requestQueryText); track item.key) {
-                            <div class="kv-preview-row"><code>{{ item.key }}</code><span>{{ maskValue(item.value, item.isSecret) }}</span></div>
+                        <div class="mini-panel-title">
+                          <h3>Query params</h3>
+                          <div class="mini-panel-actions">
+                            <span>{{ requestQueryRows.length }} rows</span>
+                            <button class="ghost-button mini-button" type="button" (click)="addKeyValueRow('query')">Add</button>
+                          </div>
+                        </div>
+                        <div class="editable-kv-table">
+                          <div class="editable-kv-head"><span></span><span>Key</span><span>Value</span><span>Secret</span><span></span></div>
+                          @for (row of requestQueryRows; track row.id) {
+                            <div class="editable-kv-row" [class.disabled-row]="row.enabled === false">
+                              <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="syncTextFromRows('query')" />
+                              <input [(ngModel)]="row.key" (ngModelChange)="row.isSecret = row.isSecret || false; syncTextFromRows('query')" placeholder="limit" />
+                              <input [(ngModel)]="row.value" (ngModelChange)="syncTextFromRows('query')" [type]="row.isSecret ? 'password' : 'text'" placeholder="25" />
+                              <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="syncTextFromRows('query')" />
+                              <button class="icon-action" type="button" (click)="removeKeyValueRow('query', row.id)" aria-label="Remove query param">x</button>
+                            </div>
                           } @empty {
-                            <div class="compact-empty">No query params</div>
+                            <button class="compact-empty action-empty" type="button" (click)="addKeyValueRow('query')">Add query parameter</button>
                           }
                         </div>
-                        <textarea class="code-textarea compact-bulk-editor" rows="5" [(ngModel)]="requestQueryText" placeholder="limit: 25&#10;status: active"></textarea>
                       </section>
                       <section class="kv-editor-card">
-                        <div class="mini-panel-title"><h3>Path params</h3><span>{{ keyValuePreviewRows(requestPathText).length }} active</span></div>
-                        <div class="kv-preview">
-                          @for (item of keyValuePreviewRows(requestPathText); track item.key) {
-                            <div class="kv-preview-row"><code>{{ item.key }}</code><span>{{ maskValue(item.value, item.isSecret) }}</span></div>
+                        <div class="mini-panel-title">
+                          <h3>Path params</h3>
+                          <div class="mini-panel-actions">
+                            <span>{{ requestPathRows.length }} rows</span>
+                            <button class="ghost-button mini-button" type="button" (click)="addKeyValueRow('path')">Add</button>
+                          </div>
+                        </div>
+                        <div class="editable-kv-table">
+                          <div class="editable-kv-head"><span></span><span>Key</span><span>Value</span><span>Secret</span><span></span></div>
+                          @for (row of requestPathRows; track row.id) {
+                            <div class="editable-kv-row" [class.disabled-row]="row.enabled === false">
+                              <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="syncTextFromRows('path')" />
+                              <input [(ngModel)]="row.key" (ngModelChange)="syncTextFromRows('path')" placeholder="id" />
+                              <input [(ngModel)]="row.value" (ngModelChange)="syncTextFromRows('path')" [type]="row.isSecret ? 'password' : 'text'" placeholder="123" />
+                              <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="syncTextFromRows('path')" />
+                              <button class="icon-action" type="button" (click)="removeKeyValueRow('path', row.id)" aria-label="Remove path param">x</button>
+                            </div>
                           } @empty {
-                            <div class="compact-empty">No path params</div>
+                            <button class="compact-empty action-empty" type="button" (click)="addKeyValueRow('path')">Add path parameter</button>
                           }
                         </div>
-                        <textarea class="code-textarea compact-bulk-editor" rows="5" [(ngModel)]="requestPathText" placeholder="id: 123&#10;accountId: abc"></textarea>
                       </section>
                     </div>
                   } @else if (requestConfigTab === 'Headers') {
                     <div class="kv-editor-card">
-                      <div class="mini-panel-title"><h3>Headers</h3><span>{{ keyValuePreviewRows(requestHeadersText).length }} active</span></div>
-                      <div class="kv-preview large-preview">
-                        @for (item of keyValuePreviewRows(requestHeadersText); track item.key) {
-                          <div class="kv-preview-row"><code>{{ item.key }}</code><span>{{ maskValue(item.value, item.isSecret) }}</span></div>
+                      <div class="mini-panel-title">
+                        <h3>Headers</h3>
+                        <div class="mini-panel-actions">
+                          <span>{{ requestHeadersRows.length }} rows</span>
+                          <button class="ghost-button mini-button" type="button" (click)="addKeyValueRow('headers')">Add</button>
+                        </div>
+                      </div>
+                      <div class="editable-kv-table large-kv-table">
+                        <div class="editable-kv-head"><span></span><span>Header</span><span>Value</span><span>Secret</span><span></span></div>
+                        @for (row of requestHeadersRows; track row.id) {
+                          <div class="editable-kv-row" [class.disabled-row]="row.enabled === false">
+                            <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="syncTextFromRows('headers')" />
+                            <input [(ngModel)]="row.key" (ngModelChange)="row.isSecret = row.isSecret || false; syncTextFromRows('headers')" placeholder="Authorization" />
+                            <input [(ngModel)]="row.value" (ngModelChange)="syncTextFromRows('headers')" [type]="row.isSecret ? 'password' : 'text'" [placeholder]="'Bearer {{token}}'" />
+                            <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="syncTextFromRows('headers')" />
+                            <button class="icon-action" type="button" (click)="removeKeyValueRow('headers', row.id)" aria-label="Remove header">x</button>
+                          </div>
                         } @empty {
-                          <div class="compact-empty">No headers configured</div>
+                          <button class="compact-empty action-empty" type="button" (click)="addKeyValueRow('headers')">Add request header</button>
                         }
                       </div>
-                      <textarea class="code-textarea compact-bulk-editor" rows="7" [(ngModel)]="requestHeadersText" [placeholder]="'Content-Type: application/json\nAuthorization: Bearer {{token}}'"></textarea>
                     </div>
                   } @else if (requestConfigTab === 'Auth') {
                     <div class="auth-config">
@@ -1162,6 +1201,29 @@
         <button (click)="selectView('api-client')">API client</button>
         <button (click)="selectView('json-tools')">JSON tools</button>
         <button (click)="selectView('activity')">Activity feed</button>
+      </div>
+    </div>
+  }
+
+  @if (curlImportOpen()) {
+    <div class="command-overlay" (click)="curlImportOpen.set(false)">
+      <div class="command-panel curl-import-panel" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">API Client</span>
+            <h3>Import cURL</h3>
+          </div>
+          <button class="icon-action" type="button" (click)="curlImportOpen.set(false)" aria-label="Close cURL import">x</button>
+        </div>
+        <textarea
+          class="code-textarea curl-input"
+          rows="9"
+          [(ngModel)]="curlCommand"
+          placeholder="curl -X POST https://api.example.com/users -H 'Content-Type: application/json' -d '{&quot;name&quot;:&quot;value&quot;}'"></textarea>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" (click)="curlImportOpen.set(false)">Cancel</button>
+          <button class="primary-action" type="button" (click)="importCurlToRequest()">Import request</button>
+        </div>
       </div>
     </div>
   }

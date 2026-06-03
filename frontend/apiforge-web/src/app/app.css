@@ -1029,6 +1029,24 @@ select option {
   padding-bottom: 2px;
 }
 
+.api-client-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.api-client-toolbar .request-tabs {
+  margin-bottom: 0;
+}
+
+.compact-action {
+  min-height: 38px;
+  padding-inline: 13px;
+  white-space: nowrap;
+}
+
 .request-tabs::-webkit-scrollbar,
 .tab-strip::-webkit-scrollbar {
   display: none;
@@ -1196,6 +1214,110 @@ select option {
   color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 850;
+}
+
+.mini-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-button {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 11px;
+}
+
+.editable-kv-table {
+  display: grid;
+  gap: 6px;
+  min-height: 168px;
+  max-height: 286px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--surface-soft);
+  padding: 8px;
+}
+
+.large-kv-table {
+  min-height: 268px;
+  max-height: 384px;
+}
+
+.editable-kv-head,
+.editable-kv-row {
+  display: grid;
+  grid-template-columns: 28px minmax(118px, 0.42fr) minmax(160px, 1fr) 58px 32px;
+  gap: 8px;
+  align-items: center;
+}
+
+.editable-kv-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-soft);
+  padding: 2px 2px 7px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.editable-kv-row {
+  min-height: 38px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-card);
+  padding: 6px;
+}
+
+.editable-kv-row input {
+  min-width: 0;
+  min-height: 30px;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.editable-kv-row .kv-check {
+  width: 16px;
+  min-height: 16px;
+  justify-self: center;
+  padding: 0;
+}
+
+.editable-kv-row.disabled-row {
+  opacity: 0.56;
+}
+
+.icon-action {
+  display: inline-grid;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  place-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--surface-soft);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.icon-action:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.action-empty {
+  width: 100%;
+  cursor: pointer;
+  text-align: left;
 }
 
 .kv-preview {
@@ -1616,6 +1738,32 @@ select option {
   font-weight: 800;
 }
 
+.curl-import-panel {
+  width: min(760px, 100%);
+  gap: 12px;
+}
+
+.modal-head,
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.modal-head h3 {
+  margin: 2px 0 0;
+}
+
+.curl-input {
+  min-height: 220px;
+  resize: vertical;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+}
+
 @media (max-width: 1360px) {
   .content {
     width: min(1120px, calc(100vw - 292px));
@@ -1708,8 +1856,22 @@ select option {
 
   .scope-bar,
   .client-layout,
-  .json-workbench {
+  .json-workbench,
+  .request-config-grid {
     grid-template-columns: 1fr;
+  }
+
+  .api-client-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .editable-kv-table {
+    overflow-x: auto;
+  }
+
+  .editable-kv-head,
+  .editable-kv-row {
+    min-width: 620px;
   }
 }
 

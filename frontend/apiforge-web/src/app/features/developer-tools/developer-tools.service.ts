@@ -167,10 +167,42 @@ export class DeveloperToolsService {
   }
 
   parseCurl(command: string): string {
-    const method = /-X\s+([A-Z]+)/i.exec(command)?.[1] ?? (command.includes('-d ') || command.includes('--data') ? 'POST' : 'GET');
-    const url = /curl\s+['"]?([^'"\s]+)['"]?/i.exec(command)?.[1] ?? '';
-    const headers = [...command.matchAll(/-H\s+['"]([^:]+):\s*([^'"]+)['"]/gi)].map((match) => ({ key: match[1], value: match[2] }));
-    const body = /(?:-d|--data(?:-raw)?)\s+['"]([\s\S]+?)['"](?:\s|$)/i.exec(command)?.[1] ?? '';
+    const tokens = this.tokenizeCurl(command);
+    let method = '';
+    let url = '';
+    let body = '';
+    const headers: { key: string; value: string }[] = [];
+
+    for (let index = 0; index < tokens.length; index++) {
+      const token = tokens[index];
+      const next = tokens[index + 1] ?? '';
+      if (token === 'curl') {
+        continue;
+      }
+      if (token === '-X' || token === '--request') {
+        method = next.toUpperCase();
+        index++;
+        continue;
+      }
+      if (token === '-H' || token === '--header') {
+        const separator = next.indexOf(':');
+        if (separator > -1) {
+          headers.push({ key: next.slice(0, separator).trim(), value: next.slice(separator + 1).trim() });
+        }
+        index++;
+        continue;
+      }
+      if (['-d', '--data', '--data-raw', '--data-binary', '--data-urlencode'].includes(token)) {
+        body = next;
+        index++;
+        continue;
+      }
+      if (!token.startsWith('-') && !url) {
+        url = token;
+      }
+    }
+
+    method = method || (body ? 'POST' : 'GET');
     return JSON.stringify({ method, url, headers, body }, null, 2);
   }
 
@@ -213,6 +245,51 @@ export class DeveloperToolsService {
         }, {});
     }
     return value;
+  }
+
+  private tokenizeCurl(command: string): string[] {
+    const tokens: string[] = [];
+    let current = '';
+    let quote: '"' | "'" | '' = '';
+    let escaped = false;
+
+    for (const char of command.trim()) {
+      if (escaped) {
+        current += char;
+        escaped = false;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (quote) {
+        if (char === quote) {
+          quote = '';
+        } else {
+          current += char;
+        }
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+        continue;
+      }
+      if (/\s/.test(char)) {
+        if (current) {
+          tokens.push(current);
+          current = '';
+        }
+        continue;
+      }
+      current += char;
+    }
+
+    if (current) {
+      tokens.push(current);
+    }
+
+    return tokens;
   }
 
   private renderTree(value: unknown, indent = 0): string {

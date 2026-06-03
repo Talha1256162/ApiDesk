@@ -77,6 +77,8 @@ type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
 type NavSection = { title: string; items: NavItem[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
 type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
+type EditableKeyValue = KeyValueItem & { id: string };
+type EditableKeyValueKind = 'headers' | 'query' | 'path';
 
 @Component({
   selector: 'app-root',
@@ -101,6 +103,7 @@ export class App implements OnInit {
   readonly pageLoading = signal(false);
   readonly authLoading = signal(false);
   readonly commandOpen = signal(false);
+  readonly curlImportOpen = signal(false);
   readonly darkMode = signal(localStorage.getItem('apiforge.theme') !== 'light');
   readonly showPassword = signal(false);
   readonly authError = signal('');
@@ -293,6 +296,10 @@ export class App implements OnInit {
   requestHeadersText = '';
   requestQueryText = '';
   requestPathText = '';
+  requestHeadersRows: EditableKeyValue[] = [];
+  requestQueryRows: EditableKeyValue[] = [];
+  requestPathRows: EditableKeyValue[] = [];
+  curlCommand = '';
   activityUserFilter = '';
   activityEventFilter = '';
   activityStatusFilter = '';
@@ -1394,6 +1401,77 @@ export class App implements OnInit {
     this.showToast('Copied', 'Response body copied to clipboard.', 'success');
   }
 
+  openCurlImport(): void {
+    this.curlCommand = '';
+    this.curlImportOpen.set(true);
+  }
+
+  importCurlToRequest(): void {
+    if (!this.curlCommand.trim()) {
+      this.showToast('cURL required', 'Paste a cURL command before importing.', 'danger');
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(this.developerTools.parseCurl(this.curlCommand)) as {
+        method?: string;
+        url?: string;
+        headers?: { key: string; value: string }[];
+        body?: string;
+      };
+      this.requestMethod = (parsed.method || 'GET').toUpperCase();
+      this.requestUrl = parsed.url || this.requestUrl;
+      this.requestHeadersRows = (parsed.headers ?? []).map((item) => this.toEditableKeyValue(item.key, item.value));
+      this.syncTextFromRows('headers');
+      if (parsed.body) {
+        this.requestBodyContent = parsed.body;
+        this.requestBodyType = this.looksLikeJson(parsed.body) ? 'rawJson' : 'text';
+        this.requestConfigTab = 'Body';
+      } else {
+        this.requestConfigTab = 'Headers';
+      }
+      if (!this.requestName.trim() || this.requestName === 'New request') {
+        this.requestName = this.nameFromUrl(this.requestUrl);
+      }
+      this.curlImportOpen.set(false);
+      this.showToast('cURL imported', 'Method, URL, headers, and body were loaded into the request editor.', 'success');
+    } catch (error) {
+      this.showToast('Import failed', error instanceof Error ? error.message : 'Could not parse cURL.', 'danger');
+    }
+  }
+
+  addKeyValueRow(kind: EditableKeyValueKind): void {
+    this.rowsFor(kind).push(this.toEditableKeyValue('', ''));
+    this.syncTextFromRows(kind);
+  }
+
+  removeKeyValueRow(kind: EditableKeyValueKind, id: string): void {
+    if (kind === 'headers') this.requestHeadersRows = this.requestHeadersRows.filter((item) => item.id !== id);
+    if (kind === 'query') this.requestQueryRows = this.requestQueryRows.filter((item) => item.id !== id);
+    if (kind === 'path') this.requestPathRows = this.requestPathRows.filter((item) => item.id !== id);
+    this.syncTextFromRows(kind);
+  }
+
+  syncTextFromRows(kind: EditableKeyValueKind): void {
+    this.rowsFor(kind).forEach((item) => {
+      item.isSecret = item.isSecret || this.isSensitiveKey(item.key);
+    });
+    const text = this.rowsFor(kind)
+      .filter((item) => item.enabled !== false && item.key.trim())
+      .map((item) => `${item.key.trim()}: ${item.value ?? ''}`)
+      .join('\n');
+    if (kind === 'headers') this.requestHeadersText = text;
+    if (kind === 'query') this.requestQueryText = text;
+    if (kind === 'path') this.requestPathText = text;
+  }
+
+  syncRowsFromText(kind: EditableKeyValueKind): void {
+    const rows = this.rowsFromText(kind === 'headers' ? this.requestHeadersText : kind === 'query' ? this.requestQueryText : this.requestPathText);
+    if (kind === 'headers') this.requestHeadersRows = rows;
+    if (kind === 'query') this.requestQueryRows = rows;
+    if (kind === 'path') this.requestPathRows = rows;
+  }
+
   saveCurrentResponseAsExample(): void {
     const response = this.apiResponse();
     if (!this.selectedRequestId() || !response) {
@@ -1621,6 +1699,9 @@ export class App implements OnInit {
     this.requestHeadersText = this.keyValuesToText(request.headers ?? []);
     this.requestQueryText = this.keyValuesToText(request.queryParams ?? []);
     this.requestPathText = this.keyValuesToText(request.pathParams ?? []);
+    this.requestHeadersRows = this.toEditableRows(request.headers ?? []);
+    this.requestQueryRows = this.toEditableRows(request.queryParams ?? []);
+    this.requestPathRows = this.toEditableRows(request.pathParams ?? []);
   }
 
   private resetRequestEditor(): void {
@@ -1640,6 +1721,9 @@ export class App implements OnInit {
     this.requestHeadersText = '';
     this.requestQueryText = '';
     this.requestPathText = '';
+    this.requestHeadersRows = [];
+    this.requestQueryRows = [];
+    this.requestPathRows = [];
   }
 
   private buildRequestPayload(versionNumber: number): SaveApiRequestPayload {
@@ -1659,15 +1743,76 @@ export class App implements OnInit {
       timeoutMs: Number(this.requestTimeoutMs) || 30000,
       followRedirects: this.requestFollowRedirects,
       sslVerification: this.requestSslVerification,
-      headers: this.parseKeyValueText(this.requestHeadersText),
-      queryParams: this.parseKeyValueText(this.requestQueryText),
-      pathParams: this.parseKeyValueText(this.requestPathText),
+      headers: this.toPayloadKeyValues(this.requestHeadersRows),
+      queryParams: this.toPayloadKeyValues(this.requestQueryRows),
+      pathParams: this.toPayloadKeyValues(this.requestPathRows),
       versionNumber
     };
   }
 
   private keyValuesToText(items: KeyValueItem[]): string {
-    return items.map((item) => `${item.key}: ${item.value ?? ''}`).join('\n');
+    return items
+      .filter((item) => item.enabled !== false)
+      .map((item) => `${item.key}: ${item.value ?? ''}`)
+      .join('\n');
+  }
+
+  private rowsFor(kind: EditableKeyValueKind): EditableKeyValue[] {
+    if (kind === 'headers') return this.requestHeadersRows;
+    if (kind === 'query') return this.requestQueryRows;
+    return this.requestPathRows;
+  }
+
+  private rowsFromText(value: string): EditableKeyValue[] {
+    return this.parseKeyValueText(value).map((item) => this.toEditableKeyValue(item.key, item.value, item.enabled, item.isSecret));
+  }
+
+  private toEditableRows(items: KeyValueItem[]): EditableKeyValue[] {
+    return items.map((item) => this.toEditableKeyValue(item.key, item.value, item.enabled, item.isSecret));
+  }
+
+  private toEditableKeyValue(key: string, value?: string, enabled = true, isSecret?: boolean): EditableKeyValue {
+    return {
+      id: crypto.randomUUID(),
+      key,
+      value: value ?? '',
+      enabled,
+      isSecret: isSecret ?? this.isSensitiveKey(key)
+    };
+  }
+
+  private toPayloadKeyValues(rows: EditableKeyValue[]): KeyValueItem[] {
+    return rows
+      .filter((item) => item.enabled !== false && item.key.trim())
+      .map((item) => ({
+        key: item.key.trim(),
+        value: item.value ?? '',
+        enabled: item.enabled !== false,
+        isSecret: item.isSecret || this.isSensitiveKey(item.key)
+      }));
+  }
+
+  private looksLikeJson(value: string): boolean {
+    const trimmed = value.trim();
+    if (!trimmed || !/^[{[]/.test(trimmed)) {
+      return false;
+    }
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private nameFromUrl(value: string): string {
+    try {
+      const url = new URL(value.replace(/\{\{[^}]+\}\}/g, 'example.com'));
+      const lastSegment = url.pathname.split('/').filter(Boolean).at(-1);
+      return lastSegment ? `${this.requestMethod} ${lastSegment}` : `${this.requestMethod} request`;
+    } catch {
+      return `${this.requestMethod} request`;
+    }
   }
 
   private parseKeyValueText(value: string): KeyValueItem[] {
