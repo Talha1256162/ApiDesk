@@ -207,6 +207,34 @@ export class App implements OnInit {
     { value: 'rawJson', label: 'raw JSON', meta: 'Application JSON' },
     { value: 'text', label: 'text', meta: 'Plain text' }
   ]);
+  readonly specFormatOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'json', label: 'JSON', meta: 'OpenAPI JSON' },
+    { value: 'yaml', label: 'YAML', meta: 'OpenAPI YAML' }
+  ]);
+  readonly activityMemberOptions = computed<PremiumSelectOption[]>(() => [
+    { value: '', label: 'All members', meta: 'Organization team' },
+    ...this.members().map((member) => ({ value: member.userId, label: member.fullName, meta: member.roleName }))
+  ]);
+  readonly activityStatusOptions = computed<PremiumSelectOption[]>(() => [
+    { value: '', label: 'Any status', meta: 'Success and failure' },
+    { value: 'Success', label: 'Success', meta: 'Completed events' },
+    { value: 'Failure', label: 'Failure', meta: 'Failed events' }
+  ]);
+  readonly utilityToolOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'Base64', label: 'Base64 encode', meta: 'Encode text' },
+    { value: 'Base64 Decode', label: 'Base64 decode', meta: 'Decode text' },
+    { value: 'URL Encode', label: 'URL encode', meta: 'Escape URL text' },
+    { value: 'URL Decode', label: 'URL decode', meta: 'Unescape URL text' },
+    { value: 'JWT Decoder', label: 'JWT decoder', meta: 'Header and payload' },
+    { value: 'UUID Generator', label: 'UUID generator', meta: 'Random v4 UUID' },
+    { value: 'Timestamp Converter', label: 'Timestamp converter', meta: 'Unix and ISO time' },
+    { value: 'cURL Parser', label: 'cURL parser', meta: 'Request JSON' },
+    { value: 'Hash Generator', label: 'Hash generator', meta: 'Web crypto digest' },
+    { value: 'Regex Tester', label: 'Regex tester', meta: 'Match preview' }
+  ]);
+  readonly hashAlgorithmOptions = computed<PremiumSelectOption[]>(() =>
+    ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512'].map((algorithm) => ({ value: algorithm, label: algorithm, meta: 'Hash algorithm' }))
+  );
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];

@@ -535,9 +535,15 @@
                     }
                   </div>
                   @if (responseTab === 'Body') {
-                    <div class="editor-shell">
-                      <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
-                    </div>
+                    @if (apiResponse()) {
+                      <div class="editor-shell">
+                        <app-monaco-editor [value]="responseBody()" language="json" [readonly]="true"></app-monaco-editor>
+                      </div>
+                    } @else {
+                      <div class="response-empty-state">
+                        <app-empty-state title="No response yet" description="Send the selected request to inspect body, headers, cookies, timing, and saved history."></app-empty-state>
+                      </div>
+                    }
                   } @else if (responseTab === 'Headers') {
                     <div class="kv-section">
                       @for (header of responseHeaderEntries(); track header.key) {
@@ -803,7 +809,7 @@
           <section class="json-workbench">
             <article class="panel editor-card">
               <input [(ngModel)]="specName" placeholder="OpenAPI spec name" />
-              <select [(ngModel)]="specFormat"><option value="json">JSON</option><option value="yaml">YAML</option></select>
+              <app-premium-select label="Spec format" [options]="specFormatOptions()" [value]="specFormat" (valueChange)="specFormat = $event"></app-premium-select>
               <div class="editor-shell tall"><app-monaco-editor [(value)]="specContent" language="json"></app-monaco-editor></div>
               <button class="primary-action wide" type="button" (click)="uploadApiSpec()">Upload and validate</button>
             </article>
@@ -933,27 +939,20 @@
             </div>
           </section>
           <section class="panel filter-panel">
-            <label>
-              Team member
-              <select [(ngModel)]="activityUserFilter" (ngModelChange)="loadManagerActivity(); loadAuditLogs()">
-                <option value="">All members</option>
-                @for (member of members(); track member.userId) {
-                  <option [value]="member.userId">{{ member.fullName }} - {{ member.roleName }}</option>
-                }
-              </select>
-            </label>
+            <app-premium-select
+              label="Team member"
+              [options]="activityMemberOptions()"
+              [value]="activityUserFilter"
+              (valueChange)="activityUserFilter = $event; loadManagerActivity(); loadAuditLogs()"></app-premium-select>
             <label>
               Event type
               <input placeholder="RequestSent, CommentCreated..." [(ngModel)]="activityEventFilter" (keyup.enter)="loadManagerActivity()" />
             </label>
-            <label>
-              Status
-              <select [(ngModel)]="activityStatusFilter" (ngModelChange)="loadManagerActivity()">
-                <option value="">Any status</option>
-                <option value="Success">Success</option>
-                <option value="Failure">Failure</option>
-              </select>
-            </label>
+            <app-premium-select
+              label="Status"
+              [options]="activityStatusOptions()"
+              [value]="activityStatusFilter"
+              (valueChange)="activityStatusFilter = $event; loadManagerActivity()"></app-premium-select>
             <button class="primary-action" type="button" (click)="loadManagerActivity(); loadAuditLogs()">Apply filters</button>
           </section>
           @if (activeView() === 'reports') {
@@ -1140,17 +1139,9 @@
           </section>
           <section class="json-workbench">
             <article class="panel editor-card">
-              <select [(ngModel)]="utilityTool">
-                @for (tool of ['Base64', 'Base64 Decode', 'URL Encode', 'URL Decode', 'JWT Decoder', 'UUID Generator', 'Timestamp Converter', 'cURL Parser', 'Hash Generator', 'Regex Tester']; track tool) {
-                  <option [value]="tool">{{ tool }}</option>
-                }
-              </select>
+              <app-premium-select label="Utility" [options]="utilityToolOptions()" [value]="utilityTool" (valueChange)="utilityTool = $event"></app-premium-select>
               @if (utilityTool === 'Hash Generator') {
-                <select [(ngModel)]="hashAlgorithm">
-                  @for (algorithm of ['SHA-1', 'SHA-256', 'SHA-384', 'SHA-512']; track algorithm) {
-                    <option [value]="algorithm">{{ algorithm }}</option>
-                  }
-                </select>
+                <app-premium-select label="Algorithm" [options]="hashAlgorithmOptions()" [value]="hashAlgorithm" (valueChange)="hashAlgorithm = $any($event)"></app-premium-select>
               }
               @if (utilityTool === 'Regex Tester') {
                 <div class="utility-options">
