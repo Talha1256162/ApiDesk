@@ -452,6 +452,7 @@ export interface ManagerSummary {
 export interface ApiResponse {
   runId: string;
   statusCode: number;
+  statusText: string;
   succeeded: boolean;
   elapsedMs: number;
   sizeBytes: number;

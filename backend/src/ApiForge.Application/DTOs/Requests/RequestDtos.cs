@@ -9,6 +9,7 @@ public sealed record RunCollectionRequest(Guid? EnvironmentId, IReadOnlyList<Gui
 public sealed record ApiResponseDto(
     Guid RunId,
     int StatusCode,
+    string StatusText,
     bool Succeeded,
     long ElapsedMs,
     long SizeBytes,

@@ -8,16 +8,19 @@ using ApiForge.Application.Abstractions.Services;
 using ApiForge.Application.DTOs.Collections;
 using ApiForge.Application.DTOs.Requests;
 using ApiForge.Shared.Security;
+using Microsoft.Extensions.Configuration;
 
 namespace ApiForge.Infrastructure.Http;
 
-public sealed partial class BackendHttpRequestExecutor : IHttpRequestExecutor
+public sealed partial class BackendHttpRequestExecutor(IConfiguration configuration) : IHttpRequestExecutor
 {
     public async Task<ApiResponseDto> ExecuteAsync(Guid runId, ApiRequestDetailDto request, IReadOnlyDictionary<string, string> variables, CancellationToken cancellationToken)
     {
         var started = DateTime.UtcNow;
         var stopwatch = Stopwatch.StartNew();
         var url = ResolveVariables(request.Url, variables);
+        var targetUri = BuildUrl(url, request.QueryParams, variables);
+        await ValidateTargetUriAsync(targetUri, cancellationToken);
 
         using var handler = new HttpClientHandler
         {
@@ -34,7 +37,7 @@ public sealed partial class BackendHttpRequestExecutor : IHttpRequestExecutor
             Timeout = TimeSpan.FromMilliseconds(Math.Clamp(request.TimeoutMs, 1000, 120000))
         };
 
-        using var message = new HttpRequestMessage(new HttpMethod(request.Method), BuildUrl(url, request.QueryParams, variables));
+        using var message = new HttpRequestMessage(new HttpMethod(request.Method), targetUri);
         ApplyHeaders(message, request.Headers, variables);
         ApplyAuth(message, request.AuthType, request.AuthConfigJson, variables);
         ApplyBody(message, request, variables);
@@ -55,6 +58,7 @@ public sealed partial class BackendHttpRequestExecutor : IHttpRequestExecutor
         return new ApiResponseDto(
             runId,
             (int)response.StatusCode,
+            response.ReasonPhrase ?? response.StatusCode.ToString(),
             response.IsSuccessStatusCode,
             stopwatch.ElapsedMilliseconds,
             bytes.LongLength,
@@ -122,8 +126,92 @@ public sealed partial class BackendHttpRequestExecutor : IHttpRequestExecutor
         }
 
         var content = ResolveVariables(request.BodyContent ?? string.Empty, variables);
+        if (request.BodyType.Equals("formUrlEncoded", StringComparison.OrdinalIgnoreCase))
+        {
+            message.Content = new FormUrlEncodedContent(ParseFormRows(content));
+            return;
+        }
+
+        if (request.BodyType.Equals("formData", StringComparison.OrdinalIgnoreCase))
+        {
+            var form = new MultipartFormDataContent();
+            foreach (var item in ParseFormRows(content))
+            {
+                form.Add(new StringContent(item.Value ?? string.Empty), item.Key);
+            }
+            message.Content = form;
+            return;
+        }
+
         var contentType = request.BodyType.Equals("rawJson", StringComparison.OrdinalIgnoreCase) ? "application/json" : "text/plain";
         message.Content = new StringContent(content, Encoding.UTF8, contentType);
+    }
+
+    private static IReadOnlyList<KeyValuePair<string, string?>> ParseFormRows(string content)
+    {
+        return content
+            .Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(line =>
+            {
+                var separatorIndex = line.IndexOf('=');
+                if (separatorIndex < 0)
+                {
+                    separatorIndex = line.IndexOf(':');
+                }
+
+                return separatorIndex < 0
+                    ? new KeyValuePair<string, string?>(line, string.Empty)
+                    : new KeyValuePair<string, string?>(line[..separatorIndex].Trim(), line[(separatorIndex + 1)..].Trim());
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
+            .ToList();
+    }
+
+    private async Task ValidateTargetUriAsync(Uri targetUri, CancellationToken cancellationToken)
+    {
+        if (targetUri.Scheme is not ("http" or "https"))
+        {
+            throw new InvalidOperationException("Only HTTP and HTTPS URLs can be requested.");
+        }
+
+        if (configuration.GetValue<bool>("RequestRunner:AllowPrivateNetworkTargets"))
+        {
+            return;
+        }
+
+        var addresses = await Dns.GetHostAddressesAsync(targetUri.Host, cancellationToken);
+        if (addresses.Length == 0 || addresses.Any(IsPrivateAddress))
+        {
+            throw new InvalidOperationException("Private, localhost, and internal network targets are blocked by the API Desk request runner.");
+        }
+    }
+
+    private static bool IsPrivateAddress(IPAddress address)
+    {
+        if (IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            var bytes = address.GetAddressBytes();
+            return bytes[0] == 10
+                || bytes[0] == 127
+                || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
+                || (bytes[0] == 192 && bytes[1] == 168)
+                || (bytes[0] == 169 && bytes[1] == 254)
+                || bytes[0] == 0;
+        }
+
+        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        {
+            return address.IsIPv6LinkLocal || address.IsIPv6SiteLocal || address.IsIPv6UniqueLocal;
+        }
+
+        return true;
     }
 
     private static string ResolveVariables(string value, IReadOnlyDictionary<string, string> variables)

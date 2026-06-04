@@ -1,0 +1,20 @@
+{
+  "name": "API Desk",
+  "short_name": "API Desk",
+  "description": "A lightweight API testing and collaboration workspace for small engineering teams.",
+  "icons": [
+    {
+      "src": "favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#070A12",
+  "background_color": "#070A12",
+  "display": "standalone"
+}

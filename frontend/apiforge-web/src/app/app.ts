@@ -295,7 +295,9 @@ export class App implements OnInit {
   readonly bodyTypeOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'none', label: 'none', meta: 'No request body' },
     { value: 'rawJson', label: 'raw JSON', meta: 'Application JSON' },
-    { value: 'text', label: 'text', meta: 'Plain text' }
+    { value: 'text', label: 'raw text', meta: 'Plain text' },
+    { value: 'formData', label: 'form-data', meta: 'Multipart key/value' },
+    { value: 'formUrlEncoded', label: 'x-www-form-urlencoded', meta: 'Encoded key/value' }
   ]);
   readonly specFormatOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'json', label: 'JSON', meta: 'OpenAPI JSON' },
@@ -1379,7 +1381,8 @@ export class App implements OnInit {
 
         this.apiResponse.set(result.data);
         this.responseBody.set(this.tryFormatJson(result.data.body));
-        this.showToast('Request complete', `${result.data.statusCode} in ${result.data.elapsedMs}ms.`, result.data.succeeded ? 'success' : 'danger');
+        const statusText = result.data.statusText ? ` ${result.data.statusText}` : '';
+        this.showToast('Request complete', `${result.data.statusCode}${statusText} in ${result.data.elapsedMs}ms.`, result.data.succeeded ? 'success' : 'danger');
         this.loadDashboard();
         this.loadActivity();
         this.loadRequestHistory();
@@ -1651,6 +1654,20 @@ export class App implements OnInit {
   copyResponseBody(): void {
     navigator.clipboard.writeText(this.responseViewerBody() || this.responseBody() || this.apiResponse()?.body || '');
     this.showToast('Copied', 'Response body copied to clipboard.', 'success');
+  }
+
+  downloadResponseBody(): void {
+    const response = this.apiResponse();
+    if (!response) {
+      this.showToast('No response', 'Send a request before downloading the response.', 'danger');
+      return;
+    }
+
+    const content = this.responseViewerBody() || this.responseBody() || response.body || '';
+    const contentType = response.contentType || response.headers?.['Content-Type']?.[0] || 'text/plain';
+    const extension = contentType.toLowerCase().includes('json') || this.looksLikeJson(content) ? 'json' : 'txt';
+    this.downloadBlob(`api-desk-response-${response.statusCode}.${extension}`, content, contentType);
+    this.showToast('Downloaded', 'Response body was downloaded.', 'success');
   }
 
   copyRequestAsCurl(): void {
@@ -1950,6 +1967,19 @@ export class App implements OnInit {
       return `${(size / 1024).toFixed(1)} KB`;
     }
     return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  requestBodyLanguage(): string {
+    return this.requestBodyType === 'rawJson' ? 'json' : 'text';
+  }
+
+  responseStatusLabel(): string {
+    const response = this.apiResponse();
+    if (!response) {
+      return 'Status -';
+    }
+
+    return `Status ${response.statusCode}${response.statusText ? ` ${response.statusText}` : ''}`;
   }
 
   responseHeaderEntries(): { key: string; value: string }[] {
