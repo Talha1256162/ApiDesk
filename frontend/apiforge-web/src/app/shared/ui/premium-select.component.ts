@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, EventEmitter, HostListener, Input, Output, computed, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, HostListener, Input, Output, signal } from '@angular/core';
 
 export interface PremiumSelectOption {
   value: string;
@@ -207,7 +207,6 @@ export class PremiumSelectComponent {
   @Output() valueChange = new EventEmitter<string>();
 
   readonly open = signal(false);
-  readonly selectedOption = computed(() => this.options.find((option) => option.value === this.value));
 
   constructor(private readonly elementRef: ElementRef<HTMLElement>) {}
 
@@ -220,6 +219,10 @@ export class PremiumSelectComponent {
   choose(value: string): void {
     this.valueChange.emit(value);
     this.open.set(false);
+  }
+
+  selectedOption(): PremiumSelectOption | undefined {
+    return this.options.find((option) => option.value === this.value);
   }
 
   @HostListener('document:click', ['$event'])

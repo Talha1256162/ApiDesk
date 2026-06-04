@@ -1,13 +1,15 @@
 using ApiForge.Application.Abstractions.Auth;
 using ApiForge.Application.Abstractions.Persistence;
 using ApiForge.Application.Abstractions.Services;
+using ApiForge.Application.DTOs.Collections;
 using ApiForge.Application.DTOs.Requests;
 using ApiForge.Domain.Constants;
 using ApiForge.Shared.Responses;
+using System.Text.RegularExpressions;
 
 namespace ApiForge.Application.Services;
 
-public sealed class RequestRunnerService(
+public sealed partial class RequestRunnerService(
     ICollectionRepository collectionRepository,
     IEnvironmentRepository environmentRepository,
     IRequestRunRepository requestRunRepository,
@@ -42,6 +44,14 @@ public sealed class RequestRunnerService(
         }
 
         var variables = await environmentRepository.ResolveVariablesAsync(apiRequest.WorkspaceId, apiRequest.CollectionId, request.EnvironmentId, CurrentUser.UserId, cancellationToken);
+        var missingVariables = FindMissingVariables(apiRequest, variables);
+        if (missingVariables.Count > 0)
+        {
+            var message = $"Missing variables: {string.Join(", ", missingVariables)}.";
+            await RecordActivityAsync(scope.Value.OrganizationId, apiRequest.WorkspaceId, "RequestFailed", "Request", requestId, apiRequest.Name, "Run", "Failure", "Warning", message, null, cancellationToken);
+            return Result<ApiResponseDto>.Failure("Request has unresolved variables.", new ErrorDetail("request.variables_missing", message));
+        }
+
         var runId = await requestRunRepository.CreateRunAsync(requestId, apiRequest.WorkspaceId, request.EnvironmentId, CurrentUser.UserId, DateTime.UtcNow, cancellationToken);
 
         try
@@ -132,4 +142,29 @@ public sealed class RequestRunnerService(
         await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "CollectionRunCompleted", "Collection", collectionId, "Collection run", "Run", summary.Failed == 0 ? "Success" : "Failure", summary.Failed == 0 ? "Info" : "Warning", $"{summary.Passed}/{summary.TotalRequests} requests passed.", null, cancellationToken);
         return Result<CollectionRunResultDto>.Success(summary, "Collection run completed.");
     }
+
+    private static IReadOnlyList<string> FindMissingVariables(ApiRequestDetailDto request, IReadOnlyDictionary<string, string> variables)
+    {
+        var values = new List<string?>
+        {
+            request.Url,
+            request.BodyContent,
+            request.AuthConfigJson
+        };
+
+        values.AddRange(request.Headers.SelectMany(item => new[] { item.Key, item.Value }));
+        values.AddRange(request.QueryParams.SelectMany(item => new[] { item.Key, item.Value }));
+        values.AddRange(request.PathParams.SelectMany(item => new[] { item.Key, item.Value }));
+
+        return values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .SelectMany(value => VariableTokenRegex().Matches(value!).Select(match => match.Groups["key"].Value.Trim()))
+            .Where(key => !string.IsNullOrWhiteSpace(key) && !variables.ContainsKey(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    [GeneratedRegex("\\{\\{(?<key>[^}]+)\\}\\}")]
+    private static partial Regex VariableTokenRegex();
 }

@@ -801,7 +801,7 @@
                   <span>{{ server.routeCount }} routes</span>
                   <app-badge [label]="server.isPublic ? 'Public' : 'Private'" [tone]="server.isPublic ? 'success' : 'default'"></app-badge>
                 </div>
-                <small class="muted-line">Mock URL: http://localhost:5108/api/mock/{{ server.slug }}</small>
+                <small class="muted-line">Mock URL: {{ mockServerUrl(server.slug) }}</small>
               } @empty {
                 <app-empty-state title="No mock servers" description="Create a mock server from the selected collection. Saved response examples power the mock output."></app-empty-state>
               }

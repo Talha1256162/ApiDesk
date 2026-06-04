@@ -1982,6 +1982,11 @@ export class App implements OnInit {
     return `Status ${response.statusCode}${response.statusText ? ` ${response.statusText}` : ''}`;
   }
 
+  mockServerUrl(slug: string): string {
+    const origin = typeof window === 'undefined' ? '' : window.location.origin;
+    return `${origin}/api/mock/${slug}`;
+  }
+
   responseHeaderEntries(): { key: string; value: string }[] {
     return Object.entries(this.apiResponse()?.headers ?? {}).map(([key, value]) => ({ key, value: value.join(', ') }));
   }
