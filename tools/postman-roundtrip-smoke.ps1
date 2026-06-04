@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $api = $BaseUrl.TrimEnd("/")
-$sample = Get-Content -Raw -LiteralPath $SamplePath | ConvertFrom-Json -Depth 50
+$sample = Get-Content -Raw -LiteralPath $SamplePath | ConvertFrom-Json
 
 $login = Invoke-RestMethod -Method Post -Uri "$api/api/auth/login" -ContentType "application/json" -Body (@{
   email = $Email
