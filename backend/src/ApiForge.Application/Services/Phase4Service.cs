@@ -13,6 +13,7 @@ public sealed class Phase4Service(
     IPhase4Repository phase4Repository,
     ICollectionRepository collectionRepository,
     IPermissionService permissionService,
+    IAiProviderService aiProviderService,
     ICurrentUserContext currentUserContext,
     IActivityRepository activityRepository) : ServiceBase(currentUserContext, activityRepository), IPhase4Service
 {
@@ -58,6 +59,15 @@ public sealed class Phase4Service(
         return Result<AiAssistantConfigDto>.Success(config, "AI configuration saved.");
     }
 
+    public async Task<Result<AiProviderStatusDto>> GetAiProviderStatusAsync(Guid organizationId, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null) return Unauthorized<AiProviderStatusDto>();
+        if (!await permissionService.IsOrganizationMemberAsync(CurrentUser.UserId, organizationId, cancellationToken))
+            return Forbidden<AiProviderStatusDto>("organization.membership_required");
+
+        return Result<AiProviderStatusDto>.Success(aiProviderService.GetStatus());
+    }
+
     public async Task<Result<AiAssistantActionDto>> RunAiActionAsync(Guid workspaceId, AiAssistantActionRequest request, CancellationToken cancellationToken)
     {
         if (CurrentUser is null) return Unauthorized<AiAssistantActionDto>();
@@ -65,8 +75,10 @@ public sealed class Phase4Service(
         if (orgId is null) return Result<AiAssistantActionDto>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
         if (!await HasWorkspacePermissionAsync(CurrentUser.UserId, orgId.Value, workspaceId, PermissionKeys.RunRequests, cancellationToken))
             return Forbidden<AiAssistantActionDto>(PermissionKeys.RunRequests);
-        var config = await phase4Repository.GetAiConfigAsync(orgId.Value, cancellationToken);
-        var providerStatus = config?.IsEnabled == true ? $"{config.Provider} configured" : "Provider disabled or not configured";
+        var provider = aiProviderService.GetStatus();
+        var providerStatus = provider.Configured
+            ? $"{provider.ProviderName} real AI mode ({provider.ModelName})"
+            : "Fallback mode - AI provider not configured";
         var context = request.Input ?? string.Empty;
         if (request.RequestId is Guid requestId)
         {
@@ -76,7 +88,8 @@ public sealed class Phase4Service(
             var apiRequest = await collectionRepository.GetRequestAsync(requestId, cancellationToken);
             if (apiRequest is not null) context = $"{apiRequest.Method} {apiRequest.Url} {apiRequest.Description}";
         }
-        var suggestions = BuildAssistantSuggestions(request.Action, context);
+        var suggestions = await aiProviderService.GenerateSuggestionsAsync(request.Action, context, cancellationToken)
+            ?? BuildAssistantSuggestions(request.Action, context);
         await RecordActivityAsync(orgId.Value, workspaceId, "AiAssistantActionRequested", "AiAssistant", null, request.Action, "Suggest", "Success", "Info", providerStatus, null, cancellationToken);
         return Result<AiAssistantActionDto>.Success(new AiAssistantActionDto(request.Action, providerStatus, suggestions, DateTime.UtcNow));
     }

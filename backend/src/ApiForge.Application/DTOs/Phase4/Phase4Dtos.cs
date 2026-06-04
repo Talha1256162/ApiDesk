@@ -4,6 +4,7 @@ public sealed record AiAssistantConfigDto(Guid Id, Guid OrganizationId, string P
 public sealed record SaveAiAssistantConfigRequest(string Provider, string? ModelName, string? EndpointUrl, string? DeploymentName, bool IsEnabled);
 public sealed record AiAssistantActionRequest(string Action, Guid? CollectionId, Guid? RequestId, string? Input);
 public sealed record AiAssistantActionDto(string Action, string ProviderStatus, IReadOnlyList<string> Suggestions, DateTime CreatedOnUtc);
+public sealed record AiProviderStatusDto(bool Configured, string ProviderName, string ModelName, bool FallbackEnabled, int TimeoutSeconds);
 
 public sealed record AdvancedAnalyticsDto(
     int TotalRuns,

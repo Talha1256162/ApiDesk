@@ -25,6 +25,10 @@ public sealed class Phase4Controller(IPhase4Service phase4Service) : ApiControll
     public async Task<IActionResult> SaveAiConfig(Guid organizationId, SaveAiAssistantConfigRequest request, CancellationToken cancellationToken) =>
         FromResult(await phase4Service.SaveAiConfigAsync(organizationId, request, cancellationToken));
 
+    [HttpGet("organizations/{organizationId:guid}/ai-provider/status")]
+    public async Task<IActionResult> GetAiProviderStatus(Guid organizationId, CancellationToken cancellationToken) =>
+        FromResult(await phase4Service.GetAiProviderStatusAsync(organizationId, cancellationToken));
+
     [HttpPost("workspaces/{workspaceId:guid}/ai-assistant/actions")]
     public async Task<IActionResult> RunAiAction(Guid workspaceId, AiAssistantActionRequest request, CancellationToken cancellationToken) =>
         FromResult(await phase4Service.RunAiActionAsync(workspaceId, request, cancellationToken));

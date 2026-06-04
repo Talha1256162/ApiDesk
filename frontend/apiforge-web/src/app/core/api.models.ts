@@ -363,6 +363,14 @@ export interface AiAssistantAction {
   createdOnUtc: string;
 }
 
+export interface AiProviderStatus {
+  configured: boolean;
+  providerName: string;
+  modelName: string;
+  fallbackEnabled: boolean;
+  timeoutSeconds: number;
+}
+
 export interface AnalyticsPoint {
   label: string;
   value: number;
@@ -528,4 +536,12 @@ export interface Invitation {
   email: string;
   status: string;
   expiresOn: string;
+  inviteToken?: string;
+}
+
+export interface BuildInfo {
+  frontendCommit: string;
+  backendCommit: string;
+  deploymentTimestampUtc?: string;
+  environmentName: string;
 }

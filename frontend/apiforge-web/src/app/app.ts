@@ -8,6 +8,7 @@ import {
   AdvancedAnalytics,
   AiAssistantAction,
   AiAssistantConfig,
+  AiProviderStatus,
   AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
@@ -17,6 +18,7 @@ import {
   ApiKeyModel,
   BillingOverview,
   BillingPlan,
+  BuildInfo,
   CommentModel,
   Collection,
   CollectionRunResult,
@@ -164,9 +166,11 @@ export class App implements OnInit {
   readonly apiSpecs = signal<ApiSpec[]>([]);
   readonly governanceFindings = signal<ApiSpecValidation | null>(null);
   readonly aiConfig = signal<AiAssistantConfig | null>(null);
+  readonly aiProviderStatus = signal<AiProviderStatus | null>(null);
   readonly aiResult = signal<AiAssistantAction | null>(null);
   readonly advancedAnalytics = signal<AdvancedAnalytics | null>(null);
   readonly billingOverview = signal<BillingOverview | null>(null);
+  readonly buildInfo = signal<BuildInfo | null>(null);
   readonly saasSettings = signal<OrganizationSaasSettings | null>(null);
   readonly apiKeys = signal<ApiKeyModel[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
@@ -473,6 +477,8 @@ export class App implements OnInit {
   inviteEmail = '';
   inviteRoleId = '';
   inviteMessage = '';
+  selectedMemberRoles: Record<string, string> = {};
+  acceptInviteToken = '';
   lastInviteLink = '';
   commentText = '';
   mockName = '';
@@ -552,6 +558,10 @@ export class App implements OnInit {
     this.showLogin(false);
     this.loginEmail = 'admin@apiforge.local';
     this.loginPassword = 'Admin@12345';
+  }
+
+  confirmAction(message: string): boolean {
+    return window.confirm(message);
   }
 
   submitAuth(): void {
@@ -747,11 +757,19 @@ export class App implements OnInit {
   }
 
   loadPhase4Data(): void {
+    this.loadBuildInfo();
     this.loadOrganizationSettings();
     this.loadAiConfig();
     this.loadAdvancedAnalytics();
     this.loadBillingOverview();
     this.loadApiKeys();
+  }
+
+  loadBuildInfo(): void {
+    this.api.buildInfo().subscribe({
+      next: (result) => this.buildInfo.set(result.data ?? null),
+      error: () => this.showToast('Build info failed', 'Could not load deployment metadata.', 'danger')
+    });
   }
 
   loadDashboard(): void {
@@ -962,7 +980,12 @@ export class App implements OnInit {
     }
 
     this.api.members(this.selectedOrganizationId()).subscribe({
-      next: (result) => this.members.set(result.data?.items ?? []),
+      next: (result) => {
+        const members = result.data?.items ?? [];
+        this.members.set(members);
+        const roleByName = new Map(this.organizationRoles().map((role) => [role.name, role.id]));
+        this.selectedMemberRoles = Object.fromEntries(members.map((member) => [member.id, roleByName.get(member.roleName) ?? '']));
+      },
       error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
     });
   }
@@ -976,8 +999,10 @@ export class App implements OnInit {
       next: (result) => {
         this.organizationRoles.set(result.data ?? []);
         if (!this.inviteRoleId) {
-          this.inviteRoleId = this.organizationRoles().find((role) => role.name === 'Developer')?.id ?? this.organizationRoles()[0]?.id ?? '';
+          this.inviteRoleId = this.organizationRoles().find((role) => role.name === 'Editor' || role.name === 'Developer')?.id ?? this.organizationRoles()[0]?.id ?? '';
         }
+        const roleByName = new Map(this.organizationRoles().map((role) => [role.name, role.id]));
+        this.selectedMemberRoles = Object.fromEntries(this.members().map((member) => [member.id, roleByName.get(member.roleName) ?? '']));
       },
       error: () => this.showToast('Roles failed', 'Could not load organization roles.', 'danger')
     });
@@ -1005,7 +1030,7 @@ export class App implements OnInit {
           return;
         }
         this.invitations.update((items) => [result.data, ...items]);
-        this.lastInviteLink = `${window.location.origin}/invite/${result.data.id}`;
+        this.lastInviteLink = this.inviteLink(result.data);
         this.inviteEmail = '';
         this.inviteMessage = '';
         this.loadActivity();
@@ -1040,13 +1065,97 @@ export class App implements OnInit {
   }
 
   copyInviteLink(invite?: Invitation): void {
-    const link = invite ? `${window.location.origin}/invite/${invite.id}` : this.lastInviteLink;
+    const link = invite ? this.inviteLink(invite) : this.lastInviteLink;
     if (!link) {
       this.showToast('No invite link', 'Create an invitation first.', 'danger');
       return;
     }
     navigator.clipboard.writeText(link);
     this.showToast('Invite link copied', 'SMTP is not configured, so share this link manually.', 'success');
+  }
+
+  inviteLink(invite: Invitation): string {
+    const token = invite.inviteToken || invite.id;
+    return `${window.location.origin}/invite/${token}`;
+  }
+
+  regenerateInvite(invite: Invitation): void {
+    if (!this.selectedOrganizationId()) {
+      return;
+    }
+    this.api.regenerateInvite(this.selectedOrganizationId(), invite.id).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Invite failed', result.message, 'danger');
+          return;
+        }
+        this.invitations.update((items) => items.map((item) => item.id === invite.id ? result.data! : item));
+        this.lastInviteLink = this.inviteLink(result.data);
+        this.loadActivity();
+        this.showToast('Invite regenerated', 'A fresh invite link is ready.', 'success');
+      },
+      error: (error) => this.showToast('Invite failed', error?.error?.message ?? 'Could not regenerate invitation.', 'danger')
+    });
+  }
+
+  revokeInvite(invite: Invitation): void {
+    if (!this.selectedOrganizationId() || !confirm(`Revoke invite for ${invite.email}?`)) {
+      return;
+    }
+    this.api.revokeInvite(this.selectedOrganizationId(), invite.id).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Revoke failed', result.message, 'danger');
+          return;
+        }
+        this.invitations.update((items) => items.map((item) => item.id === invite.id ? { ...item, status: 'Revoked' } : item));
+        this.loadActivity();
+        this.showToast('Invite revoked', `${invite.email} can no longer use that invite.`, 'success');
+      },
+      error: (error) => this.showToast('Revoke failed', error?.error?.message ?? 'Could not revoke invitation.', 'danger')
+    });
+  }
+
+  acceptInviteFromToken(): void {
+    const token = this.acceptInviteToken.trim();
+    if (!token) {
+      this.showToast('Token required', 'Paste an invite token or invite link first.', 'danger');
+      return;
+    }
+    const normalized = token.includes('/invite/') ? token.split('/invite/').pop() ?? token : token;
+    this.api.acceptInvite(normalized).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Accept failed', result.message, 'danger');
+          return;
+        }
+        this.acceptInviteToken = '';
+        this.loadOrganizations();
+        this.loadActivity();
+        this.showToast('Invite accepted', 'The organization membership was activated.', 'success');
+      },
+      error: (error) => this.showToast('Accept failed', error?.error?.message ?? 'Could not accept invitation.', 'danger')
+    });
+  }
+
+  changeMemberRole(member: OrganizationMember): void {
+    const roleId = this.selectedMemberRoles[member.id];
+    if (!this.selectedOrganizationId() || !roleId) {
+      return;
+    }
+    this.api.changeMemberRole(this.selectedOrganizationId(), member.id, roleId).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Role failed', result.message, 'danger');
+          return;
+        }
+        this.loadMembers();
+        this.loadActivity();
+        this.loadManagerActivity();
+        this.showToast('Role updated', `${member.fullName}'s role was changed.`, 'success');
+      },
+      error: (error) => this.showToast('Role failed', error?.error?.message ?? 'Could not change member role.', 'danger')
+    });
   }
 
   loadMockServers(): void {
@@ -1312,6 +1421,7 @@ export class App implements OnInit {
 
   loadAiConfig(): void {
     if (!this.selectedOrganizationId()) return;
+    this.loadAiProviderStatus();
     this.api.aiConfig(this.selectedOrganizationId()).subscribe({
       next: (result) => {
         this.aiConfig.set(result.data);
@@ -1324,6 +1434,18 @@ export class App implements OnInit {
         }
       },
       error: () => this.showToast('AI config failed', 'Could not load AI provider settings.', 'danger')
+    });
+  }
+
+  loadAiProviderStatus(): void {
+    if (!this.selectedOrganizationId()) return;
+    this.api.aiProviderStatus(this.selectedOrganizationId()).subscribe({
+      next: (result) => {
+        if (result.succeeded && result.data) {
+          this.aiProviderStatus.set(result.data);
+        }
+      },
+      error: () => this.aiProviderStatus.set({ configured: false, providerName: 'Fallback', modelName: 'not configured', fallbackEnabled: true, timeoutSeconds: 20 })
     });
   }
 
@@ -1342,6 +1464,7 @@ export class App implements OnInit {
           return;
         }
         this.aiConfig.set(result.data);
+        this.loadAiProviderStatus();
         this.showToast('AI config saved', `${result.data.provider} is ${result.data.isEnabled ? 'enabled' : 'disabled'}.`, 'success');
       },
       error: (error) => this.showToast('AI config failed', error?.error?.message ?? 'Could not save AI config.', 'danger')
@@ -1517,18 +1640,27 @@ export class App implements OnInit {
       addRequest('Auth', 'Login user', 'POST', '{{baseUrl}}/auth/login', { email: '{{email}}', password: '{{password}}' });
       addRequest('Auth', 'Register user', 'POST', '{{baseUrl}}/auth/register', { name: '{{userName}}', email: '{{email}}', password: '{{password}}' });
     }
-    if (/(profile|user|customer|parent|student)/i.test(lower)) {
+    if (/(profile|user|customer|parent|student|teacher)/i.test(lower)) {
       addRequest('Users', 'Get profile', 'GET', '{{baseUrl}}/users/{{userId}}');
       addRequest('Users', 'Update profile', 'PUT', '{{baseUrl}}/users/{{userId}}', { fullName: '{{userName}}', phone: '{{phone}}' });
     }
-    if (/(invoice|payment|voucher|merchant|school|fee|pay)/i.test(lower)) {
+    if (/(invoice|payment|voucher|merchant|school|fee|fees|pay|paisay|paisa|bill|receipt)/i.test(lower)) {
       addRequest('Billing', 'Create invoice', 'POST', '{{baseUrl}}/merchants/{{merchantId}}/invoices', { customerId: '{{userId}}', amount: 2500, currency: 'PKR' });
       addRequest('Billing', 'Pay invoice', 'POST', '{{baseUrl}}/invoices/{{invoiceId}}/payments', { method: 'card', reference: '{{paymentReference}}' });
       addRequest('Billing', 'Get voucher', 'GET', '{{baseUrl}}/payments/{{paymentId}}/voucher');
+      addRequest('Billing', 'Download receipt', 'GET', '{{baseUrl}}/payments/{{paymentId}}/receipt');
     }
     if (/(order|product|catalog|commerce)/i.test(lower)) {
       addRequest('Commerce', 'List products', 'GET', '{{baseUrl}}/products');
       addRequest('Commerce', 'Create order', 'POST', '{{baseUrl}}/orders', { customerId: '{{userId}}', productId: '{{productId}}', quantity: 1 });
+    }
+    if (/(expense|approval|approve|request|workflow)/i.test(lower)) {
+      addRequest('Approvals', 'Submit request', 'POST', '{{baseUrl}}/approval-requests', { requesterId: '{{userId}}', amount: 1200, reason: 'Team expense' });
+      addRequest('Approvals', 'Approve request', 'POST', '{{baseUrl}}/approval-requests/{{requestId}}/approve', { approverId: '{{approverId}}' });
+    }
+    if (/(dashboard|report|reporting|analytics)/i.test(lower)) {
+      addRequest('Reports', 'Dashboard summary', 'GET', '{{baseUrl}}/reports/dashboard');
+      addRequest('Reports', 'Export report', 'GET', '{{baseUrl}}/reports/export?from={{fromDate}}&to={{toDate}}');
     }
     if (!requests.length) {
       addRequest('API Flow', 'Health check', 'GET', '{{baseUrl}}/health');
@@ -1536,8 +1668,11 @@ export class App implements OnInit {
     }
 
     const variables = this.uniqueValues(['baseUrl', 'token', 'userId', 'merchantId', 'invoiceId', 'paymentId', ...requests.flatMap((request) => this.extractVariables(`${request.url}\n${request.bodyContent}`))]);
+    const provider = this.aiProviderStatus();
     return {
-      providerStatus: this.aiConfig()?.isEnabled ? `${this.aiConfig()?.provider} interface ready; using deterministic preview until provider execution is connected.` : 'AI provider not configured. Deterministic fallback generated this runnable collection.',
+      providerStatus: provider?.configured
+        ? `${provider.providerName} configured (${provider.modelName}). Preview uses validated deterministic collection creation.`
+        : 'AI provider not configured. Deterministic fallback generated this runnable collection.',
       collectionName: this.titleFromFlow(input),
       folders,
       variables,

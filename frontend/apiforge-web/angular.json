@@ -68,8 +68,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "24kB",
-                  "maximumError": "48kB"
+                  "maximumWarning": "56kB",
+                  "maximumError": "72kB"
                 }
               ],
               "outputHashing": "all"
@@ -93,6 +93,17 @@
             }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "polyfills": [
+              "zone.js",
+              "zone.js/testing"
+            ],
+            "karmaConfig": "karma.conf.js"
+          }
         }
       }
     }

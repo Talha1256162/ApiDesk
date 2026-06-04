@@ -17,8 +17,11 @@ public sealed record OrganizationMemberDto(
 
 public sealed record InviteMemberRequest(string Email, Guid RoleId, string? Message);
 
-public sealed record InvitationDto(Guid Id, string Email, string Status, DateTime ExpiresOn);
+public sealed record InvitationDto(Guid Id, string Email, string Status, DateTime ExpiresOn, string? InviteToken = null);
 
 public sealed record UpdateMemberStatusRequest(string Status);
+public sealed record ChangeMemberRoleRequest(Guid RoleId);
+public sealed record AcceptInvitationRequest(string Token);
+public sealed record InvitationAcceptanceDto(Guid OrganizationId, Guid MemberId, string Email, string Status);
 
 public sealed record OrganizationRoleDto(Guid Id, string Name, string Scope);

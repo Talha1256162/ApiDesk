@@ -1,4 +1,5 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using ApiForge.Api.Background;
 using ApiForge.Api.Middleware;
 using ApiForge.Api.Security;
@@ -53,6 +54,23 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var key = context.User.Identity?.IsAuthenticated == true
+            ? context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous"
+            : context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+
+        return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 300,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+    });
+});
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("ApiForgeCors", policy =>
@@ -66,6 +84,8 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSignalR();
+builder.Services.Configure<IISServerOptions>(options => options.MaxRequestBodySize = 25 * 1024 * 1024);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 25 * 1024 * 1024);
 builder.Services.AddHostedService<DatabaseBootstrapWorker>();
 builder.Services.AddHostedService<MonitorSchedulerWorker>();
 builder.Services.AddControllers();
@@ -106,6 +126,7 @@ app.UseHttpsRedirection();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseCors("ApiForgeCors");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

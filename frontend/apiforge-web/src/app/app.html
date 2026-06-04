@@ -1020,6 +1020,12 @@
             <div><span class="eyebrow">AI API Agent Orchestra</span><h2>Generate runnable API flows</h2><p>Describe a business flow in English, Urdu, or Roman Urdu. If no provider key is configured, API Desk uses a transparent deterministic fallback.</p></div>
             <div class="toolbar"><button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button><button class="primary-action" type="button" (click)="aiAgentOpen.set(true)">Open agent</button></div>
           </section>
+          <div class="inline-info">
+            AI mode:
+            <strong>{{ aiProviderStatus()?.configured ? 'Real provider' : 'Fallback only' }}</strong>
+            · {{ aiProviderStatus()?.providerName || 'Fallback' }}
+            · {{ aiProviderStatus()?.modelName || 'not configured' }}
+          </div>
           <section class="ai-orchestra panel">
             <div>
               <span class="eyebrow">Flow prompt</span>
@@ -1300,13 +1306,19 @@
             </article>
             <article class="panel invite-panel">
               <div class="panel-title"><div><span class="eyebrow">Pending</span><h3>Recent invitations</h3></div></div>
+              <div class="invite-link-box">
+                <span>Already have an invite token or link?</span>
+                <input [(ngModel)]="acceptInviteToken" placeholder="Paste invite token or /invite/... link" />
+                <button class="secondary-action" type="button" (click)="acceptInviteFromToken()">Accept invite</button>
+              </div>
               @for (invite of invitations(); track invite.id) {
                 <div class="table-row compact">
                   <strong>{{ invite.email }}</strong>
                   <span>{{ invite.status }}</span>
                   <span>Expires {{ invite.expiresOn | date:'mediumDate' }}</span>
                   <button class="ghost-button compact-action" type="button" (click)="copyInviteLink(invite)">Copy link</button>
-                  <button class="ghost-button compact-action" type="button" disabled>Revoke coming soon</button>
+                  <button class="ghost-button compact-action" type="button" (click)="regenerateInvite(invite)" [disabled]="invite.status !== 'Invited'">Regenerate</button>
+                  <button class="ghost-button compact-action danger-action" type="button" (click)="revokeInvite(invite)" [disabled]="invite.status !== 'Invited'">Revoke</button>
                 </div>
               } @empty {
                 <app-empty-state title="No pending invites" description="New invitations created from this screen appear here immediately."></app-empty-state>
@@ -1325,10 +1337,11 @@
                 <app-badge [label]="member.status" [tone]="member.status === 'Active' ? 'success' : 'default'"></app-badge>
                 <small>Last active {{ member.lastActiveOn ? (member.lastActiveOn | date:'short') : 'not recorded' }}</small>
                 <div class="member-actions">
-                  <button class="ghost-button" type="button" disabled>Change role coming soon</button>
+                  <app-premium-select label="Role" [options]="roleOptions()" [value]="selectedMemberRoles[member.id] || ''" (valueChange)="selectedMemberRoles[member.id] = $event"></app-premium-select>
+                  <button class="ghost-button" type="button" (click)="changeMemberRole(member)">Change role</button>
                   <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Active')" [disabled]="member.status === 'Active'">Activate</button>
                   <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Suspended')" [disabled]="member.status === 'Suspended'">Suspend</button>
-                  <button class="ghost-button danger-action" type="button" (click)="updateMemberStatus(member, 'Removed')" [disabled]="member.status === 'Removed'">Remove</button>
+                  <button class="ghost-button danger-action" type="button" (click)="confirmAction('Remove ' + member.fullName + ' from this organization?') && updateMemberStatus(member, 'Removed')" [disabled]="member.status === 'Removed'">Remove</button>
                 </div>
               </article>
             } @empty {
@@ -1449,6 +1462,13 @@
               Product name
               <input [ngModel]="productName()" (ngModelChange)="productName.set($event)" />
             </label>
+            <div class="settings-grid">
+              <div><span>Frontend commit</span><strong>{{ buildInfo()?.frontendCommit || 'local' }}</strong></div>
+              <div><span>Backend commit</span><strong>{{ buildInfo()?.backendCommit || 'local' }}</strong></div>
+              <div><span>Deployment</span><strong>{{ buildInfo()?.deploymentTimestampUtc ? (buildInfo()?.deploymentTimestampUtc | date:'short') : 'local' }}</strong></div>
+              <div><span>Environment</span><strong>{{ buildInfo()?.environmentName || 'Unknown' }}</strong></div>
+            </div>
+            <button class="secondary-action" type="button" (click)="loadBuildInfo()">Refresh build info</button>
           </section>
         }
       </main>
@@ -1566,6 +1586,10 @@
         <div class="modal-head">
           <div><span class="eyebrow">AI API Agent Orchestra</span><h3>Generate runnable collection</h3></div>
           <button class="icon-action" type="button" (click)="aiAgentOpen.set(false)" aria-label="Close AI agent">x</button>
+        </div>
+        <div class="inline-info">
+          {{ aiProviderStatus()?.configured ? 'Real AI provider configured' : 'Fallback generator active' }}
+          · {{ aiProviderStatus()?.providerName || 'Fallback' }}
         </div>
         <textarea class="code-textarea" rows="5" [(ngModel)]="aiFlowInput" placeholder="Describe your API flow..."></textarea>
         <div class="pill-row">

@@ -40,6 +40,30 @@ public sealed class OrganizationsController(IOrganizationService organizationSer
         return FromResult(await organizationService.InviteAsync(organizationId, request, cancellationToken));
     }
 
+    [HttpPost("{organizationId:guid}/invites/{invitationId:guid}/regenerate")]
+    public async Task<IActionResult> RegenerateInvite(Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
+    {
+        return FromResult(await organizationService.RegenerateInvitationAsync(organizationId, invitationId, cancellationToken));
+    }
+
+    [HttpPatch("{organizationId:guid}/invites/{invitationId:guid}/revoke")]
+    public async Task<IActionResult> RevokeInvite(Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
+    {
+        return FromResult(await organizationService.RevokeInvitationAsync(organizationId, invitationId, cancellationToken));
+    }
+
+    [HttpPost("invites/accept")]
+    public async Task<IActionResult> AcceptInvite(AcceptInvitationRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await organizationService.AcceptInvitationAsync(request, cancellationToken));
+    }
+
+    [HttpPatch("{organizationId:guid}/members/{memberId:guid}/role")]
+    public async Task<IActionResult> ChangeMemberRole(Guid organizationId, Guid memberId, ChangeMemberRoleRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await organizationService.ChangeMemberRoleAsync(organizationId, memberId, request, cancellationToken));
+    }
+
     [HttpPatch("{organizationId:guid}/members/{memberId:guid}/status")]
     public async Task<IActionResult> UpdateMemberStatus(Guid organizationId, Guid memberId, UpdateMemberStatusRequest request, CancellationToken cancellationToken)
     {

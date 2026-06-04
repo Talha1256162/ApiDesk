@@ -5,6 +5,7 @@ import {
   AdvancedAnalytics,
   AiAssistantAction,
   AiAssistantConfig,
+  AiProviderStatus,
   AuditLog,
   ApiRequestDetail,
   ApiRequestSummary,
@@ -15,6 +16,7 @@ import {
   ApiKeyModel,
   AuthResponse,
   BillingOverview,
+  BuildInfo,
   Collection,
   CollectionExport,
   CollectionImportResult,
@@ -98,6 +100,10 @@ export class ApiClientService {
 
   organizations() {
     return this.http.get<ApiResult<Organization[]>>(`${this.apiBaseUrl}/organizations`);
+  }
+
+  buildInfo() {
+    return this.http.get<ApiResult<BuildInfo>>(`${this.apiBaseUrl}/build-info`);
   }
 
   workspaces(organizationId: string) {
@@ -232,6 +238,22 @@ export class ApiClientService {
     return this.http.post<ApiResult<Invitation>>(`${this.apiBaseUrl}/organizations/${organizationId}/invites`, payload);
   }
 
+  regenerateInvite(organizationId: string, invitationId: string) {
+    return this.http.post<ApiResult<Invitation>>(`${this.apiBaseUrl}/organizations/${organizationId}/invites/${invitationId}/regenerate`, {});
+  }
+
+  revokeInvite(organizationId: string, invitationId: string) {
+    return this.http.patch<ApiResult<unknown>>(`${this.apiBaseUrl}/organizations/${organizationId}/invites/${invitationId}/revoke`, {});
+  }
+
+  acceptInvite(token: string) {
+    return this.http.post<ApiResult<unknown>>(`${this.apiBaseUrl}/organizations/invites/accept`, { token });
+  }
+
+  changeMemberRole(organizationId: string, memberId: string, roleId: string) {
+    return this.http.patch<ApiResult<unknown>>(`${this.apiBaseUrl}/organizations/${organizationId}/members/${memberId}/role`, { roleId });
+  }
+
   updateMemberStatus(organizationId: string, memberId: string, status: string) {
     return this.http.patch<ApiResult<unknown>>(`${this.apiBaseUrl}/organizations/${organizationId}/members/${memberId}/status`, { status });
   }
@@ -325,6 +347,10 @@ export class ApiClientService {
 
   aiConfig(organizationId: string) {
     return this.http.get<ApiResult<AiAssistantConfig>>(`${this.apiBaseUrl}/organizations/${organizationId}/ai-config`);
+  }
+
+  aiProviderStatus(organizationId: string) {
+    return this.http.get<ApiResult<AiProviderStatus>>(`${this.apiBaseUrl}/organizations/${organizationId}/ai-provider/status`);
   }
 
   saveAiConfig(organizationId: string, payload: { provider: string; modelName?: string; endpointUrl?: string; deploymentName?: string; isEnabled: boolean }) {

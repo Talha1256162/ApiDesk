@@ -18,6 +18,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddScoped<IActivityService, ActivityService>();
         services.AddScoped<IProductOpsService, ProductOpsService>();
         services.AddScoped<IPhase4Service, Phase4Service>();
+        services.AddHttpClient();
+        services.AddScoped<IAiProviderService, AiProviderService>();
         return services;
     }
 }
