@@ -86,6 +86,30 @@ type ResponseViewMode = 'pretty' | 'raw' | 'tree';
 type EditableKeyValue = KeyValueItem & { id: string };
 type EditableKeyValueKind = 'headers' | 'query' | 'path';
 type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummary[] };
+type PublicView = 'landing' | 'login' | 'pricing';
+type ImportTargetMode = 'workspace' | 'newWorkspace' | 'mergeCollection';
+
+type ImportPreview = {
+  fileName: string;
+  collectionName: string;
+  folderCount: number;
+  requestCount: number;
+  authTypes: string[];
+  variables: string[];
+  scriptsDetected: number;
+  unsupportedItems: string[];
+  payload: ImportCollectionPayload;
+};
+
+type GeneratedCollectionPreview = {
+  providerStatus: string;
+  collectionName: string;
+  folders: string[][];
+  variables: string[];
+  tests: string[];
+  mockExamples: string[];
+  payload: ImportCollectionPayload;
+};
 
 @Component({
   selector: 'app-root',
@@ -112,6 +136,10 @@ export class App implements OnInit {
   readonly authLoading = signal(false);
   readonly commandOpen = signal(false);
   readonly curlImportOpen = signal(false);
+  readonly postmanImportOpen = signal(false);
+  readonly aiAgentOpen = signal(false);
+  readonly generatedTestsOpen = signal(false);
+  readonly generatedMockOpen = signal(false);
   readonly darkMode = signal(localStorage.getItem('apiforge.theme') !== 'light');
   readonly showPassword = signal(false);
   readonly authError = signal('');
@@ -387,6 +415,7 @@ export class App implements OnInit {
   loginEmail = '';
   loginPassword = '';
   registerMode = false;
+  publicView: PublicView = 'landing';
   registerFullName = '';
   registerOrganization = '';
   registerWorkspace = '';
@@ -433,12 +462,18 @@ export class App implements OnInit {
   requestQueryRows: EditableKeyValue[] = [];
   requestPathRows: EditableKeyValue[] = [];
   curlCommand = '';
+  importPreview?: ImportPreview;
+  importError = '';
+  importTargetMode: ImportTargetMode = 'workspace';
+  importWorkspaceName = '';
+  importDragActive = false;
   activityUserFilter = '';
   activityEventFilter = '';
   activityStatusFilter = '';
   inviteEmail = '';
   inviteRoleId = '';
   inviteMessage = '';
+  lastInviteLink = '';
   commentText = '';
   mockName = '';
   mockDelayMs = 0;
@@ -461,6 +496,12 @@ export class App implements OnInit {
   aiEnabled = false;
   aiAction = 'GenerateTests';
   aiInput = '';
+  aiFlowInput = '';
+  aiCollectionPreview?: GeneratedCollectionPreview;
+  aiCreating = false;
+  generatedTests = '';
+  generatedMockBody = '';
+  generatedMockRandomized = false;
   settingsProductName = 'API DESK';
   settingsRetentionDays = 365;
   apiKeyName = '';
@@ -487,6 +528,30 @@ export class App implements OnInit {
       this.loadOrganizations();
       this.connectRealtime();
     }
+  }
+
+  showLanding(): void {
+    this.publicView = 'landing';
+  }
+
+  showPricing(): void {
+    this.publicView = 'pricing';
+  }
+
+  showLogin(register = false): void {
+    this.publicView = 'login';
+    this.registerMode = register;
+    this.authError.set('');
+  }
+
+  startFree(): void {
+    this.showLogin(true);
+  }
+
+  viewDemo(): void {
+    this.showLogin(false);
+    this.loginEmail = 'admin@apiforge.local';
+    this.loginPassword = 'Admin@12345';
   }
 
   submitAuth(): void {
@@ -567,6 +632,7 @@ export class App implements OnInit {
     this.openRequestIds.set([]);
     this.resetRequestEditor();
     this.activeView.set('dashboard');
+    this.publicView = 'landing';
     void this.hub?.stop();
     this.hub = undefined;
     this.realtimeStatus.set('offline');
@@ -939,11 +1005,12 @@ export class App implements OnInit {
           return;
         }
         this.invitations.update((items) => [result.data, ...items]);
+        this.lastInviteLink = `${window.location.origin}/invite/${result.data.id}`;
         this.inviteEmail = '';
         this.inviteMessage = '';
         this.loadActivity();
         this.loadManagerActivity();
-        this.showToast('Invitation created', `${result.data.email} was invited.`, 'success');
+        this.showToast('Invitation created', `Invite link is ready for ${result.data.email}.`, 'success');
       },
       error: (error) => {
         this.pageLoading.set(false);
@@ -970,6 +1037,16 @@ export class App implements OnInit {
       },
       error: (error) => this.showToast('Status failed', error?.error?.message ?? 'Could not update member status.', 'danger')
     });
+  }
+
+  copyInviteLink(invite?: Invitation): void {
+    const link = invite ? `${window.location.origin}/invite/${invite.id}` : this.lastInviteLink;
+    if (!link) {
+      this.showToast('No invite link', 'Create an invitation first.', 'danger');
+      return;
+    }
+    navigator.clipboard.writeText(link);
+    this.showToast('Invite link copied', 'SMTP is not configured, so share this link manually.', 'success');
   }
 
   loadMockServers(): void {
@@ -1292,6 +1369,209 @@ export class App implements OnInit {
     });
   }
 
+  setAiExample(value: string): void {
+    this.aiFlowInput = value;
+  }
+
+  generateAiCollectionPreview(): void {
+    const input = this.aiFlowInput.trim();
+    if (!input) {
+      this.showToast('Describe a flow', 'Add a business/API flow before generating a collection.', 'danger');
+      return;
+    }
+
+    this.aiCollectionPreview = this.buildFallbackCollection(input);
+    this.showToast('AI fallback generated', this.aiCollectionPreview.providerStatus, 'success');
+  }
+
+  approveAiCollection(): void {
+    if (!this.aiCollectionPreview || !this.selectedWorkspaceId()) {
+      this.showToast('No preview', 'Generate and review a collection first.', 'danger');
+      return;
+    }
+
+    this.aiCreating = true;
+    this.api.importCollection(this.selectedWorkspaceId(), this.aiCollectionPreview.payload).subscribe({
+      next: (result) => {
+        this.aiCreating = false;
+        if (!result.succeeded || !result.data) {
+          this.showToast('Create failed', result.message, 'danger');
+          return;
+        }
+        this.selectedCollectionId.set(result.data.collectionId);
+        this.selectedRequestId.set('');
+        this.aiAgentOpen.set(false);
+        this.activeView.set('api-client');
+        this.showToast('Collection created', `${result.data.name} is ready with ${result.data.requestCount} requests.`, 'success');
+        this.loadCollections();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.aiCreating = false;
+        this.showToast('Create failed', error?.error?.message ?? 'Could not create AI collection.', 'danger');
+      }
+    });
+  }
+
+  generateTestsForSelectedRequest(): void {
+    if (!this.requestUrl.trim()) {
+      this.showToast('Request required', 'Open a request before generating tests.', 'danger');
+      return;
+    }
+
+    const pathHint = this.requestUrl.replace(/\{\{[^}]+}}/g, '').split('?')[0];
+    const bodyChecks = this.looksLikeJson(this.responseBody() || this.apiResponse()?.body || '')
+      ? ['jsonPathExists("$.id")', 'jsonPathExists("$.data")']
+      : ['bodyContains("success")'];
+    this.generatedTests = [
+      `statusCodeEquals(${this.requestMethod === 'POST' ? 201 : 200})`,
+      'responseTimeLessThan(1500)',
+      'headerExists("Content-Type")',
+      ...bodyChecks,
+      `case("unauthorized", "${pathHint}", 401)`,
+      `case("validation failure", "${pathHint}", 400)`,
+      this.requestMethod === 'GET' ? `case("not found", "${pathHint}/missing-id", 404)` : ''
+    ].filter(Boolean).join('\n');
+    this.generatedTestsOpen.set(true);
+  }
+
+  saveGeneratedTests(): void {
+    if (!this.generatedTests.trim()) {
+      return;
+    }
+    this.requestTestScript = this.generatedTests;
+    this.generatedTestsOpen.set(false);
+    this.showToast('Tests staged', 'Review the Tests tab and save the request.', 'success');
+    this.requestConfigTab = 'Tests';
+  }
+
+  generateMockForSelectedRequest(): void {
+    if (!this.requestUrl.trim()) {
+      this.showToast('Request required', 'Open a request before generating a mock response.', 'danger');
+      return;
+    }
+
+    this.generatedMockBody = JSON.stringify(this.mockPayloadForUrl(this.requestUrl, this.generatedMockRandomized), null, 2);
+    this.generatedMockOpen.set(true);
+  }
+
+  saveGeneratedMock(): void {
+    if (!this.selectedRequestId() || !this.generatedMockBody.trim()) {
+      this.showToast('Request required', 'Save or select a request before saving a mock example.', 'danger');
+      return;
+    }
+
+    this.api.saveResponseExample(this.selectedRequestId(), {
+      name: this.generatedMockRandomized ? 'Generated randomized mock' : 'Generated mock response',
+      statusCode: 200,
+      headersJson: JSON.stringify({ 'Content-Type': ['application/json'] }, null, 2),
+      body: this.generatedMockBody,
+      contentType: 'application/json'
+    }).subscribe({
+      next: (result) => {
+        if (!result.succeeded) {
+          this.showToast('Mock failed', result.message, 'danger');
+          return;
+        }
+        this.generatedMockOpen.set(false);
+        this.showToast('Mock example saved', 'The generated response was saved as a request example.', 'success');
+        this.loadActivity();
+      },
+      error: (error) => this.showToast('Mock failed', error?.error?.message ?? 'Could not save generated mock.', 'danger')
+    });
+  }
+
+  private buildFallbackCollection(input: string): GeneratedCollectionPreview {
+    const lower = input.toLowerCase();
+    const requests: ImportApiRequestWithFolderPayload[] = [];
+    const folders: string[][] = [];
+    const addFolder = (name: string) => {
+      if (!folders.some((folder) => folder[0] === name)) {
+        folders.push([name]);
+      }
+    };
+    const addRequest = (folder: string, name: string, method: string, url: string, body?: unknown) => {
+      addFolder(folder);
+      requests.push({
+        folderPath: [folder],
+        name,
+        description: `Generated from: ${input}`,
+        method,
+        url,
+        authType: folder === 'Auth' ? undefined : 'Bearer',
+        authConfigJson: folder === 'Auth' ? undefined : JSON.stringify({ token: '{{token}}' }),
+        bodyType: body ? 'rawJson' : 'none',
+        bodyContent: body ? JSON.stringify(body, null, 2) : '',
+        preRequestScript: '',
+        testScript: ['statusCodeEquals(200)', 'responseTimeLessThan(1500)', 'headerExists("Content-Type")'].join('\n'),
+        timeoutMs: 30000,
+        followRedirects: true,
+        sslVerification: true,
+        headers: folder === 'Auth' ? [] : [{ key: 'Authorization', value: 'Bearer {{token}}', enabled: true, isSecret: true }],
+        queryParams: [],
+        pathParams: []
+      });
+    };
+
+    if (/(login|auth|token|signin|sign in|register|signup)/i.test(lower)) {
+      addRequest('Auth', 'Login user', 'POST', '{{baseUrl}}/auth/login', { email: '{{email}}', password: '{{password}}' });
+      addRequest('Auth', 'Register user', 'POST', '{{baseUrl}}/auth/register', { name: '{{userName}}', email: '{{email}}', password: '{{password}}' });
+    }
+    if (/(profile|user|customer|parent|student)/i.test(lower)) {
+      addRequest('Users', 'Get profile', 'GET', '{{baseUrl}}/users/{{userId}}');
+      addRequest('Users', 'Update profile', 'PUT', '{{baseUrl}}/users/{{userId}}', { fullName: '{{userName}}', phone: '{{phone}}' });
+    }
+    if (/(invoice|payment|voucher|merchant|school|fee|pay)/i.test(lower)) {
+      addRequest('Billing', 'Create invoice', 'POST', '{{baseUrl}}/merchants/{{merchantId}}/invoices', { customerId: '{{userId}}', amount: 2500, currency: 'PKR' });
+      addRequest('Billing', 'Pay invoice', 'POST', '{{baseUrl}}/invoices/{{invoiceId}}/payments', { method: 'card', reference: '{{paymentReference}}' });
+      addRequest('Billing', 'Get voucher', 'GET', '{{baseUrl}}/payments/{{paymentId}}/voucher');
+    }
+    if (/(order|product|catalog|commerce)/i.test(lower)) {
+      addRequest('Commerce', 'List products', 'GET', '{{baseUrl}}/products');
+      addRequest('Commerce', 'Create order', 'POST', '{{baseUrl}}/orders', { customerId: '{{userId}}', productId: '{{productId}}', quantity: 1 });
+    }
+    if (!requests.length) {
+      addRequest('API Flow', 'Health check', 'GET', '{{baseUrl}}/health');
+      addRequest('API Flow', 'Create resource', 'POST', '{{baseUrl}}/resources', { name: 'Sample resource' });
+    }
+
+    const variables = this.uniqueValues(['baseUrl', 'token', 'userId', 'merchantId', 'invoiceId', 'paymentId', ...requests.flatMap((request) => this.extractVariables(`${request.url}\n${request.bodyContent}`))]);
+    return {
+      providerStatus: this.aiConfig()?.isEnabled ? `${this.aiConfig()?.provider} interface ready; using deterministic preview until provider execution is connected.` : 'AI provider not configured. Deterministic fallback generated this runnable collection.',
+      collectionName: this.titleFromFlow(input),
+      folders,
+      variables,
+      tests: ['Success response', 'Unauthorized request', 'Validation failure', 'Response time budget', 'JSON path existence'],
+      mockExamples: ['User profile JSON', 'Invoice/payment JSON', 'Voucher JSON', 'Order/product JSON'],
+      payload: {
+        name: this.titleFromFlow(input),
+        description: `AI Agent Orchestra generated collection. Source flow: ${input}`,
+        folders,
+        requests
+      }
+    };
+  }
+
+  private titleFromFlow(input: string): string {
+    const cleaned = input.replace(/[^\w\s-]/g, ' ').trim().split(/\s+/).slice(0, 5).join(' ');
+    return cleaned ? `${cleaned} API Flow` : 'AI Generated API Flow';
+  }
+
+  private mockPayloadForUrl(url: string, randomized: boolean): Record<string, unknown> {
+    const stamp = randomized ? Date.now() : 1001;
+    const lower = url.toLowerCase();
+    if (lower.includes('invoice') || lower.includes('payment') || lower.includes('voucher')) {
+      return { id: `pay_${stamp}`, status: 'paid', amount: 2500, currency: 'PKR', voucherCode: `VCH-${stamp}`, paidOnUtc: new Date().toISOString() };
+    }
+    if (lower.includes('merchant') || lower.includes('customer') || lower.includes('user') || lower.includes('profile')) {
+      return { id: `usr_${stamp}`, fullName: 'API Desk User', email: 'user@example.com', role: 'customer', active: true };
+    }
+    if (lower.includes('product') || lower.includes('order')) {
+      return { id: `ord_${stamp}`, status: 'confirmed', items: [{ sku: 'SKU-100', name: 'Sample Product', quantity: 1 }], total: 1200 };
+    }
+    return { id: `mock_${stamp}`, status: 'success', message: 'Generated mock response' };
+  }
+
   loadAdvancedAnalytics(): void {
     if (!this.selectedWorkspaceId()) return;
     this.api.advancedAnalytics(this.selectedWorkspaceId()).subscribe({
@@ -1510,45 +1790,163 @@ export class App implements OnInit {
     });
   }
 
-  importCollectionFile(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file || !this.selectedWorkspaceId()) {
+  openPostmanImport(): void {
+    if (!this.selectedWorkspaceId()) {
+      this.showToast('Workspace required', 'Select a workspace before importing.', 'danger');
       return;
     }
 
+    this.importPreview = undefined;
+    this.importError = '';
+    this.importTargetMode = 'workspace';
+    this.importWorkspaceName = '';
+    this.postmanImportOpen.set(true);
+  }
+
+  importCollectionFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    this.loadPostmanImportFile(file);
+    input.value = '';
+  }
+
+  onPostmanDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.importDragActive = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file) {
+      this.loadPostmanImportFile(file);
+    }
+  }
+
+  loadPostmanImportFile(file: File): void {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const payload = this.normalizeCollectionImport(JSON.parse(String(reader.result ?? '{}')), file.name);
-        this.pageLoading.set(true);
-        this.api.importCollection(this.selectedWorkspaceId(), payload).subscribe({
-          next: (result) => {
-            this.pageLoading.set(false);
-            input.value = '';
-            if (!result.succeeded || !result.data) {
-              this.showToast('Import failed', result.message, 'danger');
-              return;
-            }
-            this.selectedCollectionId.set(result.data.collectionId);
-            this.selectedRequestId.set('');
-            this.requestDetail.set(null);
-            this.showToast('Collection imported', `${result.data.requestCount} requests imported.`, 'success');
-            this.loadCollections();
-            this.loadActivity();
-          },
-          error: (error) => {
-            this.pageLoading.set(false);
-            input.value = '';
-            this.showToast('Import failed', error?.error?.message ?? 'The collection could not be imported.', 'danger');
-          }
-        });
+        this.importPreview = this.buildImportPreview(JSON.parse(String(reader.result ?? '{}')), file.name);
+        this.importWorkspaceName = `${this.importPreview.collectionName} Workspace`;
+        this.importError = '';
       } catch (error) {
-        input.value = '';
-        this.showToast('Import failed', error instanceof Error ? error.message : 'Unsupported collection JSON.', 'danger');
+        this.importPreview = undefined;
+        this.importError = error instanceof Error ? error.message : 'Unsupported collection JSON.';
       }
     };
     reader.readAsText(file);
+  }
+
+  confirmPostmanImport(): void {
+    if (!this.importPreview) {
+      this.importError = 'Upload a valid Postman collection first.';
+      return;
+    }
+
+    if (this.importTargetMode === 'mergeCollection') {
+      this.mergeImportIntoCurrentCollection(this.importPreview.payload);
+      return;
+    }
+
+    if (this.importTargetMode === 'newWorkspace') {
+      if (!this.selectedOrganizationId()) {
+        this.importError = 'Select an organization before creating a workspace.';
+        return;
+      }
+
+      this.pageLoading.set(true);
+      this.api.createWorkspace({
+        organizationId: this.selectedOrganizationId(),
+        name: this.importWorkspaceName.trim() || `${this.importPreview.collectionName} Workspace`,
+        type: 'Team',
+        description: `Created from ${this.importPreview.fileName}`
+      }).subscribe({
+        next: (workspaceResult) => {
+          if (!workspaceResult.succeeded || !workspaceResult.data) {
+            this.pageLoading.set(false);
+            this.importError = workspaceResult.message;
+            return;
+          }
+          this.selectedWorkspaceId.set(workspaceResult.data.id);
+          this.importIntoWorkspace(workspaceResult.data.id, this.importPreview!.payload);
+        },
+        error: (error) => {
+          this.pageLoading.set(false);
+          this.importError = error?.error?.message ?? 'Could not create workspace for import.';
+        }
+      });
+      return;
+    }
+
+    this.importIntoWorkspace(this.selectedWorkspaceId(), this.importPreview.payload);
+  }
+
+  private importIntoWorkspace(workspaceId: string, payload: ImportCollectionPayload): void {
+    this.pageLoading.set(true);
+    this.api.importCollection(workspaceId, payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.importError = result.message;
+          return;
+        }
+        this.selectedCollectionId.set(result.data.collectionId);
+        this.selectedRequestId.set('');
+        this.requestDetail.set(null);
+        this.postmanImportOpen.set(false);
+        this.showToast('Collection imported', `${result.data.requestCount} requests imported.`, 'success');
+        this.loadWorkspaces();
+        this.loadCollections();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.importError = error?.error?.message ?? 'The collection could not be imported.';
+      }
+    });
+  }
+
+  private mergeImportIntoCurrentCollection(payload: ImportCollectionPayload): void {
+    if (!this.selectedCollectionId()) {
+      this.importError = 'Select a collection before merging.';
+      return;
+    }
+
+    const requests = payload.requests;
+    if (!requests.length) {
+      this.importError = 'No requests were found to merge.';
+      return;
+    }
+
+    this.pageLoading.set(true);
+    let index = 0;
+    const createNext = () => {
+      const request = requests[index++];
+      if (!request) {
+        this.pageLoading.set(false);
+        this.postmanImportOpen.set(false);
+        this.showToast('Collection merged', `${requests.length} requests merged into ${this.selectedCollection()?.name}.`, 'success');
+        this.loadRequests();
+        this.loadCollections();
+        this.loadActivity();
+        return;
+      }
+
+      this.api.createRequest(this.selectedCollectionId(), {
+        ...request,
+        workspaceId: this.selectedWorkspaceId(),
+        collectionId: this.selectedCollectionId(),
+        versionNumber: 1
+      }).subscribe({
+        next: () => createNext(),
+        error: (error) => {
+          this.pageLoading.set(false);
+          this.importError = error?.error?.message ?? `Could not merge request ${request.name}.`;
+        }
+      });
+    };
+    createNext();
   }
 
   runJsonTool(): void {
@@ -2278,13 +2676,119 @@ export class App implements OnInit {
     return [...new Set(values)].slice(0, 14);
   }
 
+  private buildImportPreview(raw: unknown, fileName: string): ImportPreview {
+    const payload = raw as any;
+    const unsupportedItems: string[] = [];
+
+    if (payload?.info && Array.isArray(payload.item)) {
+      const schema = String(payload.info.schema ?? '');
+      if (schema && !schema.includes('v2.1')) {
+        throw new Error(`Unsupported Postman schema (${schema}). Please export as Postman Collection v2.1 JSON.`);
+      }
+      if (!schema) {
+        unsupportedItems.push('Postman schema field is missing; import will continue with best-effort parsing.');
+      }
+    }
+
+    const normalized = this.normalizeCollectionImport(raw, fileName);
+    const folders = normalized.folders ?? [];
+    const authTypes = this.detectImportAuthTypes(payload, normalized);
+    const variables = this.uniqueValues([
+      ...this.detectPostmanVariables(payload),
+      ...normalized.requests.flatMap((request) => [
+        ...this.extractVariables(request.url),
+        ...this.extractVariables(request.bodyContent ?? ''),
+        ...request.headers.flatMap((header) => [header.key, header.value ?? '']).flatMap((value) => this.extractVariables(value))
+      ])
+    ]);
+    const scriptsDetected = this.countPostmanScripts(payload);
+    unsupportedItems.push(...this.detectUnsupportedPostmanItems(payload));
+
+    return {
+      fileName,
+      collectionName: normalized.name,
+      folderCount: folders.length,
+      requestCount: normalized.requests.length,
+      authTypes,
+      variables,
+      scriptsDetected,
+      unsupportedItems: this.uniqueValues(unsupportedItems),
+      payload: normalized
+    };
+  }
+
+  private detectImportAuthTypes(raw: any, payload: ImportCollectionPayload): string[] {
+    const types: string[] = [];
+    const visit = (items: any[] = []) => {
+      for (const item of items) {
+        if (item.request?.auth?.type) {
+          types.push(item.request.auth.type);
+        }
+        if (Array.isArray(item.item)) {
+          visit(item.item);
+        }
+      }
+    };
+    visit(raw?.item ?? []);
+    types.push(...payload.requests.map((request) => request.authType || '').filter(Boolean));
+    return this.uniqueValues(types.length ? types : ['No Auth']);
+  }
+
+  private detectPostmanVariables(raw: any): string[] {
+    const variables = Array.isArray(raw?.variable) ? raw.variable.map((item: any) => item.key ?? item.name ?? '') : [];
+    return variables.filter(Boolean);
+  }
+
+  private countPostmanScripts(raw: any): number {
+    let count = 0;
+    const visit = (items: any[] = []) => {
+      for (const item of items) {
+        if (Array.isArray(item.event)) {
+          count += item.event.filter((event: any) => event.listen === 'test' || event.listen === 'prerequest').length;
+        }
+        if (Array.isArray(item.item)) {
+          visit(item.item);
+        }
+      }
+    };
+    if (Array.isArray(raw?.event)) {
+      count += raw.event.length;
+    }
+    visit(raw?.item ?? []);
+    return count;
+  }
+
+  private detectUnsupportedPostmanItems(raw: any): string[] {
+    const unsupported: string[] = [];
+    const visit = (items: any[] = []) => {
+      for (const item of items) {
+        const mode = item.request?.body?.mode;
+        if (mode && !['raw', 'urlencoded', 'formdata'].includes(mode)) {
+          unsupported.push(`Body mode '${mode}' imported as text placeholder.`);
+        }
+        if (item.request?.auth?.type === 'oauth2') {
+          unsupported.push('OAuth 2 token exchange settings are imported as manual bearer placeholders.');
+        }
+        if (Array.isArray(item.item)) {
+          visit(item.item);
+        }
+      }
+    };
+    visit(raw?.item ?? []);
+    return unsupported;
+  }
+
   private normalizeCollectionImport(raw: unknown, fallbackName: string): ImportCollectionPayload {
     const payload = raw as any;
     if (payload?.formatVersion && payload?.collection && Array.isArray(payload.requests)) {
       return {
         name: payload.collection.name ?? fallbackName,
         description: payload.collection.description,
-        requests: payload.requests.map((request: any) => this.normalizeApiRequest(request))
+        folders: this.uniqueFolderPaths(payload.requests.map((request: any) => request.folderPath).filter(Array.isArray)),
+        requests: payload.requests.map((request: any) => ({
+          ...this.normalizeApiRequest(request),
+          folderPath: Array.isArray(request.folderPath) ? request.folderPath : undefined
+        }))
       };
     }
 
@@ -2301,7 +2805,11 @@ export class App implements OnInit {
       return {
         name: payload.name ?? fallbackName,
         description: payload.description,
-        requests: payload.requests.map((request: any) => this.normalizeApiRequest(request))
+        folders: this.uniqueFolderPaths(payload.requests.map((request: any) => request.folderPath).filter(Array.isArray)),
+        requests: payload.requests.map((request: any) => ({
+          ...this.normalizeApiRequest(request),
+          folderPath: Array.isArray(request.folderPath) ? request.folderPath : undefined
+        }))
       };
     }
 
@@ -2365,6 +2873,18 @@ export class App implements OnInit {
 
       const nextPath = [...folderPath, item.name ?? 'Folder'];
       return [nextPath, ...this.collectPostmanFolderPaths(item.item, nextPath)];
+    });
+  }
+
+  private uniqueFolderPaths(paths: string[][]): string[][] {
+    const seen = new Set<string>();
+    return paths.filter((path) => {
+      const key = path.join('/');
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
     });
   }
 

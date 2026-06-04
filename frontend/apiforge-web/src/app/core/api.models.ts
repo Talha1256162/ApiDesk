@@ -172,6 +172,7 @@ export interface CollectionImportResult {
 
 export interface ApiRequestExport extends ImportApiRequestPayload {
   id: string;
+  folderPath?: string[];
 }
 
 export interface CollectionExport {

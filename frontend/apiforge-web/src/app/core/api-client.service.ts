@@ -105,6 +105,10 @@ export class ApiClientService {
     return this.http.get<ApiResult<PagedResult<Workspace>>>(`${this.apiBaseUrl}/workspaces`, { params });
   }
 
+  createWorkspace(payload: { organizationId: string; name: string; type: string; description?: string }) {
+    return this.http.post<ApiResult<Workspace>>(`${this.apiBaseUrl}/workspaces`, payload);
+  }
+
   workspaceDashboard(workspaceId: string) {
     return this.http.get<ApiResult<WorkspaceDashboard>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/dashboard`);
   }

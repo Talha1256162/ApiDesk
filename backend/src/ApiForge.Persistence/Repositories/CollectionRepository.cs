@@ -342,9 +342,21 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
             join users u on u.id = c.ownerUserId
             where c.id = @CollectionId and c.isDeleted = 0;
 
+            ;with folder_tree as (
+                select f.id, f.parentFolderId, f.name, cast(f.name as nvarchar(max)) as path
+                from folders f
+                where f.collectionId = @CollectionId and f.parentFolderId is null and f.isDeleted = 0
+                union all
+                select child.id, child.parentFolderId, child.name, cast(parent.path + N'/' + child.name as nvarchar(max)) as path
+                from folders child
+                join folder_tree parent on parent.id = child.parentFolderId
+                where child.collectionId = @CollectionId and child.isDeleted = 0
+            )
             select r.id, r.name, r.description, r.method, r.url, r.authType, r.authConfigJson, r.bodyType,
-                   rb.content as bodyContent, r.preRequestScript, r.testScript, r.timeoutMs, r.followRedirects, r.sslVerification
+                   rb.content as bodyContent, r.preRequestScript, r.testScript, r.timeoutMs, r.followRedirects, r.sslVerification,
+                   ft.path as folderPathText
             from requests r
+            left join folder_tree ft on ft.id = r.folderId
             outer apply (
                 select top 1 content
                 from requestBodies rb
@@ -401,7 +413,8 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
                 row.SslVerification,
                 headers.TryGetValue(row.Id, out var headerRows) ? headerRows : [],
                 queryParams,
-                pathParams);
+                pathParams,
+                SplitFolderPath(row.FolderPathText));
         }).ToList();
 
         return new CollectionExportDto("apidesk.collection.v1", collection, requests);
@@ -741,6 +754,14 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         public int TimeoutMs { get; init; }
         public bool FollowRedirects { get; init; }
         public bool SslVerification { get; init; }
+        public string? FolderPathText { get; init; }
+    }
+
+    private static IReadOnlyList<string>? SplitFolderPath(string? folderPath)
+    {
+        return string.IsNullOrWhiteSpace(folderPath)
+            ? null
+            : folderPath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     private class ChildKeyValueRow

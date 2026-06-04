@@ -105,7 +105,8 @@ public sealed record ApiRequestExportDto(
     bool SslVerification,
     IReadOnlyList<KeyValueItemDto> Headers,
     IReadOnlyList<KeyValueItemDto> QueryParams,
-    IReadOnlyList<KeyValueItemDto> PathParams);
+    IReadOnlyList<KeyValueItemDto> PathParams,
+    IReadOnlyList<string>? FolderPath = null);
 
 public sealed record CollectionExportDto(string FormatVersion, CollectionDto Collection, IReadOnlyList<ApiRequestExportDto> Requests);
 

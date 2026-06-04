@@ -1,5 +1,73 @@
 <div class="app-shell" [class.light-shell]="!darkMode()">
   @if (!isSignedIn()) {
+    @if (publicView === 'landing') {
+      <main class="marketing-shell">
+        <nav class="marketing-nav">
+          <button class="brand-button" type="button" (click)="showLanding()">
+            <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+            <span>{{ productName() }}</span>
+          </button>
+          <div>
+            <button class="ghost-button" type="button" (click)="showPricing()">Pricing</button>
+            <button class="secondary-action" type="button" (click)="showLogin()">Login</button>
+            <button class="primary-action" type="button" (click)="startFree()">Start free</button>
+          </div>
+        </nav>
+        <section class="marketing-hero">
+          <div>
+            <span class="eyebrow">API Desk for small software teams</span>
+            <h1>Lightweight AI-powered Postman alternative for small teams.</h1>
+            <p>Send requests, migrate Postman collections, manage environments, collaborate with unlimited teammates, generate tests, and build mock responses from one polished workspace.</p>
+            <div class="hero-actions">
+              <button class="primary-action" type="button" (click)="startFree()">Start free</button>
+              <button class="secondary-action" type="button" (click)="viewDemo()">View demo</button>
+            </div>
+          </div>
+          <article class="hero-product-card">
+            <div class="mini-browser-bar"><span></span><span></span><span></span><strong>API Client</strong></div>
+            <div class="hero-request-line"><app-badge label="POST" tone="accent"></app-badge><code>{{ '{{baseUrl}}' }}/auth/login</code><button>Send</button></div>
+            <div class="hero-panels">
+              <div><strong>Collections</strong><span>Folders, search, import/export</span></div>
+              <div><strong>AI Agent</strong><span>Fallback collection generator ready</span></div>
+              <div><strong>Team</strong><span>Roles, invite links, activity</span></div>
+            </div>
+          </article>
+        </section>
+        <section class="feature-grid public-features">
+          <article><strong>API client</strong><span>Backend request runner with response body, headers, downloads, history, and cURL import.</span></article>
+          <article><strong>Collections</strong><span>Postman-style collections, folders, search, save, export, and guided migration.</span></article>
+          <article><strong>Environments</strong><span>Workspace variables, secret masking, and {{ '{{variable}}' }} resolution before request execution.</span></article>
+          <article><strong>Postman import</strong><span>Preview folders, requests, auth, variables, scripts, and unsupported items before import.</span></article>
+          <article><strong>Mock server</strong><span>Create mocks from saved requests and generate realistic mock examples.</span></article>
+          <article><strong>AI test generator</strong><span>Generate practical assertions from method, URL, body, and latest response.</span></article>
+          <article><strong>Unlimited collaboration</strong><span>Organizations, workspaces, roles, invite links, activity, and manager visibility.</span></article>
+          <article><strong>Developer tools</strong><span>JSON tools, Base64, URL tools, JWT decoder, UUIDs, timestamps, cURL parser, and regex.</span></article>
+        </section>
+      </main>
+    } @else if (publicView === 'pricing') {
+      <main class="marketing-shell">
+        <nav class="marketing-nav">
+          <button class="brand-button" type="button" (click)="showLanding()">
+            <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+            <span>{{ productName() }}</span>
+          </button>
+          <div>
+            <button class="secondary-action" type="button" (click)="showLanding()">Product</button>
+            <button class="primary-action" type="button" (click)="showLogin()">Login</button>
+          </div>
+        </nav>
+        <section class="pricing-public">
+          <div class="page-header">
+            <div><span class="eyebrow">Simple plans</span><h2>Pricing for beta teams</h2><p>Payments are intentionally not enabled yet. The product is ready for demos and pilot customers.</p></div>
+          </div>
+          <div class="pricing-grid">
+            <article class="pricing-card active"><span>Free beta</span><strong>$0</strong><p>API client, imports, JSON tools, environments, mocks, AI fallback, and team collaboration.</p><button class="primary-action wide" (click)="startFree()">Start free</button></article>
+            <article class="pricing-card"><span>Team</span><strong>Coming soon</strong><p>Advanced permissions, analytics, shared monitors, governance approvals, and hosted support.</p><button class="secondary-action wide" disabled>Coming soon</button></article>
+            <article class="pricing-card"><span>Enterprise</span><strong>Contact</strong><p>Private deployment, SSO, retention controls, audit exports, and managed onboarding.</p><button class="secondary-action wide" disabled>Contact placeholder</button></article>
+          </div>
+        </section>
+      </main>
+    } @else {
     <main class="auth-screen">
       <section class="auth-card">
         <div class="auth-copy">
@@ -73,6 +141,7 @@
         </form>
       </section>
     </main>
+    }
   } @else {
     <aside class="sidebar">
       <div class="sidebar-brand">
@@ -346,10 +415,7 @@
               </div>
               <div class="rail-actions">
                 <button class="ghost-button" type="button" (click)="exportSelectedCollection()" [disabled]="!selectedCollectionId()">Export</button>
-                <label class="file-action">
-                  Import
-                  <input type="file" accept="application/json,.json" (change)="importCollectionFile($event)" hidden />
-                </label>
+                <button class="file-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
               </div>
               <input class="rail-search" placeholder="Search collections" [(ngModel)]="collectionSearch" />
 
@@ -440,6 +506,7 @@
                 </div>
                 <div class="api-client-toolbar-actions">
                   <input class="request-inline-search" placeholder="Search requests" [(ngModel)]="requestSearch" />
+                  <button class="primary-action compact-action" type="button" (click)="aiAgentOpen.set(true)">AI Agent</button>
                   <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
                   <button class="ghost-button compact-action" type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>
                 </div>
@@ -616,6 +683,8 @@
                       <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
                       <button class="ghost-button" type="button" (click)="downloadResponseBody()" [disabled]="!apiResponse()">Download</button>
                       <button class="ghost-button" type="button" (click)="saveCurrentResponseAsExample()" [disabled]="!apiResponse()">Save example</button>
+                      <button class="ghost-button" type="button" (click)="generateMockForSelectedRequest()">Generate mock</button>
+                      <button class="ghost-button" type="button" (click)="generateTestsForSelectedRequest()">Generate tests</button>
                     </div>
                   </div>
                   <div class="tab-strip response-tabs">
@@ -948,8 +1017,41 @@
 
         @if (activeView() === 'ai-assistant') {
           <section class="page-header">
-            <div><span class="eyebrow">AI provider</span><h2>AI assistant</h2><p>Provider configuration is stored in SQL. No API key is hardcoded or exposed.</p></div>
-            <button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button>
+            <div><span class="eyebrow">AI API Agent Orchestra</span><h2>Generate runnable API flows</h2><p>Describe a business flow in English, Urdu, or Roman Urdu. If no provider key is configured, API Desk uses a transparent deterministic fallback.</p></div>
+            <div class="toolbar"><button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button><button class="primary-action" type="button" (click)="aiAgentOpen.set(true)">Open agent</button></div>
+          </section>
+          <section class="ai-orchestra panel">
+            <div>
+              <span class="eyebrow">Flow prompt</span>
+              <h3>Describe your API flow</h3>
+              <textarea class="code-textarea" rows="6" [(ngModel)]="aiFlowInput" placeholder="Login user, get profile, update profile"></textarea>
+              <div class="pill-row">
+                <button type="button" (click)="setAiExample('Login user, get profile, update profile')">Login/profile</button>
+                <button type="button" (click)="setAiExample('School parent pays invoice then receives voucher')">School payment</button>
+                <button type="button" (click)="setAiExample('Customer order create karo, payment lo, phir voucher bhejo')">Roman Urdu</button>
+              </div>
+              <button class="primary-action wide" type="button" (click)="generateAiCollectionPreview()">Generate collection preview</button>
+            </div>
+            <div class="generated-preview">
+              @if (aiCollectionPreview) {
+                <div class="inline-info">{{ aiCollectionPreview.providerStatus }}</div>
+                <h3>{{ aiCollectionPreview.collectionName }}</h3>
+                <div class="preview-grid">
+                  <div><span>Folders</span><strong>{{ aiCollectionPreview.folders.length }}</strong></div>
+                  <div><span>Requests</span><strong>{{ aiCollectionPreview.payload.requests.length }}</strong></div>
+                  <div><span>Variables</span><strong>{{ aiCollectionPreview.variables.length }}</strong></div>
+                  <div><span>Tests</span><strong>{{ aiCollectionPreview.tests.length }}</strong></div>
+                </div>
+                <div class="mini-list">
+                  @for (request of aiCollectionPreview.payload.requests; track request.name) {
+                    <div><app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge><span>{{ request.folderPath?.join(' / ') || 'Root' }} / {{ request.name }}</span></div>
+                  }
+                </div>
+                <button class="primary-action wide" type="button" (click)="approveAiCollection()" [disabled]="aiCreating">{{ aiCreating ? 'Creating...' : 'Approve and create collection' }}</button>
+              } @else {
+                <app-empty-state title="No AI preview" description="Generate a preview to review folders, requests, variables, tests, and mock examples before creating anything."></app-empty-state>
+              }
+            </div>
           </section>
           <section class="report-grid">
             <article class="panel editor-card">
@@ -1188,11 +1290,24 @@
                 <label class="invite-message">Message<input [(ngModel)]="inviteMessage" placeholder="Join the Platform APIs workspace review." /></label>
                 <button class="primary-action" type="button" (click)="inviteMember()" [disabled]="pageLoading()">Send invite</button>
               </div>
+              @if (lastInviteLink) {
+                <div class="invite-link-box">
+                  <span>SMTP is not configured. Share this invite link manually.</span>
+                  <code>{{ lastInviteLink }}</code>
+                  <button class="secondary-action" type="button" (click)="copyInviteLink()">Copy invite link</button>
+                </div>
+              }
             </article>
             <article class="panel invite-panel">
               <div class="panel-title"><div><span class="eyebrow">Pending</span><h3>Recent invitations</h3></div></div>
               @for (invite of invitations(); track invite.id) {
-                <div class="table-row compact"><strong>{{ invite.email }}</strong><span>{{ invite.status }}</span><span>Expires {{ invite.expiresOn | date:'mediumDate' }}</span></div>
+                <div class="table-row compact">
+                  <strong>{{ invite.email }}</strong>
+                  <span>{{ invite.status }}</span>
+                  <span>Expires {{ invite.expiresOn | date:'mediumDate' }}</span>
+                  <button class="ghost-button compact-action" type="button" (click)="copyInviteLink(invite)">Copy link</button>
+                  <button class="ghost-button compact-action" type="button" disabled>Revoke coming soon</button>
+                </div>
               } @empty {
                 <app-empty-state title="No pending invites" description="New invitations created from this screen appear here immediately."></app-empty-state>
               }
@@ -1210,6 +1325,7 @@
                 <app-badge [label]="member.status" [tone]="member.status === 'Active' ? 'success' : 'default'"></app-badge>
                 <small>Last active {{ member.lastActiveOn ? (member.lastActiveOn | date:'short') : 'not recorded' }}</small>
                 <div class="member-actions">
+                  <button class="ghost-button" type="button" disabled>Change role coming soon</button>
                   <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Active')" [disabled]="member.status === 'Active'">Activate</button>
                   <button class="ghost-button" type="button" (click)="updateMemberStatus(member, 'Suspended')" [disabled]="member.status === 'Suspended'">Suspend</button>
                   <button class="ghost-button danger-action" type="button" (click)="updateMemberStatus(member, 'Removed')" [disabled]="member.status === 'Removed'">Remove</button>
@@ -1372,6 +1488,128 @@
           <button class="secondary-action" type="button" (click)="curlImportOpen.set(false)">Cancel</button>
           <button class="primary-action" type="button" (click)="importCurlToRequest()">Import request</button>
         </div>
+      </div>
+    </div>
+  }
+
+  @if (postmanImportOpen()) {
+    <div class="command-overlay" (click)="postmanImportOpen.set(false)">
+      <div class="command-panel import-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">Migration</span>
+            <h3>Import from Postman</h3>
+          </div>
+          <button class="icon-action" type="button" (click)="postmanImportOpen.set(false)" aria-label="Close import">x</button>
+        </div>
+
+        <label
+          class="drop-zone"
+          [class.drag-active]="importDragActive"
+          (dragover)="$event.preventDefault(); importDragActive = true"
+          (dragleave)="importDragActive = false"
+          (drop)="onPostmanDrop($event)">
+          <strong>Drop Postman Collection v2.1 JSON here</strong>
+          <span>or browse from your computer</span>
+          <input type="file" accept="application/json,.json" (change)="importCollectionFile($event)" hidden />
+        </label>
+
+        @if (importError) {
+          <div class="inline-error">{{ importError }}</div>
+        }
+
+        @if (importPreview) {
+          <section class="import-preview">
+            <div class="panel-title"><div><span class="eyebrow">{{ importPreview.fileName }}</span><h3>{{ importPreview.collectionName }}</h3></div></div>
+            <div class="preview-grid">
+              <div><span>Folders</span><strong>{{ importPreview.folderCount }}</strong></div>
+              <div><span>Requests</span><strong>{{ importPreview.requestCount }}</strong></div>
+              <div><span>Auth types</span><strong>{{ importPreview.authTypes.length }}</strong></div>
+              <div><span>Scripts</span><strong>{{ importPreview.scriptsDetected }}</strong></div>
+            </div>
+            <div class="pill-row">
+              @for (auth of importPreview.authTypes; track auth) { <span>{{ auth }}</span> }
+              @for (variable of importPreview.variables; track variable) { <span>{{ '{{' + variable + '}}' }}</span> }
+            </div>
+            @if (importPreview.unsupportedItems.length) {
+              <div class="inline-info">
+                @for (item of importPreview.unsupportedItems; track item) { <div>{{ item }}</div> }
+              </div>
+            }
+          </section>
+
+          <section class="target-picker">
+            <button type="button" [class.active]="importTargetMode === 'workspace'" (click)="importTargetMode = 'workspace'">Import into selected workspace</button>
+            <button type="button" [class.active]="importTargetMode === 'newWorkspace'" (click)="importTargetMode = 'newWorkspace'">Create new workspace</button>
+            <button type="button" [class.active]="importTargetMode === 'mergeCollection'" (click)="importTargetMode = 'mergeCollection'" [disabled]="!selectedCollectionId()">Merge into selected collection</button>
+          </section>
+
+          @if (importTargetMode === 'newWorkspace') {
+            <label>Workspace name<input [(ngModel)]="importWorkspaceName" /></label>
+          }
+          @if (importTargetMode === 'mergeCollection') {
+            <div class="inline-info">Merge mode appends requests to {{ selectedCollection()?.name || 'the selected collection' }}. Folder creation is preserved for full workspace import.</div>
+          }
+        }
+
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" (click)="postmanImportOpen.set(false)">Cancel</button>
+          <button class="primary-action" type="button" (click)="confirmPostmanImport()" [disabled]="!importPreview || pageLoading()">{{ pageLoading() ? 'Importing...' : 'Import collection' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (aiAgentOpen()) {
+    <div class="command-overlay" (click)="aiAgentOpen.set(false)">
+      <div class="command-panel import-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <div><span class="eyebrow">AI API Agent Orchestra</span><h3>Generate runnable collection</h3></div>
+          <button class="icon-action" type="button" (click)="aiAgentOpen.set(false)" aria-label="Close AI agent">x</button>
+        </div>
+        <textarea class="code-textarea" rows="5" [(ngModel)]="aiFlowInput" placeholder="Describe your API flow..."></textarea>
+        <div class="pill-row">
+          <button type="button" (click)="setAiExample('Login user, get profile, update profile')">Login user, get profile, update profile</button>
+          <button type="button" (click)="setAiExample('School parent pays invoice then receives voucher')">School parent pays invoice then receives voucher</button>
+          <button type="button" (click)="setAiExample('Customer order create karo, payment lo, phir voucher bhejo')">Roman Urdu flow</button>
+        </div>
+        <button class="primary-action wide" type="button" (click)="generateAiCollectionPreview()">Generate preview</button>
+        @if (aiCollectionPreview) {
+          <div class="generated-preview compact-preview">
+            <div class="inline-info">{{ aiCollectionPreview.providerStatus }}</div>
+            <h3>{{ aiCollectionPreview.collectionName }}</h3>
+            <div class="mini-list">
+              @for (request of aiCollectionPreview.payload.requests; track request.name) {
+                <div><app-badge [label]="request.method" [tone]="methodTone(request.method)"></app-badge><span>{{ request.folderPath?.join(' / ') || 'Root' }} / {{ request.name }}</span></div>
+              }
+            </div>
+          </div>
+        }
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" (click)="aiAgentOpen.set(false)">Cancel</button>
+          <button class="primary-action" type="button" (click)="approveAiCollection()" [disabled]="!aiCollectionPreview || aiCreating">{{ aiCreating ? 'Creating...' : 'Approve and create' }}</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (generatedTestsOpen()) {
+    <div class="command-overlay" (click)="generatedTestsOpen.set(false)">
+      <div class="command-panel import-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head"><div><span class="eyebrow">Tests</span><h3>Generated assertions</h3></div><button class="icon-action" type="button" (click)="generatedTestsOpen.set(false)">x</button></div>
+        <textarea class="code-textarea" rows="10" [(ngModel)]="generatedTests"></textarea>
+        <div class="modal-actions"><button class="secondary-action" type="button" (click)="generatedTestsOpen.set(false)">Cancel</button><button class="primary-action" type="button" (click)="saveGeneratedTests()">Use tests</button></div>
+      </div>
+    </div>
+  }
+
+  @if (generatedMockOpen()) {
+    <div class="command-overlay" (click)="generatedMockOpen.set(false)">
+      <div class="command-panel import-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head"><div><span class="eyebrow">Mock response</span><h3>Generated example</h3></div><button class="icon-action" type="button" (click)="generatedMockOpen.set(false)">x</button></div>
+        <label class="toggle-row"><input type="checkbox" [(ngModel)]="generatedMockRandomized" (change)="generateMockForSelectedRequest()" /> Randomized response</label>
+        <textarea class="code-textarea" rows="12" [(ngModel)]="generatedMockBody"></textarea>
+        <div class="modal-actions"><button class="secondary-action" type="button" (click)="generatedMockOpen.set(false)">Cancel</button><button class="primary-action" type="button" (click)="saveGeneratedMock()">Save as example</button></div>
       </div>
     </div>
   }

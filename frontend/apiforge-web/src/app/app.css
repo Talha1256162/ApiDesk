@@ -177,6 +177,188 @@ select option {
   background: #ffffff;
 }
 
+.marketing-shell {
+  min-height: 100vh;
+  grid-column: 1 / -1;
+  background:
+    radial-gradient(circle at 24% 8%, rgba(79, 109, 255, 0.2), transparent 28%),
+    radial-gradient(circle at 78% 0%, rgba(0, 208, 132, 0.12), transparent 26%),
+    var(--bg);
+  padding: 28px clamp(18px, 5vw, 72px) 58px;
+}
+
+.marketing-nav,
+.hero-actions,
+.pill-row,
+.modal-actions,
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.marketing-nav {
+  justify-content: space-between;
+  margin-bottom: 56px;
+}
+
+.brand-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  color: var(--text-primary);
+  font-weight: 900;
+}
+
+.marketing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 0.7fr);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: center;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.marketing-hero p {
+  max-width: 680px;
+  margin: 18px 0 28px;
+  color: var(--text-secondary);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.hero-product-card,
+.pricing-card,
+.public-features article,
+.drop-zone,
+.import-preview,
+.generated-preview,
+.invite-link-box {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)), var(--surface-card);
+  box-shadow: var(--shadow-card);
+}
+
+.hero-product-card {
+  padding: 18px;
+}
+
+.mini-browser-bar,
+.hero-request-line,
+.hero-panels,
+.preview-grid,
+.target-picker,
+.mini-list > div {
+  display: grid;
+  gap: 10px;
+}
+
+.mini-browser-bar,
+.hero-request-line,
+.mini-list > div {
+  display: flex;
+  align-items: center;
+}
+
+.mini-browser-bar {
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.mini-browser-bar span {
+  width: 9px;
+  height: 9px;
+  border-radius: 99px;
+  background: var(--border-strong);
+}
+
+.mini-browser-bar strong {
+  margin-left: auto;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.hero-request-line {
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.hero-request-line code {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+}
+
+.hero-request-line button {
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 12px;
+  font-weight: 900;
+}
+
+.hero-panels,
+.public-features,
+.pricing-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.hero-panels {
+  margin-top: 14px;
+}
+
+.hero-panels div,
+.public-features article {
+  padding: 16px;
+}
+
+.hero-panels div {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.hero-panels strong,
+.public-features strong,
+.pricing-card strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 7px;
+}
+
+.public-features,
+.pricing-grid {
+  max-width: 1280px;
+  margin: 54px auto 0;
+  display: grid;
+  gap: 14px;
+}
+
+.pricing-public {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.pricing-card {
+  padding: 24px;
+}
+
+.pricing-card.active {
+  border-color: var(--accent-border);
+}
+
+.pricing-card strong {
+  font-size: 30px;
+}
+
 .primary-action,
 .secondary-action,
 .ghost-button,
@@ -208,6 +390,142 @@ select option {
   background: linear-gradient(180deg, var(--accent-strong), var(--accent));
   color: #ffffff;
   box-shadow: 0 10px 28px rgba(79, 109, 255, 0.28);
+}
+
+.import-modal {
+  width: min(820px, calc(100vw - 28px));
+  max-height: min(88vh, 860px);
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.drop-zone {
+  min-height: 150px;
+  place-items: center;
+  justify-content: center;
+  text-align: center;
+  border-style: dashed;
+  cursor: pointer;
+}
+
+.drop-zone.drag-active {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.import-preview,
+.generated-preview,
+.invite-link-box {
+  padding: 16px;
+}
+
+.preview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.preview-grid > div {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.preview-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-primary);
+  font-size: 22px;
+}
+
+.pill-row button,
+.pill-row span {
+  min-height: 30px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 99px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  padding: 0 11px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.target-picker {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.target-picker button {
+  min-height: 58px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-weight: 900;
+}
+
+.target-picker button.active {
+  border-color: var(--accent-border);
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+.ai-orchestra {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(360px, 1fr);
+  gap: 18px;
+}
+
+.mini-list {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  margin: 14px 0;
+}
+
+.mini-list > div {
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 8px 10px;
+}
+
+.mini-list span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compact-preview {
+  box-shadow: none;
+}
+
+.invite-link-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.invite-link-box code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  padding: 10px 12px;
 }
 
 .secondary-action,
@@ -2364,6 +2682,10 @@ select option {
   .json-workbench,
   .request-config-grid,
   .pricing-grid,
+  .marketing-hero,
+  .hero-panels,
+  .public-features,
+  .ai-orchestra,
   .team-console,
   .billing-hero {
     grid-template-columns: 1fr;
@@ -2423,6 +2745,20 @@ select option {
 
   .request-bar {
     grid-template-columns: 1fr;
+  }
+
+  .marketing-shell {
+    padding: 18px;
+  }
+
+  .marketing-nav,
+  .marketing-nav > div,
+  .hero-actions,
+  .preview-grid,
+  .target-picker {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .auth-topline,
