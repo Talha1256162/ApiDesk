@@ -6,6 +6,7 @@ namespace ApiForge.Application.Abstractions.Persistence;
 public interface IEnvironmentRepository
 {
     Task<Guid?> GetWorkspaceOrganizationIdByEnvironmentAsync(Guid environmentId, CancellationToken cancellationToken);
+    Task<(Guid OrganizationId, Guid WorkspaceId)?> GetEnvironmentScopeAsync(Guid environmentId, CancellationToken cancellationToken);
     Task<PagedResult<EnvironmentDto>> GetEnvironmentsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken);
     Task<EnvironmentDto> CreateAsync(CreateEnvironmentRequest request, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<EnvironmentVariableDto>> UpsertVariablesAsync(Guid environmentId, UpsertEnvironmentVariablesRequest request, Guid userId, CancellationToken cancellationToken);

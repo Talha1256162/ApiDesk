@@ -45,12 +45,20 @@ public sealed class ProductOpsController(IProductOpsService productOpsService) :
     [HttpDelete("mock/{slug}/{**path}")]
     public async Task<IActionResult> ExecuteMock(string slug, string? path, CancellationToken cancellationToken)
     {
-        var result = await productOpsService.ExecuteMockAsync(slug, Request.Method, "/" + (path ?? string.Empty), cancellationToken);
+        var apiKey = Request.Headers.TryGetValue("X-API-Desk-Key", out var key) ? key.ToString() : null;
+        var result = await productOpsService.ExecuteMockAsync(slug, Request.Method, "/" + (path ?? string.Empty), apiKey, cancellationToken);
         if (!result.Succeeded || result.Data is null)
         {
-            return NotFound(result);
+            var firstCode = result.Errors.FirstOrDefault()?.Code;
+            return firstCode switch
+            {
+                "auth.required" => Unauthorized(result),
+                "permission.denied" => StatusCode(StatusCodes.Status403Forbidden, result),
+                _ => NotFound(result)
+            };
         }
 
+        Response.StatusCode = result.Data.StatusCode;
         return Content(result.Data.Body, result.Data.ContentType);
     }
 
@@ -108,6 +116,13 @@ public sealed class ProductOpsController(IProductOpsService productOpsService) :
     public async Task<IActionResult> GetDocumentation(string slug, CancellationToken cancellationToken)
     {
         return FromResult(await productOpsService.GetDocumentationAsync(slug, cancellationToken));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("docs/{slug}/unlock")]
+    public async Task<IActionResult> UnlockDocumentation(string slug, UnlockDocumentationRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await productOpsService.UnlockDocumentationAsync(slug, request, cancellationToken));
     }
 
     [Authorize]

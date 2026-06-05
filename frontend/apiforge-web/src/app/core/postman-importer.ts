@@ -19,10 +19,18 @@ type PostmanItem = {
     url?: string | { raw?: string; query?: { key?: string; value?: string; disabled?: boolean }[] };
     header?: { key?: string; value?: string; disabled?: boolean }[];
     auth?: { type?: string };
-    body?: { mode?: string; raw?: string; urlencoded?: { key?: string; value?: string; disabled?: boolean }[] };
+    body?: {
+      mode?: string;
+      raw?: string;
+      options?: { raw?: { language?: string } };
+      urlencoded?: { key?: string; value?: string; disabled?: boolean }[];
+      formdata?: { key?: string; value?: string; disabled?: boolean }[];
+    };
   };
   event?: unknown[];
 };
+
+type PostmanBody = NonNullable<NonNullable<PostmanItem['request']>['body']>;
 
 export function parsePostmanCollectionV21(source: string): PostmanImportPreview {
   let root: { info?: { name?: string; schema?: string }; item?: PostmanItem[]; variable?: { key?: string }[] };
@@ -55,16 +63,16 @@ export function parsePostmanCollectionV21(source: string): PostmanImportPreview 
       if (!item.request) continue;
       const url = typeof item.request.url === 'string' ? item.request.url : item.request.url?.raw ?? '';
       extractVariables(`${url} ${JSON.stringify(item.request.body ?? {})}`).forEach((key) => variables.add(key));
-      if (item.request.auth?.type) authTypes.add(item.request.auth.type);
+      if (item.request.auth?.type) authTypes.add(normalizeAuthType(item.request.auth.type) ?? item.request.auth.type);
       requests.push({
         folderPath: path.length ? path : undefined,
         name: item.name || `${item.request.method || 'GET'} request`,
         method: (item.request.method || 'GET').toUpperCase(),
         url,
-        authType: item.request.auth?.type,
+        authType: normalizeAuthType(item.request.auth?.type),
         authConfigJson: item.request.auth ? JSON.stringify(item.request.auth) : undefined,
-        bodyType: item.request.body?.mode === 'raw' ? 'rawJson' : item.request.body?.mode || 'none',
-        bodyContent: item.request.body?.raw ?? '',
+        bodyType: normalizeBodyType(item.request.body),
+        bodyContent: normalizeBodyContent(item.request.body),
         timeoutMs: 30000,
         followRedirects: true,
         sslVerification: true,
@@ -97,4 +105,44 @@ export function parsePostmanCollectionV21(source: string): PostmanImportPreview 
 
 function extractVariables(value: string): string[] {
   return [...value.matchAll(/\{\{\s*([^{}\s]+)\s*\}\}/g)].map((match) => match[1]);
+}
+
+function normalizeBodyType(body: PostmanBody | undefined): string {
+  if (!body?.mode) return 'none';
+  if (body.mode === 'raw') {
+    return body.options?.raw?.language?.toLowerCase() === 'json' || looksLikeJson(body.raw ?? '') ? 'rawJson' : 'rawText';
+  }
+  if (body.mode === 'urlencoded') return 'formUrlEncoded';
+  if (body.mode === 'formdata') return 'formData';
+  return 'rawText';
+}
+
+function normalizeBodyContent(body: PostmanBody | undefined): string {
+  if (!body?.mode) return '';
+  if (body.mode === 'raw') return body.raw ?? '';
+  if (body.mode === 'urlencoded') {
+    return (body.urlencoded ?? []).filter((item: { key?: string; value?: string; disabled?: boolean }) => item.disabled !== true && item.key).map((item: { key?: string; value?: string }) => `${item.key}=${item.value ?? ''}`).join('\n');
+  }
+  if (body.mode === 'formdata') {
+    return (body.formdata ?? []).filter((item: { key?: string; value?: string; disabled?: boolean }) => item.disabled !== true && item.key).map((item: { key?: string; value?: string }) => `${item.key}=${item.value ?? ''}`).join('\n');
+  }
+  return body.raw ?? '';
+}
+
+function normalizeAuthType(type?: string): string | undefined {
+  if (!type) return undefined;
+  if (type === 'bearer') return 'Bearer';
+  if (type === 'basic') return 'Basic';
+  if (type === 'apikey') return 'ApiKey';
+  if (type === 'oauth2') return 'OAuth2';
+  return type;
+}
+
+function looksLikeJson(value: string): boolean {
+  try {
+    JSON.parse(value);
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -339,6 +339,9 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
     public async Task UpdateMemberStatusAsync(Guid organizationId, Guid memberId, string status, Guid modifiedByUserId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
         await connection.ExecuteAsync(new CommandDefinition("""
             update organizationMembers
             set status = @Status,
@@ -346,9 +349,23 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
                 modifiedBy = @ModifiedByUserId,
                 versionNumber = versionNumber + 1
             where id = @MemberId and organizationId = @OrganizationId and isDeleted = 0;
+
+            update wm
+            set status = @Status,
+                modifiedOn = sysutcdatetime(),
+                modifiedBy = @ModifiedByUserId,
+                versionNumber = versionNumber + 1
+            from workspaceMembers wm
+            join organizationMembers om on om.organizationId = wm.organizationId and om.userId = wm.userId
+            where om.id = @MemberId
+                and wm.organizationId = @OrganizationId
+                and wm.isDeleted = 0;
             """,
             new { OrganizationId = organizationId, MemberId = memberId, Status = status, ModifiedByUserId = modifiedByUserId },
+            transaction,
             cancellationToken: cancellationToken));
+
+        transaction.Commit();
     }
 
     private sealed class InvitationRow

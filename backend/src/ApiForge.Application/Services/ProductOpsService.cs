@@ -97,8 +97,37 @@ public sealed class ProductOpsService(
         return Result<IReadOnlyList<MockLogDto>>.Success(await productOpsRepository.GetMockLogsAsync(mockServerId, count, cancellationToken));
     }
 
-    public async Task<Result<MockResponseDto>> ExecuteMockAsync(string slug, string method, string path, CancellationToken cancellationToken)
+    public async Task<Result<MockResponseDto>> ExecuteMockAsync(string slug, string method, string path, string? apiKey, CancellationToken cancellationToken)
     {
+        var access = await productOpsRepository.GetMockServerAccessAsync(slug, cancellationToken);
+        if (access is null)
+        {
+            await productOpsRepository.RecordMockLogAsync(slug, null, method, path, 404, cancellationToken);
+            return Result<MockResponseDto>.Failure("Mock server was not found.", new ErrorDetail("mock.not_found", "Mock server was not found."));
+        }
+
+        if (!access.IsPublic && string.IsNullOrWhiteSpace(apiKey))
+        {
+            await productOpsRepository.RecordMockLogAsync(slug, null, method, path, 401, cancellationToken);
+            return Result<MockResponseDto>.Failure("This private mock server requires an API key.", new ErrorDetail("auth.required", "X-API-Desk-Key is required for this mock server."));
+        }
+
+        if (access.ApiKeyRequired || !access.IsPublic)
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                await productOpsRepository.RecordMockLogAsync(slug, null, method, path, 401, cancellationToken);
+                return Result<MockResponseDto>.Failure("This mock server requires an API key.", new ErrorDetail("auth.required", "X-API-Desk-Key is required for this mock server."));
+            }
+
+            var validKey = await productOpsRepository.ValidateApiKeyAsync(access.OrganizationId, access.WorkspaceId, apiKey, cancellationToken);
+            if (!validKey)
+            {
+                await productOpsRepository.RecordMockLogAsync(slug, null, method, path, 403, cancellationToken);
+                return Result<MockResponseDto>.Failure("The provided mock API key is invalid.", new ErrorDetail("permission.denied", "The provided mock API key is invalid."));
+            }
+        }
+
         var response = await productOpsRepository.MatchMockResponseAsync(slug, method, path, cancellationToken);
         if (response is null)
         {
@@ -256,6 +285,54 @@ public sealed class ProductOpsService(
 
     public async Task<Result<DocumentationDto>> GetDocumentationAsync(string slug, CancellationToken cancellationToken)
     {
+        var access = await productOpsRepository.GetDocumentationAccessAsync(slug, cancellationToken);
+        if (access is null)
+        {
+            return Result<DocumentationDto>.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."));
+        }
+
+        if (!access.Value.IsPublic)
+        {
+            return Result<DocumentationDto>.Failure("Documentation is private.", new ErrorDetail("permission.denied", "Documentation is private."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(access.Value.PasswordHash))
+        {
+            return Result<DocumentationDto>.Failure("Documentation password is required.", new ErrorDetail("auth.required", "Documentation password is required."));
+        }
+
+        var docs = await productOpsRepository.GetDocumentationAsync(slug, cancellationToken);
+        return docs is null
+            ? Result<DocumentationDto>.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."))
+            : Result<DocumentationDto>.Success(docs);
+    }
+
+    public async Task<Result<DocumentationDto>> UnlockDocumentationAsync(string slug, UnlockDocumentationRequest request, CancellationToken cancellationToken)
+    {
+        var access = await productOpsRepository.GetDocumentationAccessAsync(slug, cancellationToken);
+        if (access is null)
+        {
+            return Result<DocumentationDto>.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."));
+        }
+
+        if (!access.Value.IsPublic)
+        {
+            return Result<DocumentationDto>.Failure("Documentation is private.", new ErrorDetail("permission.denied", "Documentation is private."));
+        }
+
+        if (string.IsNullOrWhiteSpace(access.Value.PasswordHash))
+        {
+            var openDocs = await productOpsRepository.GetDocumentationAsync(slug, cancellationToken);
+            return openDocs is null
+                ? Result<DocumentationDto>.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."))
+                : Result<DocumentationDto>.Success(openDocs);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password) || !passwordHasher.Verify(request.Password, access.Value.PasswordHash))
+        {
+            return Result<DocumentationDto>.Failure("Documentation password is invalid.", new ErrorDetail("permission.denied", "Documentation password is invalid."));
+        }
+
         var docs = await productOpsRepository.GetDocumentationAsync(slug, cancellationToken);
         return docs is null
             ? Result<DocumentationDto>.Failure("Documentation was not found.", new ErrorDetail("docs.not_found", "Documentation was not found."))

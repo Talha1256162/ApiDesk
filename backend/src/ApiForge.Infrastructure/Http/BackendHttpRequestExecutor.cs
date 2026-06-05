@@ -37,9 +37,10 @@ public sealed partial class BackendHttpRequestExecutor(IConfiguration configurat
             Timeout = TimeSpan.FromMilliseconds(Math.Clamp(request.TimeoutMs, 1000, 120000))
         };
 
+        targetUri = ApplyAuthToUri(targetUri, request.AuthType, request.AuthConfigJson, variables);
         using var message = new HttpRequestMessage(new HttpMethod(request.Method), targetUri);
         ApplyHeaders(message, request.Headers, variables);
-        ApplyAuth(message, request.AuthType, request.AuthConfigJson, variables);
+        ApplyAuthToHeaders(message, request.AuthType, request.AuthConfigJson, variables);
         ApplyBody(message, request, variables);
 
         using var response = await client.SendAsync(message, HttpCompletionOption.ResponseContentRead, cancellationToken);
@@ -98,7 +99,40 @@ public sealed partial class BackendHttpRequestExecutor(IConfiguration configurat
         }
     }
 
-    private static void ApplyAuth(HttpRequestMessage message, string? authType, string? authConfigJson, IReadOnlyDictionary<string, string> variables)
+    private static Uri ApplyAuthToUri(Uri targetUri, string? authType, string? authConfigJson, IReadOnlyDictionary<string, string> variables)
+    {
+        if (string.IsNullOrWhiteSpace(authType) || string.IsNullOrWhiteSpace(authConfigJson) || !authType.Equals("ApiKey", StringComparison.OrdinalIgnoreCase))
+        {
+            return targetUri;
+        }
+
+        using var json = JsonDocument.Parse(authConfigJson);
+        var root = json.RootElement;
+        if (!root.TryGetProperty("location", out var location) || !string.Equals(location.GetString(), "query", StringComparison.OrdinalIgnoreCase))
+        {
+            return targetUri;
+        }
+
+        if (!root.TryGetProperty("name", out var name) || !root.TryGetProperty("value", out var value))
+        {
+            return targetUri;
+        }
+
+        var key = ResolveVariables(name.GetString() ?? string.Empty, variables);
+        var resolvedValue = ResolveVariables(value.GetString() ?? string.Empty, variables);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return targetUri;
+        }
+
+        var builder = new UriBuilder(targetUri);
+        var query = builder.Query;
+        var next = $"{WebUtility.UrlEncode(key)}={WebUtility.UrlEncode(resolvedValue)}";
+        builder.Query = string.IsNullOrWhiteSpace(query) ? next : $"{query.TrimStart('?')}&{next}";
+        return builder.Uri;
+    }
+
+    private static void ApplyAuthToHeaders(HttpRequestMessage message, string? authType, string? authConfigJson, IReadOnlyDictionary<string, string> variables)
     {
         if (string.IsNullOrWhiteSpace(authType) || string.IsNullOrWhiteSpace(authConfigJson))
         {
@@ -111,10 +145,26 @@ public sealed partial class BackendHttpRequestExecutor(IConfiguration configurat
         {
             message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ResolveVariables(token.GetString() ?? string.Empty, variables));
         }
+        else if (authType.Equals("OAuth2", StringComparison.OrdinalIgnoreCase) && root.TryGetProperty("token", out var oauthToken))
+        {
+            message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ResolveVariables(oauthToken.GetString() ?? string.Empty, variables));
+        }
         else if (authType.Equals("Basic", StringComparison.OrdinalIgnoreCase) && root.TryGetProperty("username", out var username) && root.TryGetProperty("password", out var password))
         {
             var raw = $"{ResolveVariables(username.GetString() ?? string.Empty, variables)}:{ResolveVariables(password.GetString() ?? string.Empty, variables)}";
             message.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(raw)));
+        }
+        else if (authType.Equals("ApiKey", StringComparison.OrdinalIgnoreCase)
+                 && root.TryGetProperty("name", out var name)
+                 && root.TryGetProperty("value", out var value)
+                 && (!root.TryGetProperty("location", out var location) || !string.Equals(location.GetString(), "query", StringComparison.OrdinalIgnoreCase)))
+        {
+            var key = ResolveVariables(name.GetString() ?? string.Empty, variables);
+            var resolvedValue = ResolveVariables(value.GetString() ?? string.Empty, variables);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                message.Headers.TryAddWithoutValidation(key, resolvedValue);
+            }
         }
     }
 

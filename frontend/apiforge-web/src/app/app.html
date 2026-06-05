@@ -1544,6 +1544,7 @@
             <div class="preview-grid">
               <div><span>Folders</span><strong>{{ importPreview.folderCount }}</strong></div>
               <div><span>Requests</span><strong>{{ importPreview.requestCount }}</strong></div>
+              <div><span>Env vars</span><strong>{{ importPreview.environmentVariableCount }}</strong></div>
               <div><span>Auth types</span><strong>{{ importPreview.authTypes.length }}</strong></div>
               <div><span>Scripts</span><strong>{{ importPreview.scriptsDetected }}</strong></div>
             </div>
@@ -1559,9 +1560,13 @@
           </section>
 
           <section class="target-picker">
-            <button type="button" [class.active]="importTargetMode === 'workspace'" (click)="importTargetMode = 'workspace'">Import into selected workspace</button>
-            <button type="button" [class.active]="importTargetMode === 'newWorkspace'" (click)="importTargetMode = 'newWorkspace'">Create new workspace</button>
-            <button type="button" [class.active]="importTargetMode === 'mergeCollection'" (click)="importTargetMode = 'mergeCollection'" [disabled]="!selectedCollectionId()">Merge into selected collection</button>
+            @if (!importPreview.environmentPayload) {
+              <button type="button" [class.active]="importTargetMode === 'workspace'" (click)="importTargetMode = 'workspace'">Import into selected workspace</button>
+              <button type="button" [class.active]="importTargetMode === 'newWorkspace'" (click)="importTargetMode = 'newWorkspace'">Create new workspace</button>
+              <button type="button" [class.active]="importTargetMode === 'mergeCollection'" (click)="importTargetMode = 'mergeCollection'" [disabled]="!selectedCollectionId()">Merge into selected collection</button>
+            } @else {
+              <button type="button" class="active">Import environment into selected workspace</button>
+            }
           </section>
 
           @if (importTargetMode === 'newWorkspace') {

@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
+using System.Text;
 using ApiForge.Application.Abstractions.Persistence;
 using ApiForge.Application.DTOs.ProductOps;
 using ApiForge.Persistence.Connection;
@@ -121,6 +123,48 @@ public sealed class ProductOpsRepository(ISqlConnectionFactory connectionFactory
             order by createdOn desc;
             """, new { MockServerId = mockServerId, Count = Math.Clamp(count, 1, 200) }, cancellationToken: cancellationToken));
         return rows.AsList();
+    }
+
+    public async Task<MockServerAccessDto?> GetMockServerAccessAsync(string slug, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<MockServerAccessDto>(new CommandDefinition("""
+            select id, organizationId, workspaceId, isPublic, apiKeyRequired
+            from mockServers
+            where slug = @Slug and isDeleted = 0;
+            """, new { Slug = slug }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> ValidateApiKeyAsync(Guid organizationId, Guid workspaceId, string plainTextKey, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(plainTextKey))
+        {
+            return false;
+        }
+
+        using var connection = connectionFactory.CreateConnection();
+        var keyHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(plainTextKey.Trim())));
+        var keyId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition("""
+            select top 1 id
+            from apiKeys
+            where organizationId = @OrganizationId
+                and (workspaceId is null or workspaceId = @WorkspaceId)
+                and keyHash = @KeyHash
+                and (expiresOn is null or expiresOn > sysutcdatetime())
+                and isDeleted = 0;
+            """, new { OrganizationId = organizationId, WorkspaceId = workspaceId, KeyHash = keyHash }, cancellationToken: cancellationToken));
+
+        if (keyId is null)
+        {
+            return false;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition("""
+            update apiKeys
+            set lastUsedOn = sysutcdatetime()
+            where id = @KeyId;
+            """, new { KeyId = keyId.Value }, cancellationToken: cancellationToken));
+        return true;
     }
 
     public async Task<MockResponseDto?> MatchMockResponseAsync(string slug, string method, string path, CancellationToken cancellationToken)
@@ -292,6 +336,17 @@ public sealed class ProductOpsRepository(ISqlConnectionFactory connectionFactory
             order by r.name;
             """, new { doc.CollectionId }, cancellationToken: cancellationToken));
         return new DocumentationDto(doc.Id, doc.Slug, doc.CollectionName, doc.BrandJson, rows.Select(row => new DocumentationRequestDto(row.Name, row.Method, row.Url, row.Description, row.AuthType, ParseExampleNames(row.ExamplesJson))).ToList());
+    }
+
+    public async Task<(Guid Id, bool IsPublic, string? PasswordHash)?> GetDocumentationAccessAsync(string slug, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<(Guid Id, bool IsPublic, string? PasswordHash)>(new CommandDefinition("""
+            select id, isPublic, passwordHash
+            from publishedDocs
+            where slug = @Slug and isDeleted = 0 and publishedOn is not null;
+            """, new { Slug = slug }, cancellationToken: cancellationToken));
+        return row.Id == Guid.Empty ? null : row;
     }
 
     public async Task<PagedResult<ApiSpecDto>> GetApiSpecsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken)

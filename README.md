@@ -68,6 +68,37 @@ App:
 http://127.0.0.1:4200
 ```
 
+## Production Configuration
+
+Do not deploy with the local `appsettings.json` JWT signing key. In `Production`, the API now fails startup if `Jwt:SigningKey` is missing or still contains local placeholder text.
+
+Set these environment variables or hosting configuration values:
+
+```text
+ConnectionStrings__ApiForge=<production SQL Server connection string>
+Jwt__Issuer=ApiForge
+Jwt__Audience=ApiForge
+Jwt__SigningKey=<strong random signing key, not LOCAL_DEV/CHANGE_ME>
+Jwt__AccessTokenMinutes=60
+Jwt__RefreshTokenDays=14
+Cors__AllowedOrigins__0=https://your-frontend-domain
+RequestRunner__AllowPrivateNetworkTargets=false
+Swagger__Enabled=false
+BuildInfo__FrontendCommit=<git commit>
+BuildInfo__BackendCommit=<git commit>
+BuildInfo__DeploymentTimestampUtc=<utc timestamp>
+```
+
+Optional AI provider configuration:
+
+```text
+AI_PROVIDER=OpenAI
+AI_API_KEY=<provider key>
+AI_BASE_URL=<provider endpoint>
+AI_MODEL=<model name>
+AI_TIMEOUT_SECONDS=30
+```
+
 ## Implemented Phase 1 Foundation
 
 - JWT login/register/refresh/logout structure

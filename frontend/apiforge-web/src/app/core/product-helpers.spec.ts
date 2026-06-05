@@ -45,10 +45,12 @@ describe('API Desk product helpers', () => {
     expect(preview.collectionName).toBe('Sample API');
     expect(preview.folderCount).toBe(1);
     expect(preview.requestCount).toBe(1);
-    expect(preview.authTypes).toContain('bearer');
+    expect(preview.authTypes).toContain('Bearer');
     expect(preview.variables).toContain('baseUrl');
     expect(preview.scriptsDetected).toBe(1);
     expect(preview.payload.requests[0].folderPath).toEqual(['Auth']);
+    expect(preview.payload.requests[0].authType).toBe('Bearer');
+    expect(preview.payload.requests[0].bodyType).toBe('rawJson');
   });
 
   it('generates practical fallback collections for Roman Urdu payment flows', () => {
@@ -72,6 +74,7 @@ describe('ApiClientService', () => {
   let api: ApiClientService;
 
   beforeEach(() => {
+    localStorage.clear();
     TestBed.configureTestingModule({
       providers: [ApiClientService, provideHttpClient(), provideHttpClientTesting()]
     });
@@ -95,5 +98,47 @@ describe('ApiClientService', () => {
     expect(request.request.method).toBe('POST');
     expect(request.request.body.environmentId).toBe('env-1');
     request.flush({ succeeded: true, message: 'Success', data: {}, errors: [] });
+  });
+
+  it('refreshes and stores a new auth session', () => {
+    localStorage.setItem('apiforge.refreshToken', 'refresh-1');
+    api.refreshSession().subscribe((session) => {
+      expect(session.accessToken).toBe('access-2');
+    });
+
+    const request = http.expectOne('/api/auth/refresh');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.refreshToken).toBe('refresh-1');
+    request.flush({
+      succeeded: true,
+      message: 'Success',
+      data: {
+        user: { id: 'user-1', email: 'admin@apiforge.local', fullName: 'Admin' },
+        organizationId: 'org-1',
+        workspaceId: 'workspace-1',
+        accessToken: 'access-2',
+        refreshToken: 'refresh-2',
+        accessTokenExpiresOnUtc: new Date().toISOString(),
+        refreshTokenExpiresOnUtc: new Date().toISOString()
+      },
+      errors: []
+    });
+
+    expect(localStorage.getItem('apiforge.accessToken')).toBe('access-2');
+    expect(localStorage.getItem('apiforge.refreshToken')).toBe('refresh-2');
+  });
+
+  it('revokes refresh token on logout and clears local session', () => {
+    localStorage.setItem('apiforge.accessToken', 'access-1');
+    localStorage.setItem('apiforge.refreshToken', 'refresh-1');
+
+    api.logout();
+    const request = http.expectOne('/api/auth/logout');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.refreshToken).toBe('refresh-1');
+    request.flush({ succeeded: true, message: 'Success', data: null, errors: [] });
+
+    expect(localStorage.getItem('apiforge.accessToken')).toBeNull();
+    expect(localStorage.getItem('apiforge.refreshToken')).toBeNull();
   });
 });

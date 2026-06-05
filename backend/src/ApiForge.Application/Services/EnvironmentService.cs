@@ -17,6 +17,24 @@ public sealed class EnvironmentService(
 {
     public async Task<Result<PagedResult<EnvironmentDto>>> GetEnvironmentsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken)
     {
+        if (CurrentUser is null)
+        {
+            return Unauthorized<PagedResult<EnvironmentDto>>();
+        }
+
+        var organizationId = await collectionRepository.GetWorkspaceOrganizationIdAsync(workspaceId, cancellationToken);
+        if (organizationId is null)
+        {
+            return Result<PagedResult<EnvironmentDto>>.Failure("Workspace was not found.", new ErrorDetail("workspace.not_found", "Workspace was not found."));
+        }
+
+        var isMember = await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, organizationId.Value, workspaceId, cancellationToken);
+        var canManage = await permissionService.HasPermissionAsync(CurrentUser.UserId, organizationId.Value, workspaceId, PermissionKeys.ManageEnvironments, cancellationToken);
+        if (!isMember && !canManage)
+        {
+            return Forbidden<PagedResult<EnvironmentDto>>("workspace.member");
+        }
+
         var environments = await environmentRepository.GetEnvironmentsAsync(workspaceId, request, cancellationToken);
         return Result<PagedResult<EnvironmentDto>>.Success(environments);
     }
@@ -52,14 +70,20 @@ public sealed class EnvironmentService(
             return Unauthorized<IReadOnlyList<EnvironmentVariableDto>>();
         }
 
-        var organizationId = await environmentRepository.GetWorkspaceOrganizationIdByEnvironmentAsync(environmentId, cancellationToken);
-        if (organizationId is null)
+        var scope = await environmentRepository.GetEnvironmentScopeAsync(environmentId, cancellationToken);
+        if (scope is null)
         {
             return Result<IReadOnlyList<EnvironmentVariableDto>>.Failure("Environment was not found.", new ErrorDetail("environment.not_found", "Environment was not found."));
         }
 
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.ManageEnvironments, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden<IReadOnlyList<EnvironmentVariableDto>>(PermissionKeys.ManageEnvironments);
+        }
+
         var variables = await environmentRepository.UpsertVariablesAsync(environmentId, request, CurrentUser.UserId, cancellationToken);
-        await RecordActivityAsync(organizationId.Value, null, "EnvironmentVariablesChanged", "Environment", environmentId, "Environment", "Update", "Success", "Info", "Environment variables changed.", null, cancellationToken);
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "EnvironmentVariablesChanged", "Environment", environmentId, "Environment", "Update", "Success", "Info", "Environment variables changed.", null, cancellationToken);
         return Result<IReadOnlyList<EnvironmentVariableDto>>.Success(variables, "Variables saved.");
     }
 }

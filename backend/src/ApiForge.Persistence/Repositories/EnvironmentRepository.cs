@@ -18,6 +18,16 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
             cancellationToken: cancellationToken));
     }
 
+    public async Task<(Guid OrganizationId, Guid WorkspaceId)?> GetEnvironmentScopeAsync(Guid environmentId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QuerySingleOrDefaultAsync<(Guid OrganizationId, Guid WorkspaceId)>(new CommandDefinition(
+            "select organizationId, workspaceId from environments where id = @EnvironmentId and isDeleted = 0;",
+            new { EnvironmentId = environmentId },
+            cancellationToken: cancellationToken));
+        return row.OrganizationId == Guid.Empty ? null : row;
+    }
+
     public async Task<PagedResult<EnvironmentDto>> GetEnvironmentsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();

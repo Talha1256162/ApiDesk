@@ -96,11 +96,16 @@ type ImportPreview = {
   collectionName: string;
   folderCount: number;
   requestCount: number;
+  environmentVariableCount: number;
   authTypes: string[];
   variables: string[];
   scriptsDetected: number;
   unsupportedItems: string[];
-  payload: ImportCollectionPayload;
+  payload?: ImportCollectionPayload;
+  environmentPayload?: {
+    name: string;
+    variables: { key: string; value?: string; scope: string; isSecret: boolean; enabled: boolean }[];
+  };
 };
 
 type GeneratedCollectionPreview = {
@@ -1979,8 +1984,13 @@ export class App implements OnInit {
       return;
     }
 
+    if (this.importPreview.environmentPayload && !this.importPreview.payload) {
+      this.importPostmanEnvironment(this.importPreview.environmentPayload);
+      return;
+    }
+
     if (this.importTargetMode === 'mergeCollection') {
-      this.mergeImportIntoCurrentCollection(this.importPreview.payload);
+      this.mergeImportIntoCurrentCollection(this.importPreview.payload!);
       return;
     }
 
@@ -2004,7 +2014,7 @@ export class App implements OnInit {
             return;
           }
           this.selectedWorkspaceId.set(workspaceResult.data.id);
-          this.importIntoWorkspace(workspaceResult.data.id, this.importPreview!.payload);
+          this.importIntoWorkspace(workspaceResult.data.id, this.importPreview!.payload!);
         },
         error: (error) => {
           this.pageLoading.set(false);
@@ -2014,7 +2024,52 @@ export class App implements OnInit {
       return;
     }
 
-    this.importIntoWorkspace(this.selectedWorkspaceId(), this.importPreview.payload);
+    this.importIntoWorkspace(this.selectedWorkspaceId(), this.importPreview.payload!);
+  }
+
+  private importPostmanEnvironment(environmentPayload: NonNullable<ImportPreview['environmentPayload']>): void {
+    if (!this.selectedWorkspaceId()) {
+      this.importError = 'Select a workspace before importing an environment.';
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.createEnvironment({
+      workspaceId: this.selectedWorkspaceId(),
+      name: environmentPayload.name,
+      isDefault: this.environments().length === 0
+    }).subscribe({
+      next: (environmentResult) => {
+        if (!environmentResult.succeeded || !environmentResult.data) {
+          this.pageLoading.set(false);
+          this.importError = environmentResult.message;
+          return;
+        }
+
+        this.api.upsertEnvironmentVariables(environmentResult.data.id, environmentPayload.variables).subscribe({
+          next: (variablesResult) => {
+            this.pageLoading.set(false);
+            if (!variablesResult.succeeded) {
+              this.importError = variablesResult.message;
+              return;
+            }
+
+            this.postmanImportOpen.set(false);
+            this.selectedEnvironmentId.set(environmentResult.data.id);
+            this.showToast('Environment imported', `${environmentPayload.variables.length} variables were imported.`, 'success');
+            this.loadEnvironments();
+          },
+          error: (error) => {
+            this.pageLoading.set(false);
+            this.importError = error?.error?.message ?? 'Environment variables could not be imported.';
+          }
+        });
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.importError = error?.error?.message ?? 'Environment could not be imported.';
+      }
+    });
   }
 
   private importIntoWorkspace(workspaceId: string, payload: ImportCollectionPayload): void {
@@ -2815,6 +2870,34 @@ export class App implements OnInit {
     const payload = raw as any;
     const unsupportedItems: string[] = [];
 
+    if (this.isPostmanEnvironment(payload)) {
+      const variables = (payload.values ?? [])
+        .filter((item: any) => item?.key)
+        .map((item: any) => ({
+          key: String(item.key),
+          value: item.value == null ? '' : String(item.value),
+          scope: 'Environment',
+          isSecret: this.isSensitiveKey(String(item.key)) || String(item.type ?? '').toLowerCase() === 'secret',
+          enabled: item.enabled !== false
+        }));
+
+      return {
+        fileName,
+        collectionName: payload.name ?? fileName.replace(/\.json$/i, ''),
+        folderCount: 0,
+        requestCount: 0,
+        environmentVariableCount: variables.length,
+        authTypes: ['Environment'],
+        variables: variables.map((variable: any) => variable.key),
+        scriptsDetected: 0,
+        unsupportedItems: [],
+        environmentPayload: {
+          name: payload.name ?? fileName.replace(/\.json$/i, ''),
+          variables
+        }
+      };
+    }
+
     if (payload?.info && Array.isArray(payload.item)) {
       const schema = String(payload.info.schema ?? '');
       if (schema && !schema.includes('v2.1')) {
@@ -2844,12 +2927,20 @@ export class App implements OnInit {
       collectionName: normalized.name,
       folderCount: folders.length,
       requestCount: normalized.requests.length,
+      environmentVariableCount: 0,
       authTypes,
       variables,
       scriptsDetected,
       unsupportedItems: this.uniqueValues(unsupportedItems),
       payload: normalized
     };
+  }
+
+  private isPostmanEnvironment(payload: any): boolean {
+    return Array.isArray(payload?.values)
+      && (payload?._postman_variable_scope === 'environment'
+        || String(payload?.postman_variable_scope ?? '').toLowerCase() === 'environment'
+        || payload?.name);
   }
 
   private detectImportAuthTypes(raw: any, payload: ImportCollectionPayload): string[] {
@@ -2988,8 +3079,12 @@ export class App implements OnInit {
           description: request.description,
           method: request.method ?? 'GET',
           url,
-          bodyType: request.body?.mode === 'raw' ? 'rawJson' : 'none',
-          bodyContent: request.body?.raw ?? '',
+          authType: this.normalizePostmanAuthType(request.auth?.type),
+          authConfigJson: this.normalizePostmanAuthConfig(request.auth),
+          bodyType: this.normalizePostmanBodyType(request.body),
+          bodyContent: this.normalizePostmanBodyContent(request.body),
+          preRequestScript: this.extractPostmanScript(item.event, 'prerequest'),
+          testScript: this.extractPostmanScript(item.event, 'test'),
           headers,
           queryParams,
           pathParams: []
@@ -3031,6 +3126,59 @@ export class App implements OnInit {
     const host = Array.isArray(url.host) ? url.host.join('.') : url.host ?? '';
     const path = Array.isArray(url.path) ? `/${url.path.join('/')}` : url.path ? `/${url.path}` : '';
     return `${protocol}${host}${path}` || 'https://example.com';
+  }
+
+  private normalizePostmanBodyType(body: any): string {
+    if (!body?.mode) return 'none';
+    if (body.mode === 'raw') {
+      const language = String(body.options?.raw?.language ?? '').toLowerCase();
+      return language === 'json' || this.looksLikeJson(body.raw ?? '') ? 'rawJson' : 'rawText';
+    }
+    if (body.mode === 'urlencoded') return 'formUrlEncoded';
+    if (body.mode === 'formdata') return 'formData';
+    return 'rawText';
+  }
+
+  private normalizePostmanBodyContent(body: any): string {
+    if (!body?.mode) return '';
+    if (body.mode === 'raw') return body.raw ?? '';
+    if (body.mode === 'urlencoded') {
+      return (body.urlencoded ?? [])
+        .filter((item: any) => item?.disabled !== true && item?.key)
+        .map((item: any) => `${item.key}=${item.value ?? ''}`)
+        .join('\n');
+    }
+    if (body.mode === 'formdata') {
+      return (body.formdata ?? [])
+        .filter((item: any) => item?.disabled !== true && item?.key)
+        .map((item: any) => `${item.key}=${item.value ?? ''}`)
+        .join('\n');
+    }
+    return body.raw ?? '';
+  }
+
+  private normalizePostmanAuthType(auth: string | undefined): string | undefined {
+    if (!auth) return undefined;
+    if (auth === 'bearer') return 'Bearer';
+    if (auth === 'basic') return 'Basic';
+    if (auth === 'apikey') return 'ApiKey';
+    if (auth === 'oauth2') return 'OAuth2';
+    return auth;
+  }
+
+  private normalizePostmanAuthConfig(auth: any): string | undefined {
+    if (!auth?.type) return undefined;
+    const read = (name: string) => (auth[auth.type] ?? []).find((item: any) => item.key === name)?.value;
+    if (auth.type === 'bearer') return JSON.stringify({ token: read('token') ?? '' });
+    if (auth.type === 'basic') return JSON.stringify({ username: read('username') ?? '', password: read('password') ?? '' });
+    if (auth.type === 'apikey') return JSON.stringify({ name: read('key') ?? 'X-API-Key', value: read('value') ?? '', location: read('in') ?? 'header' });
+    if (auth.type === 'oauth2') return JSON.stringify({ token: read('accessToken') ?? read('token') ?? '', grantType: 'manual_bearer' });
+    return JSON.stringify(auth);
+  }
+
+  private extractPostmanScript(events: any[] | undefined, listen: 'prerequest' | 'test'): string | undefined {
+    const script = (events ?? []).find((event) => event.listen === listen)?.script?.exec;
+    return Array.isArray(script) ? script.join('\n') : undefined;
   }
 
   private normalizeApiRequest(request: any): ImportApiRequestPayload {

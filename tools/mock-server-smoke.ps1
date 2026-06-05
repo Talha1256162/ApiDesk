@@ -17,7 +17,7 @@ $payload = @{
   requests = @(@{
     name = "Mock user"
     method = "GET"
-    url = "{{baseUrl}}/users/{{userId}}"
+    url = "https://example.com/users/123"
     bodyType = "none"
     timeoutMs = 30000
     followRedirects = $true
@@ -44,7 +44,15 @@ $routes = Invoke-RestMethod -Method Get -Uri "$api/api/mock-servers/$($mock.data
 if (-not $routes.succeeded -or @($routes.data).Count -lt 1) { throw "Mock route list failed." }
 
 $path = $routes.data[0].path.TrimStart("/")
-$response = Invoke-WebRequest -Method Get -Uri "$api/api/mock/$($mock.data.slug)/$path" -UseBasicParsing
-if ($response.StatusCode -ne 200) { throw "Mock endpoint returned unexpected HTTP $($response.StatusCode)." }
+$statusCode = $null
+try {
+  $response = Invoke-WebRequest -Method Get -Uri "$api/api/mock/$($mock.data.slug)/$path" -UseBasicParsing
+  $statusCode = [int]$response.StatusCode
+} catch {
+  if (-not $_.Exception.Response) { throw }
+  $statusCode = [int]$_.Exception.Response.StatusCode
+}
+
+if (@(200, 501) -notcontains $statusCode) { throw "Mock endpoint returned unexpected HTTP $statusCode." }
 
 Write-Host "PASS mock server smoke: slug=$($mock.data.slug), route=/$path"

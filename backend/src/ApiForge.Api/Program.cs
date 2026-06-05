@@ -22,6 +22,23 @@ builder.Services.AddPersistenceServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 var jwtOptions = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+if (string.IsNullOrWhiteSpace(jwtOptions.SigningKey))
+{
+    throw new InvalidOperationException("Jwt:SigningKey is required.");
+}
+
+if (builder.Environment.IsProduction())
+{
+    var signingKey = jwtOptions.SigningKey;
+    if (string.IsNullOrWhiteSpace(signingKey)
+        || signingKey.Contains("LOCAL_DEV", StringComparison.OrdinalIgnoreCase)
+        || signingKey.Contains("CHANGE_THIS", StringComparison.OrdinalIgnoreCase)
+        || signingKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException("Production requires a secure Jwt:SigningKey from environment configuration.");
+    }
+}
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {

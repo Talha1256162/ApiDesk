@@ -22,6 +22,8 @@ public sealed record MockLogDto(Guid Id, Guid MockServerId, Guid? MockRouteId, s
 
 public sealed record MockResponseDto(int StatusCode, string ContentType, string Body, string? HeadersJson);
 
+public sealed record MockServerAccessDto(Guid Id, Guid OrganizationId, Guid WorkspaceId, bool IsPublic, bool ApiKeyRequired);
+
 public sealed record MonitorDto(
     Guid Id,
     Guid WorkspaceId,
@@ -61,6 +63,8 @@ public sealed record PublishDocsRequest(Guid CollectionId, string Slug, bool IsP
 public sealed record DocumentationRequestDto(string Name, string Method, string Url, string? Description, string? AuthType, IReadOnlyList<string> Examples);
 
 public sealed record DocumentationDto(Guid Id, string Slug, string CollectionName, string? BrandJson, IReadOnlyList<DocumentationRequestDto> Requests);
+
+public sealed record UnlockDocumentationRequest(string Password);
 
 public sealed record ApiSpecDto(Guid Id, Guid WorkspaceId, Guid? CollectionId, string Name, string Format, string ValidationStatus, DateTime CreatedOn);
 

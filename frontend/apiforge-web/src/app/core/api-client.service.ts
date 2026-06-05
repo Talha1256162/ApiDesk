@@ -1,5 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, computed, signal } from '@angular/core';
+import { Observable, map, tap, throwError } from 'rxjs';
 import {
   ActivityEvent,
   AdvancedAnalytics,
@@ -80,6 +81,29 @@ export class ApiClientService {
     return this.http.post<ApiResult<AuthResponse>>(`${this.apiBaseUrl}/auth/login`, { email, password });
   }
 
+  refreshToken(refreshToken?: string) {
+    return this.http.post<ApiResult<AuthResponse>>(`${this.apiBaseUrl}/auth/refresh`, {
+      refreshToken: refreshToken ?? localStorage.getItem(this.refreshTokenKey)
+    });
+  }
+
+  refreshSession(): Observable<AuthResponse> {
+    const refreshToken = localStorage.getItem(this.refreshTokenKey);
+    if (!refreshToken) {
+      return throwError(() => new Error('No refresh token is available.'));
+    }
+
+    return this.refreshToken(refreshToken).pipe(
+      map((result) => {
+        if (!result.succeeded || !result.data) {
+          throw new Error(result.message || 'Refresh token failed.');
+        }
+        return result.data;
+      }),
+      tap((auth) => this.setSession(auth))
+    );
+  }
+
   register(payload: { email: string; password: string; fullName: string; organizationName: string; workspaceName?: string }) {
     return this.http.post<ApiResult<AuthResponse>>(`${this.apiBaseUrl}/auth/register`, payload);
   }
@@ -91,11 +115,23 @@ export class ApiClientService {
     localStorage.setItem(this.refreshTokenKey, auth.refreshToken);
   }
 
-  logout(): void {
+  clearSession(): void {
     this.authState.set(null);
     localStorage.removeItem(this.sessionKey);
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshTokenKey);
+  }
+
+  logout(): void {
+    const refreshToken = localStorage.getItem(this.refreshTokenKey);
+    if (refreshToken) {
+      this.http.post(`${this.apiBaseUrl}/auth/logout`, { refreshToken }).subscribe({
+        next: () => undefined,
+        error: () => undefined
+      });
+    }
+
+    this.clearSession();
   }
 
   organizations() {
@@ -167,6 +203,14 @@ export class ApiClientService {
     return this.http.get<ApiResult<PagedResult<EnvironmentModel>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/environments`, {
       params: new HttpParams().set('count', 100)
     });
+  }
+
+  createEnvironment(payload: { workspaceId: string; name: string; isDefault: boolean }) {
+    return this.http.post<ApiResult<EnvironmentModel>>(`${this.apiBaseUrl}/environments`, payload);
+  }
+
+  upsertEnvironmentVariables(environmentId: string, variables: { key: string; value?: string; scope: string; isSecret: boolean; enabled: boolean }[]) {
+    return this.http.put<ApiResult<unknown>>(`${this.apiBaseUrl}/environments/${environmentId}/variables`, { variables });
   }
 
   activity(organizationId: string, workspaceId?: string) {

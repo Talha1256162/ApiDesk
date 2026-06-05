@@ -13,6 +13,8 @@ public interface IProductOpsRepository
     Task<MockServerDto> CreateMockServerAsync(Guid workspaceId, CreateMockServerRequest request, Guid userId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MockRouteDto>> GetMockRoutesAsync(Guid mockServerId, CancellationToken cancellationToken);
     Task<IReadOnlyList<MockLogDto>> GetMockLogsAsync(Guid mockServerId, int count, CancellationToken cancellationToken);
+    Task<MockServerAccessDto?> GetMockServerAccessAsync(string slug, CancellationToken cancellationToken);
+    Task<bool> ValidateApiKeyAsync(Guid organizationId, Guid workspaceId, string plainTextKey, CancellationToken cancellationToken);
     Task<MockResponseDto?> MatchMockResponseAsync(string slug, string method, string path, CancellationToken cancellationToken);
     Task RecordMockLogAsync(string slug, Guid? routeId, string method, string path, int statusCode, CancellationToken cancellationToken);
 
@@ -26,6 +28,7 @@ public interface IProductOpsRepository
     Task<IReadOnlyList<PublishedDocDto>> GetPublishedDocsAsync(Guid workspaceId, CancellationToken cancellationToken);
     Task<PublishedDocDto> PublishDocsAsync(Guid workspaceId, PublishDocsRequest request, string? passwordHash, Guid userId, CancellationToken cancellationToken);
     Task<bool> UnpublishDocsAsync(Guid docId, Guid userId, CancellationToken cancellationToken);
+    Task<(Guid Id, bool IsPublic, string? PasswordHash)?> GetDocumentationAccessAsync(string slug, CancellationToken cancellationToken);
     Task<DocumentationDto?> GetDocumentationAsync(string slug, CancellationToken cancellationToken);
 
     Task<PagedResult<ApiSpecDto>> GetApiSpecsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken);
