@@ -84,6 +84,11 @@ public sealed class OrganizationService(
             return Forbidden<InvitationDto>(PermissionKeys.InviteMembers);
         }
 
+        if (!await HasValidAssignableRoleScopeAsync(request.RoleId, cancellationToken))
+        {
+            return Result<InvitationDto>.Failure("Role scope is not valid for organization membership.", new ErrorDetail("role.scope_invalid", "Role scope is not valid for organization membership."));
+        }
+
         var invitation = await organizationRepository.InviteAsync(organizationId, request, CurrentUser.UserId, cancellationToken);
         await RecordActivityAsync(organizationId, null, "UserInvited", "Invitation", invitation.Id, invitation.Email, "Invite", "Success", "Info", $"Invitation created for {invitation.Email}.", null, cancellationToken);
         return Result<InvitationDto>.Success(invitation, "Invitation created.");
@@ -187,6 +192,11 @@ public sealed class OrganizationService(
             return Result.Failure("You cannot change the only active owner's role. Add or transfer another owner first.", new ErrorDetail("member.only_owner", "You cannot change the only active owner's role."));
         }
 
+        if (!await HasValidAssignableRoleScopeAsync(request.RoleId, cancellationToken))
+        {
+            return Result.Failure("Role scope is not valid for organization membership.", new ErrorDetail("role.scope_invalid", "Role scope is not valid for organization membership."));
+        }
+
         await organizationRepository.ChangeMemberRoleAsync(organizationId, memberId, request.RoleId, CurrentUser.UserId, cancellationToken);
         await RecordActivityAsync(organizationId, null, "MemberRoleChanged", "OrganizationMember", memberId, member.Email, "UpdateRole", "Success", "Info", "Member role changed.", null, cancellationToken);
         return Result.Success("Member role updated.");
@@ -236,5 +246,11 @@ public sealed class OrganizationService(
         await organizationRepository.UpdateMemberStatusAsync(organizationId, memberId, status, CurrentUser.UserId, cancellationToken);
         await RecordActivityAsync(organizationId, null, status.Equals("Removed", StringComparison.OrdinalIgnoreCase) ? "MemberRemoved" : "MemberStatusChanged", "OrganizationMember", memberId, member.Email, "Update", "Success", "Info", $"Member status changed to {status}.", null, cancellationToken);
         return Result.Success("Member status updated.");
+    }
+
+    private async Task<bool> HasValidAssignableRoleScopeAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        var scope = await organizationRepository.GetRoleScopeAsync(roleId, cancellationToken);
+        return scope is not null && new[] { "Organization", "Workspace" }.Contains(scope, StringComparer.OrdinalIgnoreCase);
     }
 }

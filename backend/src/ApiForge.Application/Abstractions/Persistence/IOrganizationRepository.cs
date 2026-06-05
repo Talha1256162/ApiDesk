@@ -9,6 +9,7 @@ public interface IOrganizationRepository
     Task<OrganizationDto> CreateAsync(Guid userId, CreateOrganizationRequest request, CancellationToken cancellationToken);
     Task<PagedResult<OrganizationMemberDto>> GetMembersAsync(Guid organizationId, PagedRequest request, CancellationToken cancellationToken);
     Task<IReadOnlyList<OrganizationRoleDto>> GetRolesAsync(CancellationToken cancellationToken);
+    Task<string?> GetRoleScopeAsync(Guid roleId, CancellationToken cancellationToken);
     Task<InvitationDto> InviteAsync(Guid organizationId, InviteMemberRequest request, Guid invitedByUserId, CancellationToken cancellationToken);
     Task<InvitationDto?> RegenerateInvitationAsync(Guid organizationId, Guid invitationId, Guid modifiedByUserId, CancellationToken cancellationToken);
     Task<bool> RevokeInvitationAsync(Guid organizationId, Guid invitationId, Guid modifiedByUserId, CancellationToken cancellationToken);

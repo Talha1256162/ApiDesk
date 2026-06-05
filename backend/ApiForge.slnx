@@ -7,4 +7,7 @@
     <Project Path="src/ApiForge.Persistence/ApiForge.Persistence.csproj" />
     <Project Path="src/ApiForge.Shared/ApiForge.Shared.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ApiForge.IntegrationTests/ApiForge.IntegrationTests.csproj" />
+  </Folder>
 </Solution>

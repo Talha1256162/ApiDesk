@@ -139,7 +139,10 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue<bool>("Swagger
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("IntegrationTests"))
+{
+    app.UseHttpsRedirection();
+}
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.UseCors("ApiForgeCors");
@@ -152,3 +155,5 @@ app.MapHub<CollaborationHub>("/hubs/collaboration");
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+public partial class Program;

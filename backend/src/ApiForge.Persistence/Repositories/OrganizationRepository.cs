@@ -101,6 +101,18 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
         return roles.AsList();
     }
 
+    public async Task<string?> GetRoleScopeAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<string>(new CommandDefinition("""
+            select scope
+            from roles
+            where id = @RoleId and isDeleted = 0;
+            """,
+            new { RoleId = roleId },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<InvitationDto> InviteAsync(Guid organizationId, InviteMemberRequest request, Guid invitedByUserId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
@@ -354,7 +366,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
             set status = @Status,
                 modifiedOn = sysutcdatetime(),
                 modifiedBy = @ModifiedByUserId,
-                versionNumber = versionNumber + 1
+                versionNumber = wm.versionNumber + 1
             from workspaceMembers wm
             join organizationMembers om on om.organizationId = wm.organizationId and om.userId = wm.userId
             where om.id = @MemberId
