@@ -76,11 +76,10 @@ public sealed class MockDocsSecurityIntegrationTests(ApiDeskWebApplicationFactor
         protectedDocJson.Succeeded().Should().BeTrue(protectedDocJson.ToJsonString());
 
         var locked = await anonymous.GetAsync($"/api/docs/{protectedSlug}");
-        locked.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        locked.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
 
         var wrongPassword = await anonymous.PostJsonAsync($"/api/docs/{protectedSlug}/unlock", new { password = "wrong" });
-        var wrongPasswordJson = await wrongPassword.ReadJsonAsync();
-        wrongPasswordJson.Succeeded().Should().BeFalse(wrongPasswordJson.ToJsonString());
+        wrongPassword.StatusCode.Should().Be(HttpStatusCode.Forbidden);
 
         var unlocked = await anonymous.PostJsonAsync($"/api/docs/{protectedSlug}/unlock", new { password = "docs-pass" });
         var unlockedJson = await unlocked.ReadJsonAsync();

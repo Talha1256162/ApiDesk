@@ -68,6 +68,49 @@ App:
 http://127.0.0.1:4200
 ```
 
+## Backend Integration Tests
+
+The backend integration suite lives in:
+
+```text
+backend\tests\ApiForge.IntegrationTests
+```
+
+It uses `WebApplicationFactory<Program>` plus a local SQL Server test database. Testcontainers are intentionally not required for this repo because the local development environment already targets SQL Server Express.
+
+Default test database:
+
+```text
+Server=.\SQLEXPRESS
+Database=ApiForgePro_IntegrationTests
+```
+
+Optional overrides:
+
+```powershell
+$env:APIDESK_TEST_SQL_MASTER="Server=.\SQLEXPRESS;Database=master;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+$env:APIDESK_TEST_SQL="Server=.\SQLEXPRESS;Database=ApiForgePro_IntegrationTests;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=True"
+```
+
+Run:
+
+```powershell
+dotnet test backend\ApiForge.slnx -c Release -v minimal
+```
+
+The test fixture drops and recreates the integration database, then applies all scripts in `database\scripts` in filename order. Do not point `APIDESK_TEST_SQL` at a real production or development database.
+
+Covered integration areas:
+
+- Auth login, invalid login, refresh, logout, and anonymous protected-route rejection
+- Workspace and organization RBAC isolation
+- Owner protection and invalid role-scope rejection
+- Environment tenant isolation, manage permission enforcement, and secret masking
+- Request runner auth modes, body modes, missing variables, invalid protocols, and SSRF blocking
+- Mock server API-key enforcement
+- Documentation public/private/password access rules
+- Collection import/export/re-import folder and request preservation
+
 ## Production Configuration
 
 Do not deploy with the local `appsettings.json` JWT signing key. In `Production`, the API now fails startup if `Jwt:SigningKey` is missing or still contains local placeholder text.
