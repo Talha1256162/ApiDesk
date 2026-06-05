@@ -139,7 +139,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
                 modifiedOn = sysutcdatetime(),
                 modifiedBy = @ModifiedByUserId,
                 versionNumber = versionNumber + 1
-            output inserted.id, inserted.email, inserted.status, inserted.expiresOn
+            output inserted.id, inserted.email, inserted.status, inserted.expiresOn, cast(null as nvarchar(100)) as inviteToken
             where id = @InvitationId
                 and organizationId = @OrganizationId
                 and status = 'Invited'

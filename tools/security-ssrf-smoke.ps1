@@ -33,10 +33,21 @@ $payload = @{
 $imported = Invoke-RestMethod -Method Post -Uri "$api/api/workspaces/$workspaceId/collections/import" -Headers $headers -ContentType "application/json" -Body ($payload | ConvertTo-Json -Depth 20)
 $requests = Invoke-RestMethod -Method Get -Uri "$api/api/collections/$($imported.data.collectionId)/requests" -Headers $headers
 $requestId = $requests.data[0].id
-$run = Invoke-RestMethod -Method Post -Uri "$api/api/requests/$requestId/send" -Headers $headers -ContentType "application/json" -Body (@{ environmentId = $null; saveHistory = $true } | ConvertTo-Json)
-
-if ($run.succeeded -and $run.data.succeeded) {
-  throw "SSRF request unexpectedly succeeded."
+$blocked = $false
+try {
+  $run = Invoke-RestMethod -Method Post -Uri "$api/api/requests/$requestId/send" -Headers $headers -ContentType "application/json" -Body (@{ environmentId = $null; saveHistory = $true } | ConvertTo-Json)
+  if (-not $run.succeeded -or -not $run.data.succeeded) {
+    $blocked = $true
+  }
+} catch {
+  $statusCode = [int]$_.Exception.Response.StatusCode
+  if ($statusCode -eq 400 -or $statusCode -eq 403) {
+    $blocked = $true
+  } else {
+    throw
+  }
 }
+
+if (-not $blocked) { throw "SSRF request unexpectedly succeeded." }
 
 Write-Host "PASS SSRF smoke: localhost/private target blocked."
