@@ -258,6 +258,55 @@ describe('App collection and request search', () => {
     expect(app.navGroupHasActiveView(teamGroup!)).toBeTrue();
   });
 
+  it('body type none exposes an empty body state instead of a structured payload', () => {
+    app.onBodyTypeChange('none');
+
+    expect(app.requestBodyType).toBe('none');
+    expect(app.isRawBodyType()).toBeFalse();
+    expect(app.isStructuredBodyType()).toBeFalse();
+    expect(app.requestTabBadge('Body')).toBe('');
+  });
+
+  it('raw JSON body editor mode formats JSON without changing send behavior fields', () => {
+    app.onBodyTypeChange('rawJson');
+    app.requestBodyContent = '{"name":"Talha","active":true}';
+
+    app.beautifyRequestJson();
+
+    expect(app.isRawBodyType()).toBeTrue();
+    expect(app.requestBodyLanguage()).toBe('json');
+    expect(app.requestBodyContent).toContain('\n  "name": "Talha"');
+    expect(app.requestTabBadge('Body')).toBe('1');
+  });
+
+  it('form-data body rows sync into request body content', () => {
+    app.onBodyTypeChange('formData');
+    app.requestBodyRows[0].key = 'customerId';
+    app.requestBodyRows[0].value = '123';
+    app.syncBodyContentFromRows();
+
+    expect(app.isStructuredBodyType()).toBeTrue();
+    expect(app.requestBodyContent).toBe('customerId=123');
+    expect(app.requestTabBadge('Body')).toBe('1');
+  });
+
+  it('x-www-form-urlencoded body rows hydrate from saved body content', () => {
+    app.requestBodyContent = 'email=admin@example.com\npassword=secret';
+    app.onBodyTypeChange('formUrlEncoded');
+
+    expect(app.requestBodyRows.length).toBe(2);
+    expect(app.requestBodyRows[0].key).toBe('email');
+    expect(app.requestBodyRows[1].isSecret).toBeTrue();
+  });
+
+  it('response tone maps HTTP status ranges to visual states', () => {
+    app.apiResponse.set({ statusCode: 201, statusText: 'Created', body: '{}', headers: {}, cookies: {}, elapsedMs: 20, sizeBytes: 2, succeeded: true } as never);
+    expect(app.responseTone()).toBe('success');
+
+    app.apiResponse.set({ statusCode: 404, statusText: 'Not Found', body: '', headers: {}, cookies: {}, elapsedMs: 20, sizeBytes: 0, succeeded: false } as never);
+    expect(app.responseTone()).toBe('client-error');
+  });
+
   it('creates a demo workspace with collection, environment, variables, and requests', () => {
     app.selectedOrganizationId.set('org-1');
     app.createDemoWorkspace();

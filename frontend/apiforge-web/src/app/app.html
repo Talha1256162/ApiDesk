@@ -827,12 +827,19 @@
                 </div>
               </div>
 
-              <div class="request-bar">
-                <app-premium-select [options]="methodOptions()" [value]="requestMethod" (valueChange)="requestMethod = $event"></app-premium-select>
-                <input class="url-input" [(ngModel)]="requestUrl" [placeholder]="'https://api.example.com/users/{{id}}'" />
-                <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">Send</button>
+              <div class="request-bar" [attr.data-method]="requestMethod">
+                <div class="request-method-shell">
+                  <app-premium-select [options]="methodOptions()" [value]="requestMethod" (valueChange)="requestMethod = $event"></app-premium-select>
+                </div>
+                <div class="url-command-shell">
+                  <span>{{ selectedEnvironment()?.name || 'No environment' }}</span>
+                  <input class="url-input" [(ngModel)]="requestUrl" [placeholder]="'https://api.example.com/users/{{id}}'" />
+                </div>
+                <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">
+                  {{ pageLoading() ? 'Sending...' : 'Send' }}
+                </button>
                 <button class="secondary-action" type="button" (click)="saveSelectedRequest()" [disabled]="pageLoading()">Save</button>
-                <button class="ghost-button" type="button" (click)="copyRequestAsCurl()">cURL</button>
+                <button class="ghost-button curl-action" type="button" (click)="copyRequestAsCurl()">cURL</button>
               </div>
               <div class="request-helper-row">
                 <span>Variables</span>
@@ -848,7 +855,12 @@
                 <article class="panel request-config">
                   <div class="tab-strip">
                     @for (tab of requestConfigTabs; track tab) {
-                      <button [class.active]="requestConfigTab === tab" (click)="requestConfigTab = tab">{{ tab }}</button>
+                      <button [class.active]="requestConfigTab === tab" (click)="requestConfigTab = tab">
+                        <span>{{ tab }}</span>
+                        @if (requestTabBadge(tab)) {
+                          <b>{{ requestTabBadge(tab) }}</b>
+                        }
+                      </button>
                     }
                   </div>
 
@@ -969,11 +981,66 @@
                       </details>
                     </div>
                   } @else if (requestConfigTab === 'Body') {
-                    <div class="body-toolbar">
-                      <app-premium-select label="Body type" [options]="bodyTypeOptions()" [value]="requestBodyType" (valueChange)="requestBodyType = $event"></app-premium-select>
-                    </div>
-                    <div class="editor-shell request-editor">
-                      <app-monaco-editor [(value)]="requestBodyContent" [language]="requestBodyLanguage()"></app-monaco-editor>
+                    <div class="body-workbench">
+                      <div class="body-toolbar">
+                        <div>
+                          <span class="eyebrow">Request payload</span>
+                          <h3>Body</h3>
+                          <p>Choose how API Desk should serialize the request body when this request is sent.</p>
+                        </div>
+                        <app-premium-select label="Body type" [options]="bodyTypeOptions()" [value]="requestBodyType" (valueChange)="onBodyTypeChange($event)"></app-premium-select>
+                      </div>
+
+                      @if (requestBodyType === 'none') {
+                        <div class="body-empty-state">
+                          <app-empty-state title="No request body" description="Choose raw JSON, form-data, or urlencoded to send data with this request.">
+                            <button class="secondary-action" type="button" (click)="onBodyTypeChange('rawJson')">Use raw JSON</button>
+                            <button class="ghost-button" type="button" (click)="onBodyTypeChange('formUrlEncoded')">Use urlencoded</button>
+                          </app-empty-state>
+                        </div>
+                      } @else if (isRawBodyType()) {
+                        <div class="body-editor-card">
+                          <div class="editor-card-head">
+                            <div>
+                              <strong>{{ requestBodyType === 'rawJson' ? 'Raw JSON body' : 'Raw text body' }}</strong>
+                              <span>{{ requestBodyType === 'rawJson' ? 'Application JSON payload' : 'Plain text payload' }}</span>
+                            </div>
+                            @if (requestBodyType === 'rawJson') {
+                              <button class="ghost-button mini-button" type="button" (click)="beautifyRequestJson()">Format JSON</button>
+                            }
+                          </div>
+                          <div class="editor-shell request-editor body-code-editor">
+                            <app-monaco-editor [(value)]="requestBodyContent" [language]="requestBodyLanguage()"></app-monaco-editor>
+                          </div>
+                        </div>
+                      } @else {
+                        <div class="kv-editor-card body-kv-card">
+                          <div class="mini-panel-title">
+                            <div>
+                              <h3>{{ requestBodyType === 'formData' ? 'Form-data fields' : 'URL encoded fields' }}</h3>
+                              <p>{{ requestBodyType === 'formData' ? 'Multipart-style key/value fields saved into the request body.' : 'Key/value fields serialized as x-www-form-urlencoded data.' }}</p>
+                            </div>
+                            <div class="mini-panel-actions">
+                              <span>{{ requestBodyRows.length }} rows</span>
+                              <button class="ghost-button mini-button" type="button" (click)="addBodyRow()">Add row</button>
+                            </div>
+                          </div>
+                          <div class="editable-kv-table body-kv-table">
+                            <div class="editable-kv-head"><span></span><span>Key</span><span>Value</span><span>Secret</span><span></span></div>
+                            @for (row of requestBodyRows; track row.id) {
+                              <div class="editable-kv-row" [class.disabled-row]="row.enabled === false">
+                                <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="syncBodyContentFromRows()" />
+                                <input [(ngModel)]="row.key" (ngModelChange)="syncBodyContentFromRows()" placeholder="name" />
+                                <input [(ngModel)]="row.value" (ngModelChange)="syncBodyContentFromRows()" [type]="row.isSecret ? 'password' : 'text'" placeholder="value" />
+                                <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="syncBodyContentFromRows()" />
+                                <button class="icon-action" type="button" (click)="removeBodyRow(row.id)" aria-label="Remove body row">x</button>
+                              </div>
+                            } @empty {
+                              <button class="compact-empty action-empty" type="button" (click)="addBodyRow()">Add the first body field</button>
+                            }
+                          </div>
+                        </div>
+                      }
                     </div>
                   } @else if (requestConfigTab === 'Settings') {
                     <div class="settings-grid">
@@ -991,7 +1058,7 @@
                 </article>
 
                 <article class="panel response-panel">
-                  <div class="response-toolbar">
+                  <div class="response-toolbar" [attr.data-status-tone]="responseTone()">
                     <div class="response-meta">
                       <app-badge [label]="responseStatusLabel()" [tone]="apiResponse()?.succeeded ? 'success' : 'default'"></app-badge>
                       <span>{{ apiResponse()?.elapsedMs ?? 0 }}ms</span>
@@ -1007,7 +1074,12 @@
                   </div>
                   <div class="tab-strip response-tabs">
                     @for (tab of responseTabs; track tab) {
-                      <button [class.active]="responseTab === tab" (click)="responseTab = tab">{{ tab }}</button>
+                      <button [class.active]="responseTab === tab" (click)="responseTab = tab">
+                        <span>{{ tab }}</span>
+                        @if (tab === 'Headers' && responseHeaderEntries().length) {
+                          <b>{{ responseHeaderEntries().length }}</b>
+                        }
+                      </button>
                     }
                   </div>
                   @if (responseTab === 'Body') {

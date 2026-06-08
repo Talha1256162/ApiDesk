@@ -214,6 +214,7 @@ export class App implements OnInit {
 
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
+  readonly selectedEnvironment = computed(() => this.environments().find((environment) => environment.id === this.selectedEnvironmentId()));
   readonly selectedCollection = computed(() => this.collections().find((collection) => collection.id === this.selectedCollectionId()));
   readonly selectedRequestSummary = computed(() => this.requests().find((request) => request.id === this.selectedRequestId()));
   readonly selectedRequest = computed(() => this.requestDetail() ?? this.selectedRequestSummary());
@@ -527,6 +528,7 @@ export class App implements OnInit {
   requestHeadersRows: EditableKeyValue[] = [];
   requestQueryRows: EditableKeyValue[] = [];
   requestPathRows: EditableKeyValue[] = [];
+  requestBodyRows: EditableKeyValue[] = [];
   curlCommand = '';
   importPreview?: ImportPreview;
   importSuccess?: ImportSuccess;
@@ -2795,6 +2797,53 @@ export class App implements OnInit {
     this.showToast('Copied', 'Current request copied as cURL.', 'success');
   }
 
+  onBodyTypeChange(value: string): void {
+    this.requestBodyType = value;
+    if (this.isStructuredBodyType()) {
+      this.syncBodyRowsFromContent();
+      if (!this.requestBodyRows.length && !this.requestBodyContent.trim()) {
+        this.addBodyRow();
+      }
+    }
+  }
+
+  addBodyRow(): void {
+    this.requestBodyRows = [...this.requestBodyRows, this.toEditableKeyValue('', '')];
+    this.syncBodyContentFromRows();
+  }
+
+  removeBodyRow(id: string): void {
+    this.requestBodyRows = this.requestBodyRows.filter((item) => item.id !== id);
+    this.syncBodyContentFromRows();
+  }
+
+  syncBodyContentFromRows(): void {
+    this.requestBodyRows.forEach((item) => {
+      item.isSecret = item.isSecret || this.isSensitiveKey(item.key);
+    });
+    this.requestBodyContent = this.requestBodyRows
+      .filter((item) => item.enabled !== false && item.key.trim())
+      .map((item) => `${item.key.trim()}=${item.value ?? ''}`)
+      .join('\n');
+  }
+
+  syncBodyRowsFromContent(): void {
+    this.requestBodyRows = this.rowsFromText(this.requestBodyContent);
+  }
+
+  beautifyRequestJson(): void {
+    if (!this.requestBodyContent.trim()) {
+      return;
+    }
+
+    try {
+      this.requestBodyContent = JSON.stringify(JSON.parse(this.requestBodyContent), null, 2);
+      this.showToast('Formatted', 'Request JSON body was formatted.', 'success');
+    } catch (error) {
+      this.showToast('Invalid JSON', error instanceof Error ? error.message : 'Request body is not valid JSON.', 'danger');
+    }
+  }
+
   onAuthTypeChange(value: string): void {
     this.requestAuthType = value;
     this.hydrateAuthFieldsFromConfig();
@@ -3101,6 +3150,42 @@ export class App implements OnInit {
     return this.requestBodyType === 'rawJson' ? 'json' : 'text';
   }
 
+  isStructuredBodyType(): boolean {
+    return this.requestBodyType === 'formData' || this.requestBodyType === 'formUrlEncoded';
+  }
+
+  isRawBodyType(): boolean {
+    return this.requestBodyType === 'rawJson' || this.requestBodyType === 'text' || this.requestBodyType === 'rawText';
+  }
+
+  requestTabBadge(tab: RequestConfigTab): string {
+    if (tab === 'Params') {
+      return String(this.requestQueryRows.filter((row) => row.enabled !== false && row.key.trim()).length);
+    }
+    if (tab === 'Headers') {
+      return String(this.requestHeadersRows.filter((row) => row.enabled !== false && row.key.trim()).length);
+    }
+    if (tab === 'Body') {
+      if (this.requestBodyType === 'none') return '';
+      return this.isStructuredBodyType()
+        ? String(this.requestBodyRows.filter((row) => row.enabled !== false && row.key.trim()).length)
+        : '1';
+    }
+    if (tab === 'Tests') {
+      return this.requestTestScript.trim() ? 'on' : '';
+    }
+    return '';
+  }
+
+  responseTone(): string {
+    const status = this.apiResponse()?.statusCode ?? 0;
+    if (status >= 200 && status < 300) return 'success';
+    if (status >= 300 && status < 400) return 'redirect';
+    if (status >= 400 && status < 500) return 'client-error';
+    if (status >= 500) return 'server-error';
+    return 'idle';
+  }
+
   responseStatusLabel(): string {
     const response = this.apiResponse();
     if (!response) {
@@ -3185,6 +3270,7 @@ export class App implements OnInit {
     this.requestAuthConfigJson = request.authConfigJson ?? '';
     this.requestBodyType = request.bodyType ?? 'none';
     this.requestBodyContent = request.bodyContent ?? '';
+    this.requestBodyRows = this.isStructuredBodyType() ? this.rowsFromText(this.requestBodyContent) : [];
     this.requestPreScript = '';
     this.requestTestScript = '';
     this.requestTimeoutMs = request.timeoutMs || 30000;
@@ -3208,6 +3294,7 @@ export class App implements OnInit {
     this.requestAuthConfigJson = '';
     this.requestBodyType = 'none';
     this.requestBodyContent = '';
+    this.requestBodyRows = [];
     this.requestPreScript = '';
     this.requestTestScript = '';
     this.requestTimeoutMs = 30000;
