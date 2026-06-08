@@ -2,8 +2,8 @@
   @if (!isSignedIn()) {
     @if (publicView === 'landing') {
       <main class="marketing-shell">
-        <nav class="marketing-nav">
-          <button class="brand-button" type="button" (click)="showLanding()">
+        <nav class="marketing-nav" aria-label="Public navigation">
+          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to API Desk home">
             <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
             <span>{{ productName() }}</span>
           </button>
@@ -14,18 +14,34 @@
           </div>
         </nav>
         <section class="marketing-hero">
-          <div>
-            <span class="eyebrow">Built for API teams, software houses, QA teams, and backend developers.</span>
-            <h1>API testing for teams that outgrow Postman limits.</h1>
+          <div class="hero-copy">
+            <span class="eyebrow hero-badge">Built for API teams, QA engineers, backend developers, and software houses.</span>
+            <h1>API testing for teams that <span>outgrow Postman limits.</span></h1>
             <p>Import your Postman collections, invite your whole team, run requests, create mocks, and share docs from one simple workspace.</p>
             <div class="hero-actions">
               <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
               <button class="secondary-action" type="button" (click)="showLogin(true)">Import from Postman</button>
             </div>
+            <div class="honest-proof">
+              <span>Postman import</span>
+              <span>Team workspaces</span>
+              <span>Mock APIs</span>
+              <span>AI fallback ready</span>
+            </div>
           </div>
           <article class="hero-product-card">
+            <div class="hero-card-glow"></div>
             <div class="mini-browser-bar"><span></span><span></span><span></span><strong>API Client</strong></div>
             <div class="hero-request-line"><app-badge label="POST" tone="accent"></app-badge><code>{{ '{{baseUrl}}' }}/auth/login</code><button>Send</button></div>
+            <div class="mock-editor">
+              <span>Body</span>
+              <code>{{ '{' }} "email": "admin&#64;team.dev", "password": "********" {{ '}' }}</code>
+            </div>
+            <div class="response-chip-row">
+              <span>Status 200</span>
+              <span>338ms</span>
+              <span>2.4 KB</span>
+            </div>
             <div class="hero-panels">
               <div><strong>Collections</strong><span>Folders, search, import/export</span></div>
               <div><strong>AI Agent</strong><span>Fallback collection generator ready</span></div>
@@ -34,44 +50,55 @@
           </article>
         </section>
         <section class="feature-grid public-features">
-          <article><strong>API client</strong><span>Backend request runner with response body, headers, downloads, history, and cURL import.</span></article>
-          <article><strong>Collections</strong><span>Postman-style collections, folders, search, save, export, and guided migration.</span></article>
-          <article><strong>Environments</strong><span>Workspace variables, secret masking, and {{ '{{variable}}' }} resolution before request execution.</span></article>
-          <article><strong>Postman import</strong><span>Preview folders, requests, auth, variables, scripts, and unsupported items before import.</span></article>
-          <article><strong>Mock server</strong><span>Create mocks from saved requests and generate realistic mock examples.</span></article>
-          <article><strong>AI test generator</strong><span>Generate practical assertions from method, URL, body, and latest response.</span></article>
-          <article><strong>Unlimited collaboration</strong><span>Organizations, workspaces, roles, invite links, activity, and manager visibility.</span></article>
-          <article><strong>Developer tools</strong><span>JSON tools, Base64, URL tools, JWT decoder, UUIDs, timestamps, cURL parser, and regex.</span></article>
+          <article><i>IM</i><strong>Postman import</strong><span>Preview folders, requests, auth, variables, scripts, and unsupported items before import.</span></article>
+          <article><i>EV</i><strong>Postman environment import</strong><span>Bring environment variables into your workspace and resolve {{ '{{variable}}' }} values before sending.</span></article>
+          <article><i>RN</i><strong>API runner</strong><span>Backend request runner with response body, headers, downloads, history, and cURL import.</span></article>
+          <article><i>VA</i><strong>Environments and variables</strong><span>Workspace variables, secret masking, and missing variable warnings before execution.</span></article>
+          <article><i>TM</i><strong>Unlimited team collaboration</strong><span>Organizations, workspaces, roles, invite links, activity, and manager visibility.</span></article>
+          <article><i>AC</i><strong>Team activity visibility</strong><span>Managers can inspect request runs, imports, invite events, mocks, and workspace changes.</span></article>
+          <article><i>MO</i><strong>Mock servers</strong><span>Create mocks from saved requests and generate realistic mock examples.</span></article>
+          <article><i>DC</i><strong>Shareable docs</strong><span>Turn collections into docs without leaving the API workspace.</span></article>
+          <article><i>JS</i><strong>JSON tools</strong><span>Beautify, validate, inspect, compare, and convert JSON inside the product.</span></article>
+          <article><i>AI</i><strong>AI-assisted workflows</strong><span>Fallback generation is ready; real provider mode activates when API billing is configured.</span></article>
         </section>
         <section class="marketing-section split-section">
           <div>
-            <span class="eyebrow">Problem</span>
+            <span class="eyebrow problem-badge">Problem</span>
             <h2>API collaboration gets expensive and scattered as teams grow.</h2>
           </div>
           <div class="problem-list">
-            <span>Team seat limits increase cost quickly</span>
-            <span>API collections get scattered across developers</span>
-            <span>Managers lack visibility into team activity</span>
-            <span>Mock servers and documentation workflows are disconnected</span>
-            <span>Environment variables and request history are hard to manage across teams</span>
+            <span><i></i>Team seat limits increase cost quickly</span>
+            <span><i></i>API collections get scattered across developers</span>
+            <span><i></i>Managers lack visibility into team activity</span>
+            <span><i></i>Mock servers and documentation workflows are disconnected</span>
+            <span><i></i>Environment variables and request history are hard to manage across teams</span>
           </div>
         </section>
         <section class="marketing-section">
           <div class="section-heading">
-            <span class="eyebrow">Solution</span>
+            <span class="eyebrow solution-badge">Solution</span>
             <h2>One workspace for API testing, collaboration, mocks, and docs.</h2>
           </div>
-          <div class="benefit-grid public-benefit-grid">
-            <span>Unlimited team collaboration</span>
-            <span>Postman collection import</span>
-            <span>Postman environment import</span>
-            <span>API runner</span>
-            <span>Environment variables</span>
-            <span>Mock server</span>
-            <span>Shareable documentation</span>
-            <span>Team activity visibility</span>
-            <span>Built-in JSON tools</span>
-            <span>AI-assisted API workflows</span>
+          <div class="solution-layout">
+            <div class="workspace-visual" aria-hidden="true">
+              <span>Workspace</span>
+              <i>Collections</i>
+              <i>Mocks</i>
+              <i>Docs</i>
+              <i>Activity</i>
+            </div>
+            <div class="benefit-grid public-benefit-grid">
+              <span>Unlimited team collaboration</span>
+              <span>Postman collection import</span>
+              <span>Postman environment import</span>
+              <span>API runner</span>
+              <span>Environment variables</span>
+              <span>Mock server</span>
+              <span>Shareable documentation</span>
+              <span>Team activity visibility</span>
+              <span>Built-in JSON tools</span>
+              <span>AI-assisted API workflows</span>
+            </div>
           </div>
         </section>
         <section class="marketing-section">
@@ -98,11 +125,11 @@
             <h2>Switch from Postman without starting over.</h2>
           </div>
           <div class="step-list">
-            <span>1. Import your Postman collection JSON</span>
-            <span>2. Import your Postman environment JSON</span>
-            <span>3. Open your collection</span>
-            <span>4. Run your first request</span>
-            <span>5. Invite your team</span>
+            <span><i>1</i>Import your Postman collection JSON</span>
+            <span><i>2</i>Import your Postman environment JSON</span>
+            <span><i>3</i>Open your collection</span>
+            <span><i>4</i>Run your first request</span>
+            <span><i>5</i>Invite your team</span>
           </div>
           <button class="primary-action" type="button" (click)="showLogin(true)">Import from Postman</button>
         </section>
@@ -113,11 +140,21 @@
             <button class="secondary-action" type="button" (click)="showPricing()">View Pricing</button>
           </div>
         </section>
+        <footer class="marketing-footer">
+          <div><strong>{{ productName() }}</strong><span>Lightweight API collaboration for small teams.</span></div>
+          <nav aria-label="Footer links">
+            <button type="button" (click)="showLanding()">Product</button>
+            <button type="button" (click)="showPricing()">Pricing</button>
+            <button type="button" (click)="showLogin(true)">Import</button>
+            <button type="button" (click)="showLogin()">Login</button>
+          </nav>
+          <small>Copyright 2026 API Desk. All rights reserved.</small>
+        </footer>
       </main>
     } @else if (publicView === 'pricing') {
       <main class="marketing-shell">
-        <nav class="marketing-nav">
-          <button class="brand-button" type="button" (click)="showLanding()">
+        <nav class="marketing-nav" aria-label="Public navigation">
+          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to API Desk home">
             <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
             <span>{{ productName() }}</span>
           </button>
@@ -129,7 +166,7 @@
         </nav>
         <section class="pricing-public">
           <div class="page-header">
-            <div><span class="eyebrow">Simple plans</span><h2>Pricing for teams switching from Postman.</h2><p>Start with a free month. Payments are not connected yet, so API Desk will collect your interest and start the team trial without pretending a payment happened.</p></div>
+            <div><span class="eyebrow">Simple plans</span><h2>Pricing for teams switching from Postman.</h2><p>Start with a free month. Billing is currently handled through onboarding during beta.</p></div>
           </div>
           <div class="pricing-grid sales-pricing-grid">
             <article class="pricing-card active">
@@ -184,8 +221,18 @@
               <button class="secondary-action wide" type="button" (click)="contactSales()">Contact sales</button>
             </article>
           </div>
-          <div class="inline-info pricing-note">No payment provider is connected in this beta. Start Free Month opens signup and records intent honestly; Contact Sales opens a professional onboarding path.</div>
+          <div class="inline-info pricing-note">Billing is currently handled through onboarding during beta. Start Free Month opens signup and records interest; Contact Sales opens a professional onboarding path.</div>
         </section>
+        <footer class="marketing-footer">
+          <div><strong>{{ productName() }}</strong><span>Lightweight API collaboration for small teams.</span></div>
+          <nav aria-label="Footer links">
+            <button type="button" (click)="showLanding()">Product</button>
+            <button type="button" (click)="showPricing()">Pricing</button>
+            <button type="button" (click)="showLogin(true)">Import</button>
+            <button type="button" (click)="showLogin()">Login</button>
+          </nav>
+          <small>Copyright 2026 API Desk. All rights reserved.</small>
+        </footer>
       </main>
     } @else {
     <main class="auth-screen">
