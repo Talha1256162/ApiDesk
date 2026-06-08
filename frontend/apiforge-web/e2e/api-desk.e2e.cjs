@@ -85,7 +85,8 @@ async function clickFirst(page, locator) {
     await clickFirst(page, page.getByRole('button', { name: 'Sign in' }));
     await page.waitForLoadState('networkidle');
     assert(await visible(page, 'Workspace dashboard'), 'Dashboard did not load after login.');
-    assert(await visible(page, 'Live operational view'), 'Dashboard real-data header missing.');
+    assert(await visible(page, 'Import from Postman'), 'Dashboard Postman onboarding missing.');
+    assert(await visible(page, 'Built for teams that outgrow'), 'Dashboard positioning section missing.');
   });
 
   await check('refresh preserves protected session', async () => {

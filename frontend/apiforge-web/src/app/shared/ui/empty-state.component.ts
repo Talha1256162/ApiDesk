@@ -8,6 +8,9 @@ import { Component, Input } from '@angular/core';
       <div class="empty-icon">{{ icon }}</div>
       <strong>{{ title }}</strong>
       <p>{{ description }}</p>
+      <div class="empty-actions">
+        <ng-content></ng-content>
+      </div>
     </div>
   `,
   styles: [
@@ -47,6 +50,18 @@ import { Component, Input } from '@angular/core';
         color: var(--text-tertiary);
         font-size: 13px;
         line-height: 1.5;
+      }
+
+      .empty-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .empty-actions:empty {
+        display: none;
       }
     `
   ]

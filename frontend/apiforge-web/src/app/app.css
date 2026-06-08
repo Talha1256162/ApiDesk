@@ -409,11 +409,25 @@ select option {
 
 .drop-zone {
   min-height: 150px;
+  display: grid;
+  gap: 8px;
   place-items: center;
   justify-content: center;
   text-align: center;
   border-style: dashed;
   cursor: pointer;
+}
+
+.drop-zone strong {
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.drop-zone span {
+  max-width: 560px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .drop-zone.drag-active {
@@ -425,6 +439,20 @@ select option {
 .generated-preview,
 .invite-link-box {
   padding: 16px;
+}
+
+.import-success {
+  border: 1px solid rgba(0, 214, 143, 0.34);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(0, 214, 143, 0.16), transparent 38%),
+    var(--surface-card);
+}
+
+.import-success p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
 .preview-grid {
@@ -475,6 +503,11 @@ select option {
   border-color: var(--accent-border);
   background: var(--accent-muted);
   color: var(--text-primary);
+}
+
+.stacked-actions {
+  flex-wrap: wrap;
+  justify-content: flex-start;
 }
 
 .ai-orchestra {
@@ -1078,6 +1111,113 @@ select option {
   margin-bottom: 18px;
 }
 
+.migration-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(330px, 0.8fr);
+  gap: 22px;
+  align-items: center;
+  margin-bottom: 18px;
+  padding: 28px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(79, 109, 255, 0.18), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.015)),
+    var(--surface-card);
+}
+
+.migration-hero h3 {
+  max-width: 760px;
+  margin: 4px 0 10px;
+  color: var(--text-primary);
+  font-size: clamp(26px, 3vw, 42px);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+
+.migration-hero p {
+  max-width: 780px;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.benefit-grid span {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.028);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.onboarding-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.onboarding-card {
+  min-height: 210px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: 18px;
+}
+
+.onboarding-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.onboarding-card h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+
+.onboarding-card p {
+  min-height: 42px;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.primary-card {
+  border-color: rgba(79, 109, 255, 0.58);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(79, 109, 255, 0.26), transparent 42%),
+    var(--surface-card);
+}
+
+.step-pill {
+  width: max-content;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 5px 8px;
+}
+
 .manager-kpi,
 .panel,
 .workspace-card,
@@ -1134,6 +1274,10 @@ select option {
 .panel {
   min-width: 0;
   padding: 24px;
+}
+
+.wide {
+  width: 100%;
 }
 
 .panel:hover,
@@ -2596,6 +2740,10 @@ select option {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .onboarding-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .manager-strip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -2681,6 +2829,7 @@ select option {
   .client-layout,
   .json-workbench,
   .request-config-grid,
+  .migration-hero,
   .pricing-grid,
   .marketing-hero,
   .hero-panels,
@@ -2731,6 +2880,8 @@ select option {
 
   .metric-grid,
   .manager-strip,
+  .onboarding-grid,
+  .benefit-grid,
   .collection-overview,
   .member-grid,
   .settings-grid {

@@ -108,6 +108,16 @@ type ImportPreview = {
   };
 };
 
+type ImportSuccess = {
+  kind: 'collection' | 'environment';
+  title: string;
+  message: string;
+  collectionId?: string;
+  environmentId?: string;
+  requestCount?: number;
+  variableCount?: number;
+};
+
 type GeneratedCollectionPreview = {
   providerStatus: string;
   collectionName: string;
@@ -472,6 +482,7 @@ export class App implements OnInit {
   requestPathRows: EditableKeyValue[] = [];
   curlCommand = '';
   importPreview?: ImportPreview;
+  importSuccess?: ImportSuccess;
   importError = '';
   importTargetMode: ImportTargetMode = 'workspace';
   importWorkspaceName = '';
@@ -1931,16 +1942,181 @@ export class App implements OnInit {
   }
 
   openPostmanImport(): void {
-    if (!this.selectedWorkspaceId()) {
-      this.showToast('Workspace required', 'Select a workspace before importing.', 'danger');
+    if (!this.selectedWorkspaceId() && !this.selectedOrganizationId()) {
+      this.showToast('Organization required', 'Select an organization before importing.', 'danger');
       return;
     }
 
     this.importPreview = undefined;
+    this.importSuccess = undefined;
+    this.importError = '';
+    this.importTargetMode = this.selectedWorkspaceId() ? 'workspace' : 'newWorkspace';
+    this.importWorkspaceName = '';
+    this.postmanImportOpen.set(true);
+  }
+
+  continueImportEnvironment(): void {
+    this.importPreview = undefined;
+    this.importSuccess = undefined;
     this.importError = '';
     this.importTargetMode = 'workspace';
     this.importWorkspaceName = '';
-    this.postmanImportOpen.set(true);
+  }
+
+  openImportedCollection(): void {
+    if (this.importSuccess?.collectionId) {
+      this.selectedCollectionId.set(this.importSuccess.collectionId);
+    }
+    this.postmanImportOpen.set(false);
+    this.activeView.set('api-client');
+    this.loadCollections();
+  }
+
+  runImportedCollectionFirstRequest(): void {
+    this.openImportedCollection();
+    window.setTimeout(() => {
+      const first = this.requests()[0]?.id;
+      if (first) {
+        this.selectRequest(first);
+      }
+    }, 350);
+  }
+
+  goToView(view: ViewKey): void {
+    this.activeView.set(view);
+  }
+
+  goToTeamInvites(): void {
+    this.activeView.set('team');
+    window.setTimeout(() => {
+      const input = document.querySelector<HTMLInputElement>('input[name="inviteEmail"], input[placeholder="teammate@company.com"]');
+      input?.focus();
+    });
+  }
+
+  goToMocksOrDocs(): void {
+    if (this.selectedCollectionId()) {
+      this.activeView.set('mock-servers');
+      return;
+    }
+    this.activeView.set('collections');
+    this.showToast('Collection required', 'Import or create a collection first, then API Desk can generate mocks and documentation from it.', 'danger');
+  }
+
+  createWorkspaceQuick(): void {
+    if (!this.selectedOrganizationId()) {
+      this.showToast('Organization required', 'Select an organization before creating a workspace.', 'danger');
+      return;
+    }
+
+    const name = `API Workspace ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    this.pageLoading.set(true);
+    this.api.createWorkspace({
+      organizationId: this.selectedOrganizationId(),
+      name,
+      type: 'Team',
+      description: 'Created from dashboard onboarding.'
+    }).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Workspace failed', result.message, 'danger');
+          return;
+        }
+        this.selectedWorkspaceId.set(result.data.id);
+        this.showToast('Workspace created', `${result.data.name} is ready.`, 'success');
+        this.loadWorkspaces();
+        this.activeView.set('workspaces');
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Workspace failed', error?.error?.message ?? 'Could not create a workspace.', 'danger');
+      }
+    });
+  }
+
+  createStarterRequestFlow(): void {
+    if (!this.selectedWorkspaceId()) {
+      this.showToast('Workspace required', 'Create or select a workspace before adding requests.', 'danger');
+      return;
+    }
+
+    if (this.selectedCollectionId()) {
+      this.activeView.set('api-client');
+      this.createNewRequest();
+      return;
+    }
+
+    const payload: ImportCollectionPayload = {
+      name: 'Starter API Collection',
+      description: 'A starter collection created from onboarding.',
+      folders: [['Getting started']],
+      requests: [{
+        folderPath: ['Getting started'],
+        name: 'Health check',
+        description: 'First request for validating the API runner.',
+        method: 'GET',
+        url: 'https://postman-echo.com/get?source=api-desk',
+        bodyType: 'none',
+        bodyContent: '',
+        timeoutMs: 30000,
+        followRedirects: true,
+        sslVerification: true,
+        headers: [],
+        queryParams: [],
+        pathParams: []
+      }]
+    };
+
+    this.pageLoading.set(true);
+    this.api.importCollection(this.selectedWorkspaceId(), payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Request failed', result.message, 'danger');
+          return;
+        }
+        this.selectedCollectionId.set(result.data.collectionId);
+        this.activeView.set('api-client');
+        this.showToast('Starter request created', 'Open the Health check request and press Send.', 'success');
+        this.loadCollections();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Request failed', error?.error?.message ?? 'Could not create the starter request.', 'danger');
+      }
+    });
+  }
+
+  createEnvironmentQuick(): void {
+    if (!this.selectedWorkspaceId()) {
+      this.showToast('Workspace required', 'Select a workspace before creating an environment.', 'danger');
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.createEnvironment({
+      workspaceId: this.selectedWorkspaceId(),
+      name: `Local ${this.environments().length + 1}`,
+      isDefault: this.environments().length === 0
+    }).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Environment failed', result.message, 'danger');
+          return;
+        }
+        this.selectedEnvironmentId.set(result.data.id);
+        this.showToast('Environment created', `${result.data.name} is selected.`, 'success');
+        this.activeView.set('environments');
+        this.loadEnvironments();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Environment failed', error?.error?.message ?? 'Could not create an environment.', 'danger');
+      }
+    });
   }
 
   importCollectionFile(event: Event): void {
@@ -1967,6 +2143,7 @@ export class App implements OnInit {
     const reader = new FileReader();
     reader.onload = () => {
       try {
+        this.importSuccess = undefined;
         this.importPreview = this.buildImportPreview(JSON.parse(String(reader.result ?? '{}')), file.name);
         this.importWorkspaceName = `${this.importPreview.collectionName} Workspace`;
         this.importError = '';
@@ -2054,7 +2231,14 @@ export class App implements OnInit {
               return;
             }
 
-            this.postmanImportOpen.set(false);
+            this.importSuccess = {
+              kind: 'environment',
+              title: 'Environment imported',
+              message: `${environmentPayload.name} is ready for variable-powered requests.`,
+              environmentId: environmentResult.data.id,
+              variableCount: environmentPayload.variables.length
+            };
+            this.importPreview = undefined;
             this.selectedEnvironmentId.set(environmentResult.data.id);
             this.showToast('Environment imported', `${environmentPayload.variables.length} variables were imported.`, 'success');
             this.loadEnvironments();
@@ -2084,7 +2268,14 @@ export class App implements OnInit {
         this.selectedCollectionId.set(result.data.collectionId);
         this.selectedRequestId.set('');
         this.requestDetail.set(null);
-        this.postmanImportOpen.set(false);
+        this.importSuccess = {
+          kind: 'collection',
+          title: 'Collection imported',
+          message: `${payload.name} is ready in ${this.selectedWorkspace()?.name || 'this workspace'}.`,
+          collectionId: result.data.collectionId,
+          requestCount: result.data.requestCount
+        };
+        this.importPreview = undefined;
         this.showToast('Collection imported', `${result.data.requestCount} requests imported.`, 'success');
         this.loadWorkspaces();
         this.loadCollections();
@@ -2115,7 +2306,14 @@ export class App implements OnInit {
       const request = requests[index++];
       if (!request) {
         this.pageLoading.set(false);
-        this.postmanImportOpen.set(false);
+        this.importSuccess = {
+          kind: 'collection',
+          title: 'Collection merged',
+          message: `${requests.length} requests were added to ${this.selectedCollection()?.name}.`,
+          collectionId: this.selectedCollectionId(),
+          requestCount: requests.length
+        };
+        this.importPreview = undefined;
         this.showToast('Collection merged', `${requests.length} requests merged into ${this.selectedCollection()?.name}.`, 'success');
         this.loadRequests();
         this.loadCollections();

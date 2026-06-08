@@ -209,9 +209,60 @@
             <div>
               <span class="eyebrow">Manager visibility</span>
               <h2>Workspace dashboard</h2>
-              <p>Live operational view from workspace, request-run, environment, and activity APIs.</p>
+              <p>Start by importing Postman collections, inviting teammates, and running requests from one team-owned API workspace.</p>
             </div>
             <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh data</button>
+          </section>
+
+          <section class="migration-hero panel">
+            <div>
+              <span class="eyebrow">Postman migration</span>
+              <h3>Built for teams that outgrow Postman's collaboration limits.</h3>
+              <p>API Desk keeps familiar API testing workflows, then adds unlimited team collaboration, activity visibility, JSON tools, mock servers, shareable docs, Postman import, and AI-assisted API workflows.</p>
+            </div>
+            <div class="benefit-grid">
+              <span>Postman-style API testing</span>
+              <span>Unlimited team collaboration</span>
+              <span>Team activity visibility</span>
+              <span>Built-in JSON viewer</span>
+              <span>Mock servers</span>
+              <span>Shareable docs</span>
+              <span>Postman import</span>
+              <span>AI-assisted workflows</span>
+            </div>
+          </section>
+
+          <section class="onboarding-grid">
+            <article class="onboarding-card primary-card">
+              <span class="step-pill">01</span>
+              <h3>Import from Postman</h3>
+              <p>Bring your collections and environments in minutes.</p>
+              <button class="primary-action wide" type="button" (click)="openPostmanImport()">Import Collection</button>
+            </article>
+            <article class="onboarding-card">
+              <span class="step-pill">02</span>
+              <h3>Create Workspace</h3>
+              <p>Organize APIs by product, client, or team.</p>
+              <button class="secondary-action wide" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create Workspace</button>
+            </article>
+            <article class="onboarding-card">
+              <span class="step-pill">03</span>
+              <h3>Invite Team</h3>
+              <p>Add your full team without seat-limit friction.</p>
+              <button class="secondary-action wide" type="button" (click)="goToTeamInvites()">Invite Members</button>
+            </article>
+            <article class="onboarding-card">
+              <span class="step-pill">04</span>
+              <h3>Run First Request</h3>
+              <p>Test GET, POST, auth, headers, variables, and body modes.</p>
+              <button class="secondary-action wide" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create Request</button>
+            </article>
+            <article class="onboarding-card">
+              <span class="step-pill">05</span>
+              <h3>Generate Mock / Docs</h3>
+              <p>Turn collections into mock APIs and shareable documentation.</p>
+              <button class="secondary-action wide" type="button" (click)="goToMocksOrDocs()">Create Mock / Generate Docs</button>
+            </article>
           </section>
 
           <section class="manager-strip">
@@ -385,6 +436,10 @@
               <h2>Workspaces</h2>
               <p>Real workspaces returned from the organization workspace API.</p>
             </div>
+            <div class="toolbar">
+              <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+              <button class="secondary-action" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create workspace</button>
+            </div>
           </section>
           <section class="panel">
             @for (workspace of workspaces(); track workspace.id) {
@@ -397,7 +452,10 @@
                 <button class="secondary-action" type="button" (click)="onWorkspaceChange(workspace.id)">Open</button>
               </div>
             } @empty {
-              <app-empty-state title="No workspaces" description="Create a workspace to organize API collaboration."></app-empty-state>
+              <app-empty-state title="No workspaces" description="Create a workspace to organize API collaboration by product, client, or delivery team.">
+                <button class="primary-action" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create workspace</button>
+                <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman collection</button>
+              </app-empty-state>
             }
           </section>
         }
@@ -451,13 +509,19 @@
                           }
                         </div>
                       } @empty {
-                        <div class="compact-empty">No requests match this search.</div>
+                        <app-empty-state title="No requests" description="Create a request in this collection or import a Postman collection with folders and requests.">
+                          <button class="primary-action" type="button" (click)="createNewRequest()" [disabled]="pageLoading()">New request</button>
+                          <button class="secondary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                        </app-empty-state>
                       }
                     </div>
                   }
                 </div>
               } @empty {
-                <app-empty-state title="No collections" description="Collections will appear here after they are created through the API."></app-empty-state>
+                <app-empty-state title="No collections" description="Import a Postman collection or create a starter request to begin testing APIs immediately.">
+                  <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                  <button class="secondary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create starter request</button>
+                </app-empty-state>
               }
             </aside>
 
@@ -479,7 +543,10 @@
                       </div>
                     </article>
                   } @empty {
-                    <app-empty-state title="No collections" description="Create collections to group APIs, tests, docs, and history."></app-empty-state>
+                    <app-empty-state title="No collections" description="Collections group requests, folders, tests, mocks, docs, and activity for your team.">
+                      <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                      <button class="secondary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create starter request</button>
+                    </app-empty-state>
                   }
                 </section>
               }
@@ -538,7 +605,10 @@
                   </div>
 
                   @if (!requestDetail()) {
-                    <app-empty-state title="Select a request" description="Request configuration loads from the request detail API. Use New request to create one."></app-empty-state>
+                    <app-empty-state title="Select or create a request" description="Open a request from the collection tree, import from Postman, or create a starter request to run through the backend API runner.">
+                      <button class="primary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create request</button>
+                      <button class="secondary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                    </app-empty-state>
                   } @else if (requestConfigTab === 'Params') {
                     <div class="request-config-grid">
                       <section class="kv-editor-card">
@@ -839,7 +909,10 @@
                 <app-badge [label]="environment.isDefault ? 'Default' : 'Workspace'" [tone]="environment.isDefault ? 'success' : 'default'"></app-badge>
               </div>
             } @empty {
-              <app-empty-state title="No environments" description="Create an environment before sending variable-powered requests."></app-empty-state>
+              <app-empty-state title="No environments" description="Create an environment or import a Postman environment to resolve {{ '{{baseUrl}}' }}, tokens, IDs, and secrets before request execution.">
+                <button class="primary-action" type="button" (click)="createEnvironmentQuick()" [disabled]="pageLoading()">Create environment</button>
+                <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman environment</button>
+              </app-empty-state>
             }
           </section>
         }
@@ -872,7 +945,10 @@
                 </div>
                 <small class="muted-line">Mock URL: {{ mockServerUrl(server.slug) }}</small>
               } @empty {
-                <app-empty-state title="No mock servers" description="Create a mock server from the selected collection. Saved response examples power the mock output."></app-empty-state>
+                <app-empty-state title="No mock servers" description="Create a mock server from the selected collection. Saved response examples power the mock output.">
+                  <button class="primary-action" type="button" (click)="createMockServer()" [disabled]="!selectedCollectionId() || pageLoading()">Create mock</button>
+                  <button class="secondary-action" type="button" (click)="goToView('collections')">Open collections</button>
+                </app-empty-state>
               }
             </article>
             <article class="panel">
@@ -883,7 +959,9 @@
                   <span>{{ route.exampleName || 'No example attached' }}</span>
                 </div>
               } @empty {
-                <app-empty-state title="No routes selected" description="Select or create a mock server to inspect generated routes."></app-empty-state>
+              <app-empty-state title="No routes selected" description="Select or create a mock server to inspect generated routes.">
+                <button class="secondary-action" type="button" (click)="createMockServer()" [disabled]="!selectedCollectionId() || pageLoading()">Create mock server</button>
+              </app-empty-state>
               }
               <div class="panel-title inline-title"><div><span class="eyebrow">Logs</span><h3>Recent calls</h3></div></div>
               @for (log of mockLogs(); track log.id) {
@@ -893,7 +971,9 @@
                   <app-badge [label]="'' + log.statusCode" [tone]="log.statusCode < 400 ? 'success' : 'danger'"></app-badge>
                 </div>
               } @empty {
-                <app-empty-state title="No mock calls yet" description="Call a mock URL to populate logs."></app-empty-state>
+                <app-empty-state title="No mock calls yet" description="Call a generated mock URL to populate request logs and verify mock traffic.">
+                  <button class="secondary-action" type="button" (click)="loadSelectedMockDetails()" [disabled]="!selectedMockServerId">Refresh logs</button>
+                </app-empty-state>
               }
             </article>
           </section>
@@ -969,7 +1049,10 @@
                 <button class="ghost-button" type="button" (click)="unpublishDocs(doc.id)">Unpublish</button>
               </div>
             } @empty {
-              <app-empty-state title="No published docs" description="Publish a collection to generate searchable API documentation from live request data."></app-empty-state>
+              <app-empty-state title="No published docs" description="Publish a collection to generate searchable API documentation from live request data.">
+                <button class="primary-action" type="button" (click)="publishDocs()" [disabled]="!selectedCollectionId() || pageLoading()">Publish selected collection</button>
+                <button class="secondary-action" type="button" (click)="goToView('collections')">Open collections</button>
+              </app-empty-state>
             }
           </section>
         }
@@ -1251,7 +1334,10 @@
                 <app-badge [label]="event.status" [tone]="activityTone(event.status)"></app-badge>
               </div>
             } @empty {
-              <app-empty-state title="No activity" description="The manager activity feed will populate as the team uses the workspace."></app-empty-state>
+              <app-empty-state title="No activity logs" description="Activity appears after requests are sent, collections change, environments update, comments are added, or teammates are invited.">
+                <button class="primary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Run first workflow</button>
+                <button class="secondary-action" type="button" (click)="goToTeamInvites()">Invite teammate</button>
+              </app-empty-state>
             }
           </section>
           <section class="panel activity-panel">
@@ -1273,7 +1359,9 @@
                 <app-badge [label]="log.severity" [tone]="log.severity === 'Error' ? 'danger' : 'default'"></app-badge>
               </div>
             } @empty {
-              <app-empty-state title="No audit logs" description="New activity events are written to immutable audit logs with masked metadata."></app-empty-state>
+              <app-empty-state title="No audit logs" description="New activity events are written to immutable audit logs with masked metadata.">
+                <button class="secondary-action" type="button" (click)="loadAuditLogs()">Refresh audit logs</button>
+              </app-empty-state>
             }
           </section>
         }
@@ -1291,7 +1379,7 @@
             <article class="panel invite-panel">
               <div class="panel-title"><div><span class="eyebrow">Invite workflow</span><h3>Add a member</h3></div></div>
               <div class="invite-grid">
-                <label>Email<input [(ngModel)]="inviteEmail" type="email" placeholder="qa.lead@company.com" /></label>
+                <label>Email<input name="inviteEmail" [(ngModel)]="inviteEmail" type="email" placeholder="teammate@company.com" /></label>
                 <app-premium-select label="Role" [options]="roleOptions()" [value]="inviteRoleId" (valueChange)="inviteRoleId = $event"></app-premium-select>
                 <label class="invite-message">Message<input [(ngModel)]="inviteMessage" placeholder="Join the Platform APIs workspace review." /></label>
                 <button class="primary-action" type="button" (click)="inviteMember()" [disabled]="pageLoading()">Send invite</button>
@@ -1320,9 +1408,11 @@
                   <button class="ghost-button compact-action" type="button" (click)="regenerateInvite(invite)" [disabled]="invite.status !== 'Invited'">Regenerate</button>
                   <button class="ghost-button compact-action danger-action" type="button" (click)="revokeInvite(invite)" [disabled]="invite.status !== 'Invited'">Revoke</button>
                 </div>
-              } @empty {
-                <app-empty-state title="No pending invites" description="New invitations created from this screen appear here immediately."></app-empty-state>
-              }
+            } @empty {
+              <app-empty-state title="No pending invites" description="Invite links created here appear immediately. If SMTP is not configured, copy the local invite link and send it yourself.">
+                <button class="primary-action" type="button" (click)="inviteMember()" [disabled]="pageLoading()">Create invite link</button>
+              </app-empty-state>
+            }
             </article>
           </section>
           <section class="member-grid">
@@ -1345,7 +1435,10 @@
                 </div>
               </article>
             } @empty {
-              <app-empty-state title="No team members" description="Members will appear here after users join the organization."></app-empty-state>
+              <app-empty-state title="No team members" description="Members appear after they accept an invite. Owners and admins can manage roles, status, and removals from this screen.">
+                <button class="primary-action" type="button" (click)="goToTeamInvites()">Invite members</button>
+                <button class="secondary-action" type="button" (click)="loadMembers()">Refresh team</button>
+              </app-empty-state>
             }
           </section>
         }
@@ -1529,8 +1622,8 @@
           (dragover)="$event.preventDefault(); importDragActive = true"
           (dragleave)="importDragActive = false"
           (drop)="onPostmanDrop($event)">
-          <strong>Drop Postman Collection v2.1 JSON here</strong>
-          <span>or browse from your computer</span>
+          <strong>Drop Postman Collection or Environment JSON here</strong>
+          <span>Supports Collection v2.1 JSON and Postman Environment JSON. Unsupported scripts are preserved as text or shown as warnings.</span>
           <input type="file" accept="application/json,.json" (change)="importCollectionFile($event)" hidden />
         </label>
 
@@ -1538,7 +1631,33 @@
           <div class="inline-error">{{ importError }}</div>
         }
 
-        @if (importPreview) {
+        @if (importSuccess) {
+          <section class="import-preview import-success">
+            <div class="panel-title"><div><span class="eyebrow">Import complete</span><h3>{{ importSuccess.title }}</h3></div></div>
+            <p>{{ importSuccess.message }}</p>
+            <div class="preview-grid">
+              @if (importSuccess.kind === 'collection') {
+                <div><span>Requests</span><strong>{{ importSuccess.requestCount ?? 0 }}</strong></div>
+                <div><span>Next step</span><strong>Run</strong></div>
+              } @else {
+                <div><span>Variables</span><strong>{{ importSuccess.variableCount ?? 0 }}</strong></div>
+                <div><span>Next step</span><strong>Select env</strong></div>
+              }
+            </div>
+            <div class="modal-actions stacked-actions">
+              @if (importSuccess.kind === 'collection') {
+                <button class="primary-action" type="button" (click)="openImportedCollection()">Open Collection</button>
+                <button class="secondary-action" type="button" (click)="continueImportEnvironment()">Import Environment</button>
+                <button class="secondary-action" type="button" (click)="runImportedCollectionFirstRequest()">Run First Request</button>
+              } @else {
+                <button class="primary-action" type="button" (click)="postmanImportOpen.set(false); goToView('api-client')">Run First Request</button>
+                <button class="secondary-action" type="button" (click)="continueImportEnvironment()">Import another file</button>
+              }
+            </div>
+          </section>
+        }
+
+        @if (importPreview && !importSuccess) {
           <section class="import-preview">
             <div class="panel-title"><div><span class="eyebrow">{{ importPreview.fileName }}</span><h3>{{ importPreview.collectionName }}</h3></div></div>
             <div class="preview-grid">
@@ -1554,6 +1673,7 @@
             </div>
             @if (importPreview.unsupportedItems.length) {
               <div class="inline-info">
+                <strong>Warnings</strong>
                 @for (item of importPreview.unsupportedItems; track item) { <div>{{ item }}</div> }
               </div>
             }
@@ -1579,7 +1699,7 @@
 
         <div class="modal-actions">
           <button class="secondary-action" type="button" (click)="postmanImportOpen.set(false)">Cancel</button>
-          <button class="primary-action" type="button" (click)="confirmPostmanImport()" [disabled]="!importPreview || pageLoading()">{{ pageLoading() ? 'Importing...' : 'Import collection' }}</button>
+          <button class="primary-action" type="button" (click)="confirmPostmanImport()" [disabled]="!importPreview || pageLoading()">{{ pageLoading() ? 'Importing...' : importPreview?.environmentPayload ? 'Import environment' : 'Import collection' }}</button>
         </div>
       </div>
     </div>
