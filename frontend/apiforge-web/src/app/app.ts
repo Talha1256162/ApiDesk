@@ -690,9 +690,7 @@ export class App implements OnInit {
     this.resetRequestEditor();
     this.activeView.set('dashboard');
     this.publicView = 'landing';
-    void this.hub?.stop();
-    this.hub = undefined;
-    this.realtimeStatus.set('offline');
+    this.disconnectRealtime();
   }
 
   togglePasswordVisibility(): void {
@@ -2921,7 +2919,21 @@ export class App implements OnInit {
       return;
     }
 
-    void this.hub.invoke('JoinWorkspace', workspaceId);
+    void this.hub.invoke('JoinWorkspace', workspaceId)
+      .catch(() => this.realtimeStatus.set('offline'));
+  }
+
+  private disconnectRealtime(): void {
+    const hub = this.hub;
+    this.hub = undefined;
+    this.realtimeStatus.set('offline');
+    if (!hub) {
+      return;
+    }
+
+    void hub.stop().catch(() => {
+      this.realtimeStatus.set('offline');
+    });
   }
 
   notifyPhase(message: string): void {
