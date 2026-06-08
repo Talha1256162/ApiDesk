@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { App } from '../app';
 import { ApiClientService } from './api-client.service';
 import { generateFallbackCollection } from './ai-fallback-generator';
 import { resolveTemplateVariables } from './environment-resolver';
@@ -142,3 +143,110 @@ describe('ApiClientService', () => {
     expect(localStorage.getItem('apiforge.refreshToken')).toBeNull();
   });
 });
+
+describe('App collection and request search', () => {
+  let app: App;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({
+      imports: [App],
+      providers: [provideHttpClient(), provideHttpClientTesting()]
+    });
+    app = TestBed.createComponent(App).componentInstance;
+  });
+
+  it('typing in Search collections filters collection list by collection metadata', () => {
+    app.collections.set([
+      collection('collection-1', 'Identity APIs', 'Authentication and profile endpoints', 'Talha'),
+      collection('collection-2', 'Billing APIs', 'Invoices and vouchers', 'Finance Team')
+    ]);
+
+    app.collectionSearch.set('billing');
+    expect(app.filteredCollections().map((item) => item.name)).toEqual(['Billing APIs']);
+
+    app.collectionSearch.set('talha');
+    expect(app.filteredCollections().map((item) => item.name)).toEqual(['Identity APIs']);
+  });
+
+  it('typing in Search requests in collection filters request list by request name', () => {
+    app.requests.set([
+      request('request-1', 'Login user', 'POST', '{{baseUrl}}/auth/login', 'Auth'),
+      request('request-2', 'Get profile', 'GET', '{{baseUrl}}/users/me', 'Users')
+    ]);
+
+    app.requestSearch.set('profile');
+    expect(app.filteredRequests().map((item) => item.name)).toEqual(['Get profile']);
+  });
+
+  it('request method search works', () => {
+    app.requests.set([
+      request('request-1', 'Create invoice', 'POST', '{{baseUrl}}/invoices', 'Billing'),
+      request('request-2', 'List invoices', 'GET', '{{baseUrl}}/invoices', 'Billing')
+    ]);
+
+    app.requestSearch.set('post');
+    expect(app.filteredRequests().map((item) => item.name)).toEqual(['Create invoice']);
+  });
+
+  it('request URL search works', () => {
+    app.requests.set([
+      request('request-1', 'Pay invoice', 'POST', '{{baseUrl}}/payments/invoice', 'Billing'),
+      request('request-2', 'Get voucher', 'GET', '{{baseUrl}}/vouchers/latest', 'Vouchers')
+    ]);
+
+    app.requestSearch.set('vouchers');
+    expect(app.filteredRequests().map((item) => item.name)).toEqual(['Get voucher']);
+  });
+
+  it('request folder name search works', () => {
+    app.requests.set([
+      request('request-1', 'Create customer', 'POST', '{{baseUrl}}/customers', 'Customers'),
+      request('request-2', 'Create merchant', 'POST', '{{baseUrl}}/merchants', 'Merchant Onboarding')
+    ]);
+
+    app.requestSearch.set('merchant onboarding');
+    expect(app.filteredRequests().map((item) => item.name)).toEqual(['Create merchant']);
+  });
+
+  it('collection search can match loaded requests in the selected collection', () => {
+    app.collections.set([
+      collection('collection-1', 'Platform APIs', 'Core platform', 'Talha'),
+      collection('collection-2', 'Reporting APIs', 'Dashboard data', 'Team')
+    ]);
+    app.selectedCollectionId.set('collection-1');
+    app.requests.set([
+      request('request-1', 'Create voucher', 'POST', '{{baseUrl}}/vouchers', 'Rewards')
+    ]);
+
+    app.collectionSearch.set('voucher');
+    expect(app.filteredCollections().map((item) => item.name)).toEqual(['Platform APIs']);
+  });
+});
+
+function collection(id: string, name: string, description: string, ownerName: string) {
+  return {
+    id,
+    workspaceId: 'workspace-1',
+    name,
+    description,
+    ownerUserId: 'user-1',
+    ownerName,
+    requestCount: 1,
+    versionNumber: 1,
+    createdOn: new Date().toISOString()
+  };
+}
+
+function request(id: string, name: string, method: string, url: string, folderName?: string) {
+  return {
+    id,
+    collectionId: 'collection-1',
+    folderId: folderName ? `${folderName.toLowerCase().replace(/\s+/g, '-')}-folder` : undefined,
+    folderName,
+    name,
+    method,
+    url,
+    modifiedOn: new Date().toISOString()
+  };
+}

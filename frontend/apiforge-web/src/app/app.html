@@ -475,7 +475,7 @@
                 <button class="ghost-button" type="button" (click)="exportSelectedCollection()" [disabled]="!selectedCollectionId()">Export</button>
                 <button class="file-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
               </div>
-              <input class="rail-search" placeholder="Search collections" [(ngModel)]="collectionSearch" />
+              <input class="rail-search" placeholder="Search collections" [ngModel]="collectionSearch()" (ngModelChange)="collectionSearch.set($event)" />
 
               @for (collection of filteredCollections(); track collection.id) {
                 <div class="collection-tree-node" [class.active]="selectedCollectionId() === collection.id">
@@ -485,7 +485,7 @@
                   </button>
                   @if (selectedCollectionId() === collection.id) {
                     <div class="request-tree">
-                      <input class="rail-search request-search" placeholder="Search requests in collection" [(ngModel)]="requestSearch" />
+                      <input class="rail-search request-search" placeholder="Search requests in collection" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
                       @for (group of requestTreeGroups(); track group.key) {
                         <div class="request-tree-group">
                           <div class="request-tree-group-title">
@@ -509,19 +509,27 @@
                           }
                         </div>
                       } @empty {
-                        <app-empty-state title="No requests" description="Create a request in this collection or import a Postman collection with folders and requests.">
-                          <button class="primary-action" type="button" (click)="createNewRequest()" [disabled]="pageLoading()">New request</button>
-                          <button class="secondary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
-                        </app-empty-state>
+                        @if (requestSearch().trim()) {
+                          <div class="compact-empty">No requests match this search.</div>
+                        } @else {
+                          <app-empty-state title="No requests" description="Create a request in this collection or import a Postman collection with folders and requests.">
+                            <button class="primary-action" type="button" (click)="createNewRequest()" [disabled]="pageLoading()">New request</button>
+                            <button class="secondary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                          </app-empty-state>
+                        }
                       }
                     </div>
                   }
                 </div>
               } @empty {
-                <app-empty-state title="No collections" description="Import a Postman collection or create a starter request to begin testing APIs immediately.">
-                  <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
-                  <button class="secondary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create starter request</button>
-                </app-empty-state>
+                @if (collectionSearch().trim()) {
+                  <div class="compact-empty">No collections match your search.</div>
+                } @else {
+                  <app-empty-state title="No collections" description="Import a Postman collection or create a starter request to begin testing APIs immediately.">
+                    <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                    <button class="secondary-action" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create starter request</button>
+                  </app-empty-state>
+                }
               }
             </aside>
 
@@ -572,7 +580,7 @@
                   }
                 </div>
                 <div class="api-client-toolbar-actions">
-                  <input class="request-inline-search" placeholder="Search requests" [(ngModel)]="requestSearch" />
+                  <input class="request-inline-search" placeholder="Search requests" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
                   <button class="primary-action compact-action" type="button" (click)="aiAgentOpen.set(true)">AI Agent</button>
                   <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
                   <button class="ghost-button compact-action" type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>

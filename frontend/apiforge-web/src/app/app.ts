@@ -206,6 +206,8 @@ export class App implements OnInit {
   readonly selectedEnvironmentId = signal('');
   readonly openRequestIds = signal<string[]>([]);
   readonly draggedRequestId = signal('');
+  readonly collectionSearch = signal('');
+  readonly requestSearch = signal('');
 
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
@@ -214,21 +216,25 @@ export class App implements OnInit {
   readonly selectedRequest = computed(() => this.requestDetail() ?? this.selectedRequestSummary());
   readonly selectedRequestNeedsEnvironment = computed(() => (this.selectedRequest()?.url ?? '').includes('{{'));
   readonly filteredCollections = computed(() => {
-    const search = this.collectionSearch.trim().toLowerCase();
+    const search = this.collectionSearch().trim().toLowerCase();
     if (!search) {
       return this.collections();
     }
     return this.collections().filter((collection) =>
       [collection.name, collection.description, collection.ownerName].some((value) => (value ?? '').toLowerCase().includes(search))
+      || (collection.id === this.selectedCollectionId()
+        && this.requests().some((request) =>
+          [request.name, request.method, request.url, request.folderName].some((value) => (value ?? '').toLowerCase().includes(search))
+        ))
     );
   });
   readonly filteredRequests = computed(() => {
-    const search = this.requestSearch.trim().toLowerCase();
+    const search = this.requestSearch().trim().toLowerCase();
     if (!search) {
       return this.requests();
     }
     return this.requests().filter((request) =>
-      [request.name, request.method, request.url].some((value) => (value ?? '').toLowerCase().includes(search))
+      [request.name, request.method, request.url, request.folderName].some((value) => (value ?? '').toLowerCase().includes(search))
     );
   });
   readonly requestTreeGroups = computed<RequestTreeGroup[]>(() => {
@@ -439,8 +445,6 @@ export class App implements OnInit {
   registerOrganization = '';
   registerWorkspace = '';
   globalSearch = '';
-  collectionSearch = '';
-  requestSearch = '';
   contextPanelOpen = false;
 
   jsonTab: (typeof this.jsonTabs)[number] = 'Beautify';
@@ -683,6 +687,7 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set('');
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.requestSearch.set('');
     this.requestDetail.set(null);
     this.loadWorkspaces();
   }
@@ -691,6 +696,7 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set(workspaceId);
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.requestSearch.set('');
     this.requestDetail.set(null);
     this.comments.set([]);
     this.loadWorkspaceData();
@@ -702,7 +708,7 @@ export class App implements OnInit {
     this.requestDetail.set(null);
     this.requestHistory.set([]);
     this.collectionRun.set(null);
-    this.requestSearch = '';
+    this.requestSearch.set('');
     this.resetRequestEditor();
     this.loadRequests();
   }
