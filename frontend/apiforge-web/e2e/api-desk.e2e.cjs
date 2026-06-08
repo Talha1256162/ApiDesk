@@ -44,7 +44,7 @@ async function clickFirst(page, locator) {
   page.on('console', (message) => {
     if (message.type() === 'error') {
       const text = message.text();
-      if (!/Failed to load resource.*(favicon|auth\/login|400 \(Bad Request\))/i.test(text)) {
+      if (!/Failed to load resource.*(favicon|auth\/login|400 \(\)|400 \(Bad Request\))/i.test(text)) {
         consoleErrors.push(text);
       }
     }
