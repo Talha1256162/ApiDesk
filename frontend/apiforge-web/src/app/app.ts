@@ -81,7 +81,8 @@ type ToastState = {
 };
 
 type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
-type NavSection = { title: string; items: NavItem[] };
+type NavGroup = { id: string; label: string; hint: string; icon: string; key?: ViewKey; children: NavItem[] };
+type NavSection = { title: string; items?: NavItem[]; groups?: NavGroup[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
 type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
 type ResponseViewMode = 'pretty' | 'raw' | 'tree';
@@ -387,6 +388,8 @@ export class App implements OnInit {
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
   readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
   readonly responseViewModes: ResponseViewMode[] = ['pretty', 'raw', 'tree'];
+  private readonly navStorageKey = 'apiforge.sidebar.expandedGroups';
+  readonly expandedNavGroups = signal<string[]>(this.readExpandedNavGroups());
   readonly navSections: NavSection[] = [
     {
       title: 'Main',
@@ -397,37 +400,69 @@ export class App implements OnInit {
     },
     {
       title: 'API',
-      items: [
-        { key: 'collections', label: 'Collections', hint: 'Library', icon: 'stack' },
-        { key: 'api-client', label: 'API Client', hint: 'Runner', icon: 'bolt' },
-        { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' },
-        { key: 'mock-servers', label: 'Mock Servers', hint: 'Examples', icon: 'bolt' },
-        { key: 'monitors', label: 'Monitors', hint: 'Schedules', icon: 'pulse' },
-        { key: 'documentation', label: 'Documentation', hint: 'Publish', icon: 'stack' },
-        { key: 'governance', label: 'Governance', hint: 'Review', icon: 'shield' }
+      groups: [
+        {
+          id: 'api-client',
+          key: 'api-client',
+          label: 'API Client',
+          hint: 'Runner',
+          icon: 'bolt',
+          children: [
+            { key: 'collections', label: 'Collections', hint: 'Library', icon: 'stack' },
+            { key: 'environments', label: 'Environments', hint: 'Variables', icon: 'sliders' },
+            { key: 'mock-servers', label: 'Mock Servers', hint: 'Examples', icon: 'bolt' },
+            { key: 'documentation', label: 'Documentation', hint: 'Publish', icon: 'stack' },
+            { key: 'monitors', label: 'Monitors', hint: 'Schedules', icon: 'pulse' }
+          ]
+        }
       ]
     },
     {
       title: 'Enterprise',
-      items: [
-        { key: 'ai-assistant', label: 'AI Assistant', hint: 'Provider', icon: 'terminal' },
-        { key: 'analytics', label: 'Analytics', hint: 'Advanced', icon: 'chart' },
-        { key: 'billing', label: 'Billing', hint: 'SaaS', icon: 'shield' }
+      groups: [
+        {
+          id: 'enterprise',
+          label: 'Enterprise',
+          hint: 'Scale',
+          icon: 'shield',
+          children: [
+            { key: 'ai-assistant', label: 'AI Assistant', hint: 'Provider', icon: 'terminal' },
+            { key: 'analytics', label: 'Analytics', hint: 'Advanced', icon: 'chart' },
+            { key: 'billing', label: 'Billing', hint: 'SaaS', icon: 'shield' }
+          ]
+        }
       ]
     },
     {
       title: 'Tools',
-      items: [
-        { key: 'json-tools', label: 'JSON Tools', hint: 'Utilities', icon: 'braces' },
-        { key: 'dev-tools', label: 'Developer Tools', hint: 'Toolkit', icon: 'terminal' }
+      groups: [
+        {
+          id: 'tools',
+          label: 'Tools',
+          hint: 'Utilities',
+          icon: 'terminal',
+          children: [
+            { key: 'json-tools', label: 'JSON Tools', hint: 'Utilities', icon: 'braces' },
+            { key: 'dev-tools', label: 'Developer Tools', hint: 'Toolkit', icon: 'terminal' }
+          ]
+        }
       ]
     },
     {
       title: 'Team',
-      items: [
-        { key: 'activity', label: 'Activity', hint: 'Audit', icon: 'pulse' },
-        { key: 'reports', label: 'Reports', hint: 'Insights', icon: 'chart' },
-        { key: 'team', label: 'Team', hint: 'RBAC', icon: 'users' }
+      groups: [
+        {
+          id: 'team',
+          key: 'team',
+          label: 'Team',
+          hint: 'RBAC',
+          icon: 'users',
+          children: [
+            { key: 'activity', label: 'Activity', hint: 'Audit', icon: 'pulse' },
+            { key: 'reports', label: 'Reports', hint: 'Insights', icon: 'chart' },
+            { key: 'governance', label: 'Governance', hint: 'Review', icon: 'shield' }
+          ]
+        }
       ]
     },
     {
@@ -437,7 +472,13 @@ export class App implements OnInit {
       ]
     }
   ];
-  readonly navItems = this.navSections.flatMap((section) => section.items);
+  readonly navItems = this.navSections.flatMap((section) => [
+    ...(section.items ?? []),
+    ...(section.groups ?? []).flatMap((group) => [
+      ...(group.key ? [{ key: group.key, label: group.label, hint: group.hint, icon: group.icon }] : []),
+      ...group.children
+    ])
+  ]);
 
   loginEmail = '';
   loginPassword = '';
@@ -704,7 +745,54 @@ export class App implements OnInit {
 
   selectView(view: ViewKey): void {
     this.activeView.set(view);
+    this.expandActiveNavParent(view);
     this.commandOpen.set(false);
+  }
+
+  toggleNavGroup(group: NavGroup): void {
+    const expanded = this.expandedNavGroups();
+    const isExpanded = expanded.includes(group.id);
+    const next = isExpanded ? expanded.filter((id) => id !== group.id) : [...expanded, group.id];
+    this.expandedNavGroups.set(next);
+    this.persistExpandedNavGroups(next);
+    if (group.key) {
+      this.selectView(group.key);
+    }
+  }
+
+  isNavGroupExpanded(group: NavGroup): boolean {
+    return this.expandedNavGroups().includes(group.id) || this.navGroupHasActiveView(group);
+  }
+
+  navGroupHasActiveView(group: NavGroup): boolean {
+    const active = this.activeView();
+    return group.key === active || group.children.some((item) => item.key === active);
+  }
+
+  private expandActiveNavParent(view: ViewKey): void {
+    const group = this.navSections.flatMap((section) => section.groups ?? [])
+      .find((item) => item.key === view || item.children.some((child) => child.key === view));
+    if (!group || this.expandedNavGroups().includes(group.id)) {
+      return;
+    }
+
+    const next = [...this.expandedNavGroups(), group.id];
+    this.expandedNavGroups.set(next);
+    this.persistExpandedNavGroups(next);
+  }
+
+  private readExpandedNavGroups(): string[] {
+    try {
+      const raw = localStorage.getItem(this.navStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private persistExpandedNavGroups(groups: string[]): void {
+    localStorage.setItem(this.navStorageKey, JSON.stringify([...new Set(groups)]));
   }
 
   onOrganizationChange(organizationId: string): void {

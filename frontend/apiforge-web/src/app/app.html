@@ -346,12 +346,40 @@
         @for (section of navSections; track section.title) {
           <div class="nav-section">
             <span class="nav-section-title">{{ section.title }}</span>
-            @for (item of section.items; track item.key) {
-              <button [attr.data-view]="item.key" [class.active]="activeView() === item.key" (click)="selectView(item.key)">
+            @for (item of section.items ?? []; track item.key) {
+              <button class="nav-item" [attr.data-view]="item.key" [class.active]="activeView() === item.key" (click)="selectView(item.key)">
                 <i class="nav-icon"></i>
                 <span>{{ item.label }}</span>
                 <small>{{ item.hint }}</small>
               </button>
+            }
+            @for (group of section.groups ?? []; track group.id) {
+              <div class="nav-group" [class.expanded]="isNavGroupExpanded(group)" [class.active-parent]="navGroupHasActiveView(group)">
+                <button
+                  class="nav-group-button"
+                  type="button"
+                  [attr.data-view]="group.key || group.id"
+                  [attr.aria-expanded]="isNavGroupExpanded(group)"
+                  [class.active]="navGroupHasActiveView(group)"
+                  (click)="toggleNavGroup(group)"
+                >
+                  <i class="nav-icon"></i>
+                  <span>{{ group.label }}</span>
+                  <small>{{ group.hint }}</small>
+                  <i class="nav-chevron"></i>
+                </button>
+                @if (isNavGroupExpanded(group)) {
+                  <div class="nav-children">
+                    @for (child of group.children; track child.key) {
+                      <button class="nav-child" [attr.data-view]="child.key" [class.active]="activeView() === child.key" (click)="selectView(child.key)">
+                        <i class="nav-child-dot"></i>
+                        <span>{{ child.label }}</span>
+                        <small>{{ child.hint }}</small>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
             }
           </div>
         }

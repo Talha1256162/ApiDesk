@@ -227,6 +227,37 @@ describe('App collection and request search', () => {
     expect(app.filteredCollections().map((item) => item.name)).toEqual(['Platform APIs']);
   });
 
+  it('sidebar groups start collapsed and toggle expanded state into localStorage', () => {
+    const apiGroup = app.navSections.flatMap((section) => section.groups ?? []).find((group) => group.id === 'api-client');
+    expect(apiGroup).toBeTruthy();
+    expect(app.isNavGroupExpanded(apiGroup!)).toBeFalse();
+
+    app.toggleNavGroup(apiGroup!);
+
+    expect(app.isNavGroupExpanded(apiGroup!)).toBeTrue();
+    expect(JSON.parse(localStorage.getItem('apiforge.sidebar.expandedGroups') ?? '[]')).toContain('api-client');
+    expect(app.activeView()).toBe('api-client');
+  });
+
+  it('sidebar restores expanded groups from localStorage', () => {
+    localStorage.setItem('apiforge.sidebar.expandedGroups', JSON.stringify(['tools']));
+    const restored = TestBed.createComponent(App).componentInstance;
+    const toolsGroup = restored.navSections.flatMap((section) => section.groups ?? []).find((group) => group.id === 'tools');
+
+    expect(toolsGroup).toBeTruthy();
+    expect(restored.isNavGroupExpanded(toolsGroup!)).toBeTrue();
+  });
+
+  it('active child route keeps its parent group expanded', () => {
+    const teamGroup = app.navSections.flatMap((section) => section.groups ?? []).find((group) => group.id === 'team');
+    expect(teamGroup).toBeTruthy();
+
+    app.selectView('governance');
+
+    expect(app.isNavGroupExpanded(teamGroup!)).toBeTrue();
+    expect(app.navGroupHasActiveView(teamGroup!)).toBeTrue();
+  });
+
   it('creates a demo workspace with collection, environment, variables, and requests', () => {
     app.selectedOrganizationId.set('org-1');
     app.createDemoWorkspace();

@@ -101,29 +101,38 @@ async function clickFirst(page, locator) {
     assert(await visible(page, 'Workspace dashboard'), 'Protected session did not survive refresh.');
   });
 
+  await check('sidebar child items are collapsed by default', async () => {
+    const collectionsVisible = await page.locator('.side-nav [data-view="collections"]').first().isVisible().catch(() => false);
+    const jsonToolsVisible = await page.locator('.side-nav [data-view="json-tools"]').first().isVisible().catch(() => false);
+    assert(!collectionsVisible, 'Collections child should be hidden before expanding API Client.');
+    assert(!jsonToolsVisible, 'JSON Tools child should be hidden before expanding Tools.');
+  });
+
   await check('api client page loads', async () => {
-    await clickFirst(page, page.locator('[data-view="api-client"]'));
+    await clickFirst(page, page.locator('.side-nav [data-view="api-client"]'));
     assert(await visible(page, 'API Client'), 'API Client view not visible.');
+    await page.locator('.side-nav [data-view="collections"]').first().waitFor({ state: 'visible', timeout: 12000 });
     assert(await visible(page, 'Collections'), 'API Client collections rail not visible.');
     assert(await visible(page, 'Send'), 'Send action not visible.');
     assert(await visible(page, 'Save'), 'Save action not visible.');
   });
 
   await check('json tools page loads', async () => {
-    await clickFirst(page, page.locator('[data-view="json-tools"]'));
+    await clickFirst(page, page.locator('.side-nav [data-view="tools"]'));
+    await clickFirst(page, page.locator('.side-nav [data-view="json-tools"]'));
     assert(await visible(page, 'JSON tools'), 'JSON tools view not visible.');
     assert(await visible(page, 'Formatter, validator'), 'JSON tools description not visible.');
   });
 
   await check('team page loads with invite controls', async () => {
-    await clickFirst(page, page.locator('[data-view="team"]'));
+    await clickFirst(page, page.locator('.side-nav [data-view="team"]'));
     assert(await visible(page, 'Team and roles'), 'Team view not visible.');
     assert(await visible(page, 'Add a member'), 'Member invite panel not visible.');
     assert(await visible(page, 'Send invite'), 'Invite action not visible.');
   });
 
   await check('settings build info loads', async () => {
-    await clickFirst(page, page.locator('[data-view="settings"]'));
+    await clickFirst(page, page.locator('.side-nav [data-view="settings"]'));
     assert(await visible(page, 'Workspace settings'), 'Settings section not visible.');
     assert(await visible(page, 'Frontend commit'), 'Frontend build metadata not visible.');
     assert(await visible(page, 'Backend commit'), 'Backend build metadata not visible.');
