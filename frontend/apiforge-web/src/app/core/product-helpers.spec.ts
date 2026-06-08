@@ -146,6 +146,7 @@ describe('ApiClientService', () => {
 
 describe('App collection and request search', () => {
   let app: App;
+  let http: HttpTestingController;
 
   beforeEach(() => {
     localStorage.clear();
@@ -154,7 +155,10 @@ describe('App collection and request search', () => {
       providers: [provideHttpClient(), provideHttpClientTesting()]
     });
     app = TestBed.createComponent(App).componentInstance;
+    http = TestBed.inject(HttpTestingController);
   });
+
+  afterEach(() => http.verify());
 
   it('typing in Search collections filters collection list by collection metadata', () => {
     app.collections.set([
@@ -222,6 +226,90 @@ describe('App collection and request search', () => {
     app.collectionSearch.set('voucher');
     expect(app.filteredCollections().map((item) => item.name)).toEqual(['Platform APIs']);
   });
+
+  it('creates a demo workspace with collection, environment, variables, and requests', () => {
+    app.selectedOrganizationId.set('org-1');
+    app.createDemoWorkspace();
+
+    const workspaceRequest = http.expectOne('/api/workspaces');
+    expect(workspaceRequest.request.method).toBe('POST');
+    expect(workspaceRequest.request.body.name).toBe('Demo Workspace');
+    workspaceRequest.flush({
+      succeeded: true,
+      message: 'Success',
+      data: {
+        id: 'demo-workspace',
+        organizationId: 'org-1',
+        name: 'Demo Workspace',
+        slug: 'demo-workspace',
+        type: 'Team',
+        description: 'Demo workspace - safe to delete after exploring API Desk.',
+        createdOn: new Date().toISOString()
+      },
+      errors: []
+    });
+
+    const importRequest = http.expectOne('/api/workspaces/demo-workspace/collections/import');
+    expect(importRequest.request.method).toBe('POST');
+    expect(importRequest.request.body.name).toBe('API Desk Demo Collection');
+    expect(importRequest.request.body.requests.map((item: { name: string }) => item.name)).toEqual([
+      'GET Demo Users',
+      'POST Create Demo User',
+      'GET Demo Invoice',
+      'POST Demo Payment'
+    ]);
+    importRequest.flush({
+      succeeded: true,
+      message: 'Success',
+      data: { collectionId: 'demo-collection', name: 'API Desk Demo Collection', requestCount: 4 },
+      errors: []
+    });
+
+    const environmentRequest = http.expectOne('/api/environments');
+    expect(environmentRequest.request.method).toBe('POST');
+    expect(environmentRequest.request.body.name).toBe('Demo Environment');
+    environmentRequest.flush({
+      succeeded: true,
+      message: 'Success',
+      data: {
+        id: 'demo-environment',
+        workspaceId: 'demo-workspace',
+        name: 'Demo Environment',
+        isDefault: true,
+        variableCount: 0,
+        secretCount: 0,
+        versionNumber: 1,
+        createdOn: new Date().toISOString()
+      },
+      errors: []
+    });
+
+    const variablesRequest = http.expectOne('/api/environments/demo-environment/variables');
+    expect(variablesRequest.request.method).toBe('PUT');
+    expect(variablesRequest.request.body.variables.map((item: { key: string }) => item.key)).toEqual(['baseUrl', 'apiKey', 'merchantId', 'userId']);
+    variablesRequest.flush({ succeeded: true, message: 'Success', data: [], errors: [] });
+
+    expect(app.selectedWorkspaceId()).toBe('demo-workspace');
+    expect(app.selectedCollectionId()).toBe('demo-collection');
+    expect(app.selectedEnvironmentId()).toBe('demo-environment');
+
+    flushPendingAppReloads(http);
+  });
+
+  it('deletes a clearly marked demo workspace through the workspace API', () => {
+    spyOn(window, 'confirm').and.returnValue(true);
+    app.workspaces.set([collectionWorkspace('demo-workspace', 'Demo Workspace')]);
+    app.selectedWorkspaceId.set('demo-workspace');
+
+    app.deleteDemoWorkspace('demo-workspace');
+
+    const deleteRequest = http.expectOne('/api/workspaces/demo-workspace');
+    expect(deleteRequest.request.method).toBe('DELETE');
+    deleteRequest.flush({ succeeded: true, message: 'Success', data: null, errors: [] });
+
+    expect(app.selectedWorkspaceId()).toBe('');
+    flushPendingAppReloads(http);
+  });
 });
 
 function collection(id: string, name: string, description: string, ownerName: string) {
@@ -249,4 +337,39 @@ function request(id: string, name: string, method: string, url: string, folderNa
     url,
     modifiedOn: new Date().toISOString()
   };
+}
+
+function collectionWorkspace(id: string, name: string) {
+  return {
+    id,
+    organizationId: 'org-1',
+    name,
+    slug: name.toLowerCase().replace(/\s+/g, '-'),
+    type: 'Team',
+    description: 'Demo workspace - safe to delete after exploring API Desk.',
+    createdOn: new Date().toISOString()
+  };
+}
+
+function flushPendingAppReloads(http: HttpTestingController) {
+  for (let i = 0; i < 6; i++) {
+    const pending = http.match(() => true);
+    if (!pending.length) {
+      return;
+    }
+    for (const request of pending) {
+      const url = request.request.url;
+      if (url.includes('/dashboard') || url.includes('/manager-summary')) {
+        request.flush({ succeeded: true, message: 'Success', data: null, errors: [] });
+      } else if (url.includes('/roles')) {
+        request.flush({ succeeded: true, message: 'Success', data: [], errors: [] });
+      } else if (url.includes('/members') || url.includes('/invites') || url.includes('/mock-servers') || url.includes('/monitors') || url.includes('/published-docs') || url.includes('/api-specs') || url.includes('/analytics') || url.includes('/api-keys')) {
+        request.flush({ succeeded: true, message: 'Success', data: [], errors: [] });
+      } else if (url.includes('/billing') || url.includes('/settings') || url.includes('/build-info')) {
+        request.flush({ succeeded: true, message: 'Success', data: null, errors: [] });
+      } else {
+        request.flush({ succeeded: true, message: 'Success', data: { items: [], total: 0 }, errors: [] });
+      }
+    }
+  }
 }

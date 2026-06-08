@@ -60,14 +60,20 @@ async function clickFirst(page, locator) {
 
   await check('public landing page loads', async () => {
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
-    assert(await visible(page, 'Lightweight AI-powered Postman alternative'), 'Landing hero not visible.');
+    assert(await visible(page, 'API testing for teams that outgrow Postman limits'), 'Landing hero not visible.');
     assert(await visible(page, 'Postman import'), 'Landing feature grid not visible.');
+    assert(await visible(page, 'Switch from Postman without starting over'), 'Migration section not visible.');
+    assert(await visible(page, 'Start Free Month'), 'Start Free Month CTA not visible.');
   });
 
   await check('pricing page loads', async () => {
     await clickFirst(page, page.getByRole('button', { name: 'Pricing' }));
     assert(await visible(page, 'Pricing'), 'Pricing content not visible.');
-    assert(await visible(page, 'Free beta'), 'Free beta plan not visible.');
+    assert(await visible(page, 'Free Trial'), 'Free Trial plan not visible.');
+    assert(await visible(page, 'First month free'), 'First month free badge not visible.');
+    assert(await visible(page, 'Team'), 'Team plan not visible.');
+    assert(await visible(page, 'Enterprise'), 'Enterprise plan not visible.');
+    assert(await visible(page, 'Contact sales'), 'Contact sales CTA not visible.');
   });
 
   await check('login failure state works', async () => {
@@ -87,6 +93,7 @@ async function clickFirst(page, locator) {
     assert(await visible(page, 'Workspace dashboard'), 'Dashboard did not load after login.');
     assert(await visible(page, 'Import from Postman'), 'Dashboard Postman onboarding missing.');
     assert(await visible(page, 'Built for teams that outgrow'), 'Dashboard positioning section missing.');
+    assert(await visible(page, 'Create Demo Workspace'), 'Demo workspace CTA missing.');
   });
 
   await check('refresh preserves protected session', async () => {
@@ -127,7 +134,7 @@ async function clickFirst(page, locator) {
     await page.getByRole('button', { name: 'Logout' }).last().click({ timeout: 12000 });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
-    assert(await visible(page, 'Lightweight AI-powered Postman alternative'), 'Mobile landing hero not visible.');
+    assert(await visible(page, 'API testing for teams that outgrow Postman limits'), 'Mobile landing hero not visible.');
   });
 
   await browser.close();

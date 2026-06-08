@@ -151,6 +151,10 @@ export class ApiClientService {
     return this.http.post<ApiResult<Workspace>>(`${this.apiBaseUrl}/workspaces`, payload);
   }
 
+  deleteWorkspace(workspaceId: string) {
+    return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/workspaces/${workspaceId}`);
+  }
+
   workspaceDashboard(workspaceId: string) {
     return this.http.get<ApiResult<WorkspaceDashboard>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/dashboard`);
   }

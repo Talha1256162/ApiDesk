@@ -208,6 +208,8 @@ export class App implements OnInit {
   readonly draggedRequestId = signal('');
   readonly collectionSearch = signal('');
   readonly requestSearch = signal('');
+  readonly trialInterest = signal(false);
+  readonly contactSalesInterest = signal(false);
 
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
@@ -553,15 +555,19 @@ export class App implements OnInit {
       this.selectedWorkspaceId.set(auth.workspaceId ?? '');
       this.loadOrganizations();
       this.connectRealtime();
+    } else if (window.location.pathname.toLowerCase().includes('pricing')) {
+      this.publicView = 'pricing';
     }
   }
 
   showLanding(): void {
     this.publicView = 'landing';
+    history.replaceState(null, '', '/');
   }
 
   showPricing(): void {
     this.publicView = 'pricing';
+    history.replaceState(null, '', '/pricing');
   }
 
   showLogin(register = false): void {
@@ -571,13 +577,34 @@ export class App implements OnInit {
   }
 
   startFree(): void {
+    this.trialInterest.set(true);
+    if (this.isSignedIn()) {
+      this.activeView.set('billing');
+      this.showToast('Free month selected', 'Your team can use the beta while payment setup remains disabled.', 'success');
+      return;
+    }
     this.showLogin(true);
   }
 
-  viewDemo(): void {
+  contactSales(): void {
+    this.contactSalesInterest.set(true);
     this.showLogin(false);
-    this.loginEmail = 'admin@apiforge.local';
-    this.loginPassword = 'Admin@12345';
+    this.showToast('Contact sales', 'Sign in or create an account and invite the API Desk team for onboarding support.', 'success');
+  }
+
+  openPricing(): void {
+    if (this.isSignedIn()) {
+      this.activeView.set('billing');
+      this.loadBillingOverview();
+      return;
+    }
+    this.showPricing();
+  }
+
+  viewDemo(): void {
+    this.showLogin(true);
+    this.trialInterest.set(true);
+    this.showToast('Demo workspace', 'Create an account, then choose Create Demo Workspace from the dashboard.', 'success');
   }
 
   confirmAction(message: string): boolean {
@@ -2037,6 +2064,215 @@ export class App implements OnInit {
       error: (error) => {
         this.pageLoading.set(false);
         this.showToast('Workspace failed', error?.error?.message ?? 'Could not create a workspace.', 'danger');
+      }
+    });
+  }
+
+  createDemoWorkspace(): void {
+    if (!this.selectedOrganizationId()) {
+      this.showToast('Organization required', 'Select an organization before creating a demo workspace.', 'danger');
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.createWorkspace({
+      organizationId: this.selectedOrganizationId(),
+      name: 'Demo Workspace',
+      type: 'Team',
+      description: 'Demo workspace - safe to delete after exploring API Desk.'
+    }).subscribe({
+      next: (workspaceResult) => {
+        if (!workspaceResult.succeeded || !workspaceResult.data) {
+          this.pageLoading.set(false);
+          this.showToast('Demo failed', workspaceResult.message, 'danger');
+          return;
+        }
+
+        const workspace = workspaceResult.data;
+        this.selectedWorkspaceId.set(workspace.id);
+        this.createDemoCollectionAndEnvironment(workspace.id);
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Demo failed', error?.error?.message ?? 'Could not create the demo workspace.', 'danger');
+      }
+    });
+  }
+
+  deleteDemoWorkspace(workspaceId: string): void {
+    const workspace = this.workspaces().find((item) => item.id === workspaceId);
+    if (!workspace || !this.isDemoWorkspace(workspace)) {
+      this.showToast('Demo workspace only', 'Only clearly marked demo workspaces can be deleted from this shortcut.', 'danger');
+      return;
+    }
+    if (!this.confirmAction('Delete Demo Workspace and its demo data?')) {
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.deleteWorkspace(workspaceId).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded) {
+          this.showToast('Delete failed', result.message, 'danger');
+          return;
+        }
+        if (this.selectedWorkspaceId() === workspaceId) {
+          this.selectedWorkspaceId.set('');
+          this.selectedCollectionId.set('');
+          this.selectedRequestId.set('');
+          this.requestDetail.set(null);
+        }
+        this.showToast('Demo workspace deleted', 'The demo workspace was removed.', 'success');
+        this.loadWorkspaces();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Delete failed', error?.error?.message ?? 'Could not delete the demo workspace.', 'danger');
+      }
+    });
+  }
+
+  isDemoWorkspace(workspace?: Workspace | null): boolean {
+    return !!workspace && workspace.name.toLowerCase().includes('demo workspace');
+  }
+
+  private createDemoCollectionAndEnvironment(workspaceId: string): void {
+    const demoCollection: ImportCollectionPayload = {
+      name: 'API Desk Demo Collection',
+      description: 'Demo collection - shows variables, auth headers, GET/POST requests, mocks, and docs.',
+      folders: [['Demo Users'], ['Demo Billing']],
+      requests: [
+        {
+          folderPath: ['Demo Users'],
+          name: 'GET Demo Users',
+          description: 'Demo GET request using {{baseUrl}} and API key headers.',
+          method: 'GET',
+          url: '{{baseUrl}}/users?merchantId={{merchantId}}',
+          bodyType: 'none',
+          bodyContent: '',
+          timeoutMs: 30000,
+          followRedirects: true,
+          sslVerification: true,
+          headers: [{ key: 'X-API-Key', value: '{{apiKey}}', enabled: true, isSecret: true }],
+          queryParams: [],
+          pathParams: []
+        },
+        {
+          folderPath: ['Demo Users'],
+          name: 'POST Create Demo User',
+          description: 'Demo POST request with JSON body variables.',
+          method: 'POST',
+          url: '{{baseUrl}}/users',
+          bodyType: 'rawJson',
+          bodyContent: JSON.stringify({ merchantId: '{{merchantId}}', name: 'Demo User', userId: '{{userId}}' }, null, 2),
+          timeoutMs: 30000,
+          followRedirects: true,
+          sslVerification: true,
+          headers: [
+            { key: 'Content-Type', value: 'application/json', enabled: true, isSecret: false },
+            { key: 'X-API-Key', value: '{{apiKey}}', enabled: true, isSecret: true }
+          ],
+          queryParams: [],
+          pathParams: []
+        },
+        {
+          folderPath: ['Demo Billing'],
+          name: 'GET Demo Invoice',
+          description: 'Demo invoice lookup with merchant and user variables.',
+          method: 'GET',
+          url: '{{baseUrl}}/invoices/{{userId}}?merchantId={{merchantId}}',
+          bodyType: 'none',
+          bodyContent: '',
+          timeoutMs: 30000,
+          followRedirects: true,
+          sslVerification: true,
+          headers: [{ key: 'X-API-Key', value: '{{apiKey}}', enabled: true, isSecret: true }],
+          queryParams: [],
+          pathParams: []
+        },
+        {
+          folderPath: ['Demo Billing'],
+          name: 'POST Demo Payment',
+          description: 'Demo payment request for exploring body, headers, variables, and response viewer.',
+          method: 'POST',
+          url: '{{baseUrl}}/payments',
+          bodyType: 'rawJson',
+          bodyContent: JSON.stringify({ merchantId: '{{merchantId}}', userId: '{{userId}}', amount: 1200, currency: 'PKR' }, null, 2),
+          timeoutMs: 30000,
+          followRedirects: true,
+          sslVerification: true,
+          headers: [
+            { key: 'Content-Type', value: 'application/json', enabled: true, isSecret: false },
+            { key: 'X-API-Key', value: '{{apiKey}}', enabled: true, isSecret: true }
+          ],
+          queryParams: [],
+          pathParams: []
+        }
+      ]
+    };
+
+    this.api.importCollection(workspaceId, demoCollection).subscribe({
+      next: (collectionResult) => {
+        if (!collectionResult.succeeded || !collectionResult.data) {
+          this.pageLoading.set(false);
+          this.showToast('Demo failed', collectionResult.message, 'danger');
+          return;
+        }
+
+        this.selectedCollectionId.set(collectionResult.data.collectionId);
+        this.createDemoEnvironment(workspaceId);
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Demo failed', error?.error?.message ?? 'Could not create demo collection.', 'danger');
+      }
+    });
+  }
+
+  private createDemoEnvironment(workspaceId: string): void {
+    this.api.createEnvironment({
+      workspaceId,
+      name: 'Demo Environment',
+      isDefault: true
+    }).subscribe({
+      next: (environmentResult) => {
+        if (!environmentResult.succeeded || !environmentResult.data) {
+          this.pageLoading.set(false);
+          this.showToast('Demo failed', environmentResult.message, 'danger');
+          return;
+        }
+
+        const environment = environmentResult.data;
+        this.api.upsertEnvironmentVariables(environment.id, [
+          { key: 'baseUrl', value: 'https://postman-echo.com', scope: 'Environment', isSecret: false, enabled: true },
+          { key: 'apiKey', value: 'demo_api_key_123', scope: 'Environment', isSecret: true, enabled: true },
+          { key: 'merchantId', value: 'merchant_demo_001', scope: 'Environment', isSecret: false, enabled: true },
+          { key: 'userId', value: 'user_demo_001', scope: 'Environment', isSecret: false, enabled: true }
+        ]).subscribe({
+          next: (variablesResult) => {
+            this.pageLoading.set(false);
+            if (!variablesResult.succeeded) {
+              this.showToast('Demo failed', variablesResult.message, 'danger');
+              return;
+            }
+            this.selectedEnvironmentId.set(environment.id);
+            this.activeView.set('api-client');
+            this.showToast('Demo workspace created', 'Demo collection, requests, and environment are ready. Press Send on the first request.', 'success');
+            this.loadWorkspaces();
+            this.loadCollections();
+            this.loadEnvironments();
+            this.loadActivity();
+          },
+          error: (error) => {
+            this.pageLoading.set(false);
+            this.showToast('Demo failed', error?.error?.message ?? 'Could not create demo variables.', 'danger');
+          }
+        });
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Demo failed', error?.error?.message ?? 'Could not create demo environment.', 'danger');
       }
     });
   }

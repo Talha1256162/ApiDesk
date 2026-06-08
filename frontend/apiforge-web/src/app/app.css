@@ -342,6 +342,110 @@ select option {
   gap: 14px;
 }
 
+.marketing-section {
+  max-width: 1280px;
+  margin: 22px auto 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012)),
+    var(--surface-card);
+  box-shadow: var(--shadow-card);
+  padding: clamp(22px, 4vw, 34px);
+}
+
+.section-heading {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.split-section {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(360px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.problem-list,
+.step-list {
+  display: grid;
+  gap: 10px;
+}
+
+.problem-list span,
+.step-list span {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 13px 14px;
+}
+
+.public-benefit-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.comparison-table {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+.comparison-table > div {
+  display: grid;
+  grid-template-columns: 0.9fr 1.2fr 1fr;
+  gap: 1px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--border-subtle);
+}
+
+.comparison-table > div:first-child {
+  border-top: 0;
+}
+
+.comparison-table span,
+.comparison-table strong {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 12px 14px;
+}
+
+.comparison-table strong {
+  color: var(--text-primary);
+  font-weight: 900;
+}
+
+.migration-steps,
+.final-cta {
+  display: grid;
+  gap: 18px;
+}
+
+.final-cta {
+  justify-items: start;
+  margin-bottom: 26px;
+}
+
+.pricing-note {
+  max-width: 980px;
+  margin-top: 18px;
+}
+
+.sales-pricing-grid {
+  align-items: stretch;
+}
+
+.sales-pricing-grid .pricing-card {
+  min-height: 560px;
+}
+
 .pricing-public {
   max-width: 1180px;
   margin: 0 auto;
@@ -1162,7 +1266,7 @@ select option {
 
 .onboarding-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  grid-template-columns: repeat(6, minmax(150px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -1449,6 +1553,14 @@ select option {
 .workspace-card div {
   display: grid;
   gap: 8px;
+}
+
+.workspace-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .workspace-card strong,
@@ -2830,10 +2942,12 @@ select option {
   .json-workbench,
   .request-config-grid,
   .migration-hero,
+  .split-section,
   .pricing-grid,
   .marketing-hero,
   .hero-panels,
   .public-features,
+  .public-benefit-grid,
   .ai-orchestra,
   .team-console,
   .billing-hero {
@@ -2906,7 +3020,8 @@ select option {
   .marketing-nav > div,
   .hero-actions,
   .preview-grid,
-  .target-picker {
+  .target-picker,
+  .comparison-table > div {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;

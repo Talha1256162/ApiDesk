@@ -10,17 +10,17 @@
           <div>
             <button class="ghost-button" type="button" (click)="showPricing()">Pricing</button>
             <button class="secondary-action" type="button" (click)="showLogin()">Login</button>
-            <button class="primary-action" type="button" (click)="startFree()">Start free</button>
+            <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
           </div>
         </nav>
         <section class="marketing-hero">
           <div>
-            <span class="eyebrow">API Desk for small software teams</span>
-            <h1>Lightweight AI-powered Postman alternative for small teams.</h1>
-            <p>Send requests, migrate Postman collections, manage environments, collaborate with unlimited teammates, generate tests, and build mock responses from one polished workspace.</p>
+            <span class="eyebrow">Built for API teams, software houses, QA teams, and backend developers.</span>
+            <h1>API testing for teams that outgrow Postman limits.</h1>
+            <p>Import your Postman collections, invite your whole team, run requests, create mocks, and share docs from one simple workspace.</p>
             <div class="hero-actions">
-              <button class="primary-action" type="button" (click)="startFree()">Start free</button>
-              <button class="secondary-action" type="button" (click)="viewDemo()">View demo</button>
+              <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
+              <button class="secondary-action" type="button" (click)="showLogin(true)">Import from Postman</button>
             </div>
           </div>
           <article class="hero-product-card">
@@ -43,6 +43,76 @@
           <article><strong>Unlimited collaboration</strong><span>Organizations, workspaces, roles, invite links, activity, and manager visibility.</span></article>
           <article><strong>Developer tools</strong><span>JSON tools, Base64, URL tools, JWT decoder, UUIDs, timestamps, cURL parser, and regex.</span></article>
         </section>
+        <section class="marketing-section split-section">
+          <div>
+            <span class="eyebrow">Problem</span>
+            <h2>API collaboration gets expensive and scattered as teams grow.</h2>
+          </div>
+          <div class="problem-list">
+            <span>Team seat limits increase cost quickly</span>
+            <span>API collections get scattered across developers</span>
+            <span>Managers lack visibility into team activity</span>
+            <span>Mock servers and documentation workflows are disconnected</span>
+            <span>Environment variables and request history are hard to manage across teams</span>
+          </div>
+        </section>
+        <section class="marketing-section">
+          <div class="section-heading">
+            <span class="eyebrow">Solution</span>
+            <h2>One workspace for API testing, collaboration, mocks, and docs.</h2>
+          </div>
+          <div class="benefit-grid public-benefit-grid">
+            <span>Unlimited team collaboration</span>
+            <span>Postman collection import</span>
+            <span>Postman environment import</span>
+            <span>API runner</span>
+            <span>Environment variables</span>
+            <span>Mock server</span>
+            <span>Shareable documentation</span>
+            <span>Team activity visibility</span>
+            <span>Built-in JSON tools</span>
+            <span>AI-assisted API workflows</span>
+          </div>
+        </section>
+        <section class="marketing-section">
+          <div class="section-heading">
+            <span class="eyebrow">Comparison</span>
+            <h2>API Desk vs traditional API tools</h2>
+          </div>
+          <div class="comparison-table">
+            <div><strong>Capability</strong><strong>API Desk</strong><strong>Traditional setup</strong></div>
+            <div><span>Team collaboration</span><span>Unlimited team workflow</span><span>Often seat-limited</span></div>
+            <div><span>Postman import</span><span>Collection and environment migration</span><span>Manual migration varies</span></div>
+            <div><span>Environment management</span><span>Workspace variables and secret masking</span><span>Often scattered per user</span></div>
+            <div><span>API runner</span><span>Backend proxy runner with history</span><span>Common, but isolated</span></div>
+            <div><span>Mock server</span><span>Generated from saved collections</span><span>Separate workflow</span></div>
+            <div><span>Shareable docs</span><span>Publish from collections</span><span>Separate docs workflow</span></div>
+            <div><span>Team activity visibility</span><span>Manager feed and audit trail</span><span>Limited visibility</span></div>
+            <div><span>Pricing simplicity</span><span>Team-friendly plans</span><span>Can grow per seat</span></div>
+            <div><span>First month free</span><span>Included</span><span>Depends on vendor</span></div>
+          </div>
+        </section>
+        <section class="marketing-section migration-steps">
+          <div>
+            <span class="eyebrow">Migration</span>
+            <h2>Switch from Postman without starting over.</h2>
+          </div>
+          <div class="step-list">
+            <span>1. Import your Postman collection JSON</span>
+            <span>2. Import your Postman environment JSON</span>
+            <span>3. Open your collection</span>
+            <span>4. Run your first request</span>
+            <span>5. Invite your team</span>
+          </div>
+          <button class="primary-action" type="button" (click)="showLogin(true)">Import from Postman</button>
+        </section>
+        <section class="marketing-section final-cta">
+          <h2>Start your free month and bring your API team into one workspace.</h2>
+          <div class="hero-actions">
+            <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
+            <button class="secondary-action" type="button" (click)="showPricing()">View Pricing</button>
+          </div>
+        </section>
       </main>
     } @else if (publicView === 'pricing') {
       <main class="marketing-shell">
@@ -53,18 +123,68 @@
           </button>
           <div>
             <button class="secondary-action" type="button" (click)="showLanding()">Product</button>
-            <button class="primary-action" type="button" (click)="showLogin()">Login</button>
+            <button class="ghost-button" type="button" (click)="showLogin()">Login</button>
+            <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
           </div>
         </nav>
         <section class="pricing-public">
           <div class="page-header">
-            <div><span class="eyebrow">Simple plans</span><h2>Pricing for beta teams</h2><p>Payments are intentionally not enabled yet. The product is ready for demos and pilot customers.</p></div>
+            <div><span class="eyebrow">Simple plans</span><h2>Pricing for teams switching from Postman.</h2><p>Start with a free month. Payments are not connected yet, so API Desk will collect your interest and start the team trial without pretending a payment happened.</p></div>
           </div>
-          <div class="pricing-grid">
-            <article class="pricing-card active"><span>Free beta</span><strong>$0</strong><p>API client, imports, JSON tools, environments, mocks, AI fallback, and team collaboration.</p><button class="primary-action wide" (click)="startFree()">Start free</button></article>
-            <article class="pricing-card"><span>Team</span><strong>Coming soon</strong><p>Advanced permissions, analytics, shared monitors, governance approvals, and hosted support.</p><button class="secondary-action wide" disabled>Coming soon</button></article>
-            <article class="pricing-card"><span>Enterprise</span><strong>Contact</strong><p>Private deployment, SSO, retention controls, audit exports, and managed onboarding.</p><button class="secondary-action wide" disabled>Contact placeholder</button></article>
+          <div class="pricing-grid sales-pricing-grid">
+            <article class="pricing-card active">
+              <app-badge label="First month free" tone="success"></app-badge>
+              <span>Free Trial</span>
+              <strong>$0<small>/first month</small></strong>
+              <p>Explore API Desk with your whole team before choosing a paid plan.</p>
+              <div class="feature-list">
+                <span>First month free</span>
+                <span>Unlimited team members during trial</span>
+                <span>Postman collection import</span>
+                <span>Postman environment import</span>
+                <span>API runner</span>
+                <span>JSON viewer</span>
+                <span>Team activity logs</span>
+                <span>Mock server trial access</span>
+                <span>Shareable docs trial access</span>
+              </div>
+              <button class="primary-action wide" type="button" (click)="startFree()">Start free month</button>
+            </article>
+            <article class="pricing-card featured">
+              <app-badge label="Best for teams" tone="accent"></app-badge>
+              <span>Team</span>
+              <strong>Simple monthly pricing</strong>
+              <p>For software teams that need API testing, collaboration, and visibility without seat-limit friction.</p>
+              <div class="feature-list">
+                <span>Simple monthly pricing</span>
+                <span>Unlimited team members</span>
+                <span>Unlimited workspaces</span>
+                <span>Postman import/export</span>
+                <span>Mock servers</span>
+                <span>Shareable docs</span>
+                <span>Team activity visibility</span>
+                <span>Priority support</span>
+              </div>
+              <button class="primary-action wide" type="button" (click)="startFree()">Start free month</button>
+            </article>
+            <article class="pricing-card">
+              <app-badge label="Custom" tone="default"></app-badge>
+              <span>Enterprise</span>
+              <strong>Contact</strong>
+              <p>For companies that need advanced security, control, and dedicated support.</p>
+              <div class="feature-list">
+                <span>Custom pricing</span>
+                <span>Self-hosting option</span>
+                <span>SSO/SAML later</span>
+                <span>Audit logs</span>
+                <span>Advanced security</span>
+                <span>Dedicated support</span>
+                <span>Custom onboarding</span>
+              </div>
+              <button class="secondary-action wide" type="button" (click)="contactSales()">Contact sales</button>
+            </article>
           </div>
+          <div class="inline-info pricing-note">No payment provider is connected in this beta. Start Free Month opens signup and records intent honestly; Contact Sales opens a professional onboarding path.</div>
         </section>
       </main>
     } @else {
@@ -80,6 +200,12 @@
           </div>
           <h1>Ship, test, and govern APIs from one team workspace.</h1>
           <p>Built for backend teams, QA leads, and software-house managers who need visibility without slowing engineers down.</p>
+          @if (trialInterest()) {
+            <div class="inline-info">Free month selected. Create an account to start with Postman import, demo workspace, API runner, mocks, docs, and team invites.</div>
+          }
+          @if (contactSalesInterest()) {
+            <div class="inline-info">Enterprise interest selected. Sign in or create an account, then invite the API Desk team for onboarding and deployment discussion.</div>
+          }
           <div class="auth-proof">
             <span>Real request runner</span>
             <span>Team activity</span>
@@ -189,6 +315,7 @@
           <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
           <app-badge [label]="'Live ' + realtimeStatus()" [tone]="realtimeStatus() === 'online' ? 'success' : 'default'"></app-badge>
           <button class="primary-action" type="button" (click)="selectView('team')">Invite</button>
+          <button class="ghost-button compact-button" type="button" (click)="openPricing()">Pricing</button>
           <button class="ghost-button compact-button" type="button" (click)="selectView('activity')">Alerts</button>
           <button class="ghost-button" type="button" (click)="selectView('documentation')">Help &amp; Docs</button>
           <button class="ghost-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
@@ -211,7 +338,11 @@
               <h2>Workspace dashboard</h2>
               <p>Start by importing Postman collections, inviting teammates, and running requests from one team-owned API workspace.</p>
             </div>
-            <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh data</button>
+            <div class="toolbar">
+              <button class="primary-action" type="button" (click)="createDemoWorkspace()" [disabled]="pageLoading()">Create Demo Workspace</button>
+              <button class="secondary-action" type="button" (click)="openPricing()">Pricing</button>
+              <button class="secondary-action" type="button" (click)="loadWorkspaceData()">Refresh data</button>
+            </div>
           </section>
 
           <section class="migration-hero panel">
@@ -241,24 +372,31 @@
             </article>
             <article class="onboarding-card">
               <span class="step-pill">02</span>
+              <app-badge label="Demo" tone="success"></app-badge>
+              <h3>Create Demo Workspace</h3>
+              <p>Explore requests, variables, mocks, docs, and team flows without manual setup.</p>
+              <button class="secondary-action wide" type="button" (click)="createDemoWorkspace()" [disabled]="pageLoading()">Create Demo Workspace</button>
+            </article>
+            <article class="onboarding-card">
+              <span class="step-pill">03</span>
               <h3>Create Workspace</h3>
               <p>Organize APIs by product, client, or team.</p>
               <button class="secondary-action wide" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create Workspace</button>
             </article>
             <article class="onboarding-card">
-              <span class="step-pill">03</span>
+              <span class="step-pill">04</span>
               <h3>Invite Team</h3>
               <p>Add your full team without seat-limit friction.</p>
               <button class="secondary-action wide" type="button" (click)="goToTeamInvites()">Invite Members</button>
             </article>
             <article class="onboarding-card">
-              <span class="step-pill">04</span>
+              <span class="step-pill">05</span>
               <h3>Run First Request</h3>
               <p>Test GET, POST, auth, headers, variables, and body modes.</p>
               <button class="secondary-action wide" type="button" (click)="createStarterRequestFlow()" [disabled]="pageLoading()">Create Request</button>
             </article>
             <article class="onboarding-card">
-              <span class="step-pill">05</span>
+              <span class="step-pill">06</span>
               <h3>Generate Mock / Docs</h3>
               <p>Turn collections into mock APIs and shareable documentation.</p>
               <button class="secondary-action wide" type="button" (click)="goToMocksOrDocs()">Create Mock / Generate Docs</button>
@@ -438,6 +576,7 @@
             </div>
             <div class="toolbar">
               <button class="primary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+              <button class="secondary-action" type="button" (click)="createDemoWorkspace()" [disabled]="pageLoading()">Create Demo Workspace</button>
               <button class="secondary-action" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create workspace</button>
             </div>
           </section>
@@ -446,14 +585,23 @@
               <div class="workspace-card">
                 <div>
                   <app-badge [label]="workspace.type" tone="accent"></app-badge>
+                  @if (isDemoWorkspace(workspace)) {
+                    <app-badge label="Demo" tone="success"></app-badge>
+                  }
                   <strong>{{ workspace.name }}</strong>
                   <span>{{ workspace.description || 'No description has been added for this workspace.' }}</span>
                 </div>
-                <button class="secondary-action" type="button" (click)="onWorkspaceChange(workspace.id)">Open</button>
+                <div class="workspace-card-actions">
+                  <button class="secondary-action" type="button" (click)="onWorkspaceChange(workspace.id)">Open</button>
+                  @if (isDemoWorkspace(workspace)) {
+                    <button class="ghost-button danger-action" type="button" (click)="deleteDemoWorkspace(workspace.id)" [disabled]="pageLoading()">Delete demo</button>
+                  }
+                </div>
               </div>
             } @empty {
               <app-empty-state title="No workspaces" description="Create a workspace to organize API collaboration by product, client, or delivery team.">
                 <button class="primary-action" type="button" (click)="createWorkspaceQuick()" [disabled]="pageLoading()">Create workspace</button>
+                <button class="secondary-action" type="button" (click)="createDemoWorkspace()" [disabled]="pageLoading()">Create Demo Workspace</button>
                 <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman collection</button>
               </app-empty-state>
             }
@@ -1198,8 +1346,12 @@
 
         @if (activeView() === 'billing') {
           <section class="page-header">
-            <div><span class="eyebrow">SaaS control</span><h2>Billing and settings</h2><p>Plan catalog, usage, product name, retention, and API keys are SQL-backed.</p></div>
-            <button class="secondary-action" type="button" (click)="loadBillingOverview(); loadOrganizationSettings(); loadApiKeys()">Refresh</button>
+            <div><span class="eyebrow">SaaS control</span><h2>Pricing and billing readiness</h2><p>Start with a free month. Payments are not connected yet, so this page stays honest while showing team-ready plan options.</p></div>
+            <div class="toolbar">
+              <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
+              <button class="secondary-action" type="button" (click)="contactSales()">Contact sales</button>
+              <button class="secondary-action" type="button" (click)="loadBillingOverview(); loadOrganizationSettings(); loadApiKeys()">Refresh</button>
+            </div>
           </section>
           <section class="billing-hero panel">
             <div>
