@@ -49,6 +49,11 @@
             </div>
           </article>
         </section>
+        <section class="marketing-section features-heading-section">
+          <span class="eyebrow hero-badge">Features</span>
+          <h2>Everything your API team needs</h2>
+          <p>One workspace replaces your scattered API tools.</p>
+        </section>
         <section class="feature-grid public-features">
           <article><i>IM</i><strong>Postman import</strong><span>Preview folders, requests, auth, variables, scripts, and unsupported items before import.</span></article>
           <article><i>EV</i><strong>Postman environment import</strong><span>Bring environment variables into your workspace and resolve {{ '{{variable}}' }} values before sending.</span></article>
@@ -135,20 +140,26 @@
         </section>
         <section class="marketing-section final-cta">
           <h2>Start your free month and bring your API team into one workspace.</h2>
+          <p>Import collections, run requests, invite teammates, and create mocks without rebuilding your workflow.</p>
           <div class="hero-actions">
             <button class="primary-action" type="button" (click)="startFree()">Start Free Month</button>
             <button class="secondary-action" type="button" (click)="showPricing()">View Pricing</button>
           </div>
         </section>
         <footer class="marketing-footer">
-          <div><strong>{{ productName() }}</strong><span>Lightweight API collaboration for small teams.</span></div>
-          <nav aria-label="Footer links">
-            <button type="button" (click)="showLanding()">Product</button>
-            <button type="button" (click)="showPricing()">Pricing</button>
-            <button type="button" (click)="showLogin(true)">Import</button>
-            <button type="button" (click)="showLogin()">Login</button>
-          </nav>
-          <small>Copyright 2026 API Desk. All rights reserved.</small>
+          <div class="footer-grid">
+            <div class="footer-brand">
+              <div class="brand-row">
+                <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+                <strong>{{ productName() }}</strong>
+              </div>
+              <p>The API workspace for modern teams.</p>
+            </div>
+            <nav aria-label="Product links"><strong>Product</strong><button type="button" (click)="showLogin()">API Client</button><button type="button" (click)="showLogin(true)">Collections</button><button type="button" (click)="showLogin()">Environments</button><button type="button" (click)="showLogin()">Mock Server</button><button type="button" (click)="showLogin()">AI Test Generator</button></nav>
+            <nav aria-label="Resource links"><strong>Resources</strong><button type="button" (click)="showLogin()">Documentation</button><button type="button" (click)="showPricing()">Pricing</button><button type="button" (click)="showLogin(true)">Postman Migration</button><button type="button" (click)="showLogin()">Changelog</button></nav>
+            <nav aria-label="Company links"><strong>Company</strong><button type="button" (click)="contactSales()">About</button><button type="button" (click)="contactSales()">Contact</button><button type="button" (click)="contactSales()">Privacy Policy</button><button type="button" (click)="contactSales()">Terms of Service</button></nav>
+          </div>
+          <div class="footer-bottom"><small>Copyright 2026 API Desk. All rights reserved.</small><button type="button" (click)="showPricing()">View pricing</button></div>
         </footer>
       </main>
     } @else if (publicView === 'pricing') {
@@ -166,7 +177,7 @@
         </nav>
         <section class="pricing-public">
           <div class="page-header">
-            <div><span class="eyebrow">Simple plans</span><h2>Pricing for teams switching from Postman.</h2><p>Start with a free month. Billing is currently handled through onboarding during beta.</p></div>
+            <div><span class="eyebrow">Simple plans</span><h2>Simple, Honest Pricing</h2><p>Pricing for teams switching from Postman. Start with a free month. Billing is currently handled through onboarding during beta.</p></div>
           </div>
           <div class="pricing-grid sales-pricing-grid">
             <article class="pricing-card active">
@@ -188,6 +199,7 @@
               <button class="primary-action wide" type="button" (click)="startFree()">Start free month</button>
             </article>
             <article class="pricing-card featured">
+              <span class="popular-badge">Most Popular</span>
               <app-badge label="Best for teams" tone="accent"></app-badge>
               <span>Team</span>
               <strong>Simple monthly pricing</strong>
@@ -224,14 +236,19 @@
           <div class="inline-info pricing-note">Billing is currently handled through onboarding during beta. Start Free Month opens signup and records interest; Contact Sales opens a professional onboarding path.</div>
         </section>
         <footer class="marketing-footer">
-          <div><strong>{{ productName() }}</strong><span>Lightweight API collaboration for small teams.</span></div>
-          <nav aria-label="Footer links">
-            <button type="button" (click)="showLanding()">Product</button>
-            <button type="button" (click)="showPricing()">Pricing</button>
-            <button type="button" (click)="showLogin(true)">Import</button>
-            <button type="button" (click)="showLogin()">Login</button>
-          </nav>
-          <small>Copyright 2026 API Desk. All rights reserved.</small>
+          <div class="footer-grid">
+            <div class="footer-brand">
+              <div class="brand-row">
+                <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+                <strong>{{ productName() }}</strong>
+              </div>
+              <p>The API workspace for modern teams.</p>
+            </div>
+            <nav aria-label="Product links"><strong>Product</strong><button type="button" (click)="showLogin()">API Client</button><button type="button" (click)="showLogin(true)">Collections</button><button type="button" (click)="showLogin()">Environments</button><button type="button" (click)="showLogin()">Mock Server</button><button type="button" (click)="showLogin()">AI Test Generator</button></nav>
+            <nav aria-label="Resource links"><strong>Resources</strong><button type="button" (click)="showLogin()">Documentation</button><button type="button" (click)="showPricing()">Pricing</button><button type="button" (click)="showLogin(true)">Postman Migration</button><button type="button" (click)="showLogin()">Changelog</button></nav>
+            <nav aria-label="Company links"><strong>Company</strong><button type="button" (click)="contactSales()">About</button><button type="button" (click)="contactSales()">Contact</button><button type="button" (click)="contactSales()">Privacy Policy</button><button type="button" (click)="contactSales()">Terms of Service</button></nav>
+          </div>
+          <div class="footer-bottom"><small>Copyright 2026 API Desk. All rights reserved.</small><button type="button" (click)="showLanding()">Back to product</button></div>
         </footer>
       </main>
     } @else {
