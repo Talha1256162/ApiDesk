@@ -20,6 +20,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<IRequestRunRepository, RequestRunRepository>();
         services.AddScoped<IProductOpsRepository, ProductOpsRepository>();
         services.AddScoped<IPhase4Repository, Phase4Repository>();
+        services.AddScoped<IBetaFeedbackRepository, BetaFeedbackRepository>();
         return services;
     }
 }

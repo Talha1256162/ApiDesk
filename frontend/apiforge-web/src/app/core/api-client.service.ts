@@ -15,6 +15,8 @@ import {
   ApiSpec,
   ApiSpecValidation,
   ApiKeyModel,
+  BetaChecklist,
+  BetaFeedback,
   AuthResponse,
   BillingOverview,
   BuildInfo,
@@ -24,6 +26,7 @@ import {
   CollectionRunResult,
   CommentModel,
   CreatedApiKey,
+  CreateBetaFeedbackRequest,
   EnvironmentModel,
   GovernanceFinding,
   ImportCollectionPayload,
@@ -423,5 +426,29 @@ export class ApiClientService {
 
   createApiKey(organizationId: string, payload: { workspaceId?: string; name: string; expiresOn?: string }) {
     return this.http.post<ApiResult<CreatedApiKey>>(`${this.apiBaseUrl}/organizations/${organizationId}/api-keys`, payload);
+  }
+
+  createBetaFeedback(payload: CreateBetaFeedbackRequest) {
+    return this.http.post<ApiResult<BetaFeedback>>(`${this.apiBaseUrl}/beta-feedback`, payload);
+  }
+
+  betaFeedback(organizationId: string, searchString = '') {
+    let params = new HttpParams().set('count', 100);
+    if (searchString.trim()) {
+      params = params.set('searchString', searchString.trim());
+    }
+    return this.http.get<ApiResult<PagedResult<BetaFeedback>>>(`${this.apiBaseUrl}/organizations/${organizationId}/beta-feedback`, { params });
+  }
+
+  updateBetaFeedbackStatus(feedbackId: string, payload: { status: string; adminNotes?: string }) {
+    return this.http.patch<ApiResult<BetaFeedback>>(`${this.apiBaseUrl}/beta-feedback/${feedbackId}/status`, payload);
+  }
+
+  betaChecklist(organizationId: string, workspaceId?: string) {
+    let params = new HttpParams();
+    if (workspaceId) {
+      params = params.set('workspaceId', workspaceId);
+    }
+    return this.http.get<ApiResult<BetaChecklist>>(`${this.apiBaseUrl}/organizations/${organizationId}/beta-checklist`, { params });
   }
 }

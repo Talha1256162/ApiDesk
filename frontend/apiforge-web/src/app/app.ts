@@ -16,12 +16,15 @@ import {
   ApiSpec,
   ApiSpecValidation,
   ApiKeyModel,
+  BetaChecklist,
+  BetaFeedback,
   BillingOverview,
   BillingPlan,
   BuildInfo,
   CommentModel,
   Collection,
   CollectionRunResult,
+  CreateBetaFeedbackRequest,
   EnvironmentModel,
   ImportApiRequestPayload,
   ImportApiRequestWithFolderPayload,
@@ -72,6 +75,7 @@ type ViewKey =
   | 'activity'
   | 'reports'
   | 'team'
+  | 'beta-feedback'
   | 'settings';
 
 type ToastState = {
@@ -155,6 +159,8 @@ export class App implements OnInit {
   readonly commandOpen = signal(false);
   readonly curlImportOpen = signal(false);
   readonly postmanImportOpen = signal(false);
+  readonly feedbackOpen = signal(false);
+  readonly betaChecklistOpen = signal(false);
   readonly aiAgentOpen = signal(false);
   readonly generatedTestsOpen = signal(false);
   readonly generatedMockOpen = signal(false);
@@ -187,6 +193,8 @@ export class App implements OnInit {
   readonly advancedAnalytics = signal<AdvancedAnalytics | null>(null);
   readonly billingOverview = signal<BillingOverview | null>(null);
   readonly buildInfo = signal<BuildInfo | null>(null);
+  readonly betaFeedback = signal<BetaFeedback[]>([]);
+  readonly betaChecklist = signal<BetaChecklist | null>(null);
   readonly saasSettings = signal<OrganizationSaasSettings | null>(null);
   readonly apiKeys = signal<ApiKeyModel[]>([]);
   readonly members = signal<OrganizationMember[]>([]);
@@ -370,6 +378,19 @@ export class App implements OnInit {
     { value: 'Success', label: 'Success', meta: 'Completed events' },
     { value: 'Failure', label: 'Failure', meta: 'Failed events' }
   ]);
+  readonly feedbackCategoryOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'UX', label: 'UX', meta: 'Usability or flow' },
+    { value: 'Bug', label: 'Bug', meta: 'Broken behavior' },
+    { value: 'Feature', label: 'Feature', meta: 'Missing capability' },
+    { value: 'Pricing', label: 'Pricing', meta: 'Packaging feedback' },
+    { value: 'Other', label: 'Other', meta: 'General note' }
+  ]);
+  readonly feedbackSentimentOptions = computed<PremiumSelectOption[]>(() => [
+    { value: 'Neutral', label: 'Neutral', meta: 'Observation' },
+    { value: 'Positive', label: 'Positive', meta: 'What worked well' },
+    { value: 'Negative', label: 'Negative', meta: 'Blocker or frustration' }
+  ]);
+  readonly feedbackStatusOptions = computed<PremiumSelectOption[]>(() => ['New', 'Reviewed', 'Planned', 'Resolved', 'Closed'].map((status) => ({ value: status, label: status, meta: 'Feedback workflow' })));
   readonly utilityToolOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'Base64', label: 'Base64 encode', meta: 'Encode text' },
     { value: 'Base64 Decode', label: 'Base64 decode', meta: 'Decode text' },
@@ -469,6 +490,7 @@ export class App implements OnInit {
     {
       title: 'Admin',
       items: [
+        { key: 'beta-feedback', label: 'Beta Feedback', hint: 'Closed beta', icon: 'pulse' },
         { key: 'settings', label: 'Settings', hint: 'Config', icon: 'shield' }
       ]
     }
@@ -490,6 +512,14 @@ export class App implements OnInit {
   registerWorkspace = '';
   globalSearch = '';
   contextPanelOpen = false;
+  feedbackCategory = 'UX';
+  feedbackSentiment = 'Neutral';
+  feedbackRating = 4;
+  feedbackTitle = '';
+  feedbackMessage = '';
+  feedbackSearch = '';
+  feedbackAdminNotes: Record<string, string> = {};
+  feedbackStatusDraft: Record<string, string> = {};
 
   jsonTab: (typeof this.jsonTabs)[number] = 'Beautify';
   jsonInput = '';
@@ -718,6 +748,8 @@ export class App implements OnInit {
     this.aiResult.set(null);
     this.advancedAnalytics.set(null);
     this.billingOverview.set(null);
+    this.betaFeedback.set([]);
+    this.betaChecklist.set(null);
     this.saasSettings.set(null);
     this.apiKeys.set([]);
     this.members.set([]);
@@ -731,6 +763,8 @@ export class App implements OnInit {
     this.responseBody.set('');
     this.openRequestIds.set([]);
     this.resetRequestEditor();
+    this.feedbackOpen.set(false);
+    this.betaChecklistOpen.set(false);
     this.activeView.set('dashboard');
     this.publicView = 'landing';
     this.disconnectRealtime();
@@ -749,6 +783,10 @@ export class App implements OnInit {
     this.activeView.set(view);
     this.expandActiveNavParent(view);
     this.commandOpen.set(false);
+    if (view === 'beta-feedback') {
+      this.loadBetaFeedback();
+      this.loadBetaChecklist();
+    }
   }
 
   toggleNavGroup(group: NavGroup): void {
@@ -879,6 +917,7 @@ export class App implements OnInit {
     this.loadActivity();
     this.loadManagerActivity();
     this.loadAuditLogs();
+    this.loadBetaChecklist();
     this.loadMembers();
     this.loadOrganizationRoles();
     this.loadPhase3Data();
@@ -907,6 +946,121 @@ export class App implements OnInit {
       next: (result) => this.buildInfo.set(result.data ?? null),
       error: () => this.showToast('Build info failed', 'Could not load deployment metadata.', 'danger')
     });
+  }
+
+  loadBetaFeedback(): void {
+    if (!this.selectedOrganizationId()) {
+      this.betaFeedback.set([]);
+      return;
+    }
+
+    this.api.betaFeedback(this.selectedOrganizationId(), this.feedbackSearch).subscribe({
+      next: (result) => {
+        this.betaFeedback.set(result.data?.items ?? []);
+        this.feedbackStatusDraft = Object.fromEntries(this.betaFeedback().map((item) => [item.id, item.status]));
+        this.feedbackAdminNotes = Object.fromEntries(this.betaFeedback().map((item) => [item.id, item.adminNotes ?? '']));
+      },
+      error: (error) => this.showToast('Feedback failed', error?.error?.message ?? 'Could not load beta feedback.', 'danger')
+    });
+  }
+
+  loadBetaChecklist(): void {
+    if (!this.selectedOrganizationId()) {
+      this.betaChecklist.set(null);
+      return;
+    }
+
+    this.api.betaChecklist(this.selectedOrganizationId(), this.selectedWorkspaceId() || undefined).subscribe({
+      next: (result) => this.betaChecklist.set(result.data ?? null),
+      error: () => undefined
+    });
+  }
+
+  openFeedback(): void {
+    this.feedbackOpen.set(true);
+    this.feedbackTitle = this.feedbackTitle || `${this.activeViewTitle()} feedback`;
+  }
+
+  submitFeedback(): void {
+    if (!this.selectedOrganizationId()) {
+      this.showToast('Organization required', 'Select an organization before sending feedback.', 'danger');
+      return;
+    }
+
+    const title = this.feedbackTitle.trim();
+    const message = this.feedbackMessage.trim();
+    if (!title || !message) {
+      this.showToast('Feedback required', 'Add a short title and useful details before submitting.', 'danger');
+      return;
+    }
+
+    const payload: CreateBetaFeedbackRequest = {
+      organizationId: this.selectedOrganizationId(),
+      workspaceId: this.selectedWorkspaceId() || undefined,
+      category: this.feedbackCategory,
+      sentiment: this.feedbackSentiment,
+      rating: this.feedbackRating,
+      title,
+      message,
+      route: this.activeView(),
+      browserInfo: navigator.userAgent
+    };
+
+    this.pageLoading.set(true);
+    this.api.createBetaFeedback(payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Feedback failed', result.message || 'Feedback could not be submitted.', 'danger');
+          return;
+        }
+
+        this.betaFeedback.update((items) => [result.data, ...items]);
+        this.feedbackTitle = '';
+        this.feedbackMessage = '';
+        this.feedbackRating = 4;
+        this.feedbackCategory = 'UX';
+        this.feedbackSentiment = 'Neutral';
+        this.feedbackOpen.set(false);
+        this.showToast('Feedback sent', 'Thanks. The closed beta team can now review it.', 'success');
+        this.loadBetaChecklist();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Feedback failed', error?.error?.message ?? 'Feedback could not be submitted.', 'danger');
+      }
+    });
+  }
+
+  updateFeedbackStatus(feedback: BetaFeedback): void {
+    const status = this.feedbackStatusDraft[feedback.id] || feedback.status;
+    const adminNotes = this.feedbackAdminNotes[feedback.id] || '';
+    this.api.updateBetaFeedbackStatus(feedback.id, { status, adminNotes }).subscribe({
+      next: (result) => {
+        if (!result.succeeded || !result.data) {
+          this.showToast('Feedback update failed', result.message || 'Status could not be updated.', 'danger');
+          return;
+        }
+
+        this.betaFeedback.update((items) => items.map((item) => item.id === feedback.id ? result.data : item));
+        this.showToast('Feedback updated', `${result.data.title} is now ${result.data.status}.`, 'success');
+        this.loadActivity();
+      },
+      error: (error) => this.showToast('Feedback update failed', error?.error?.message ?? 'Status could not be updated.', 'danger')
+    });
+  }
+
+  openBetaChecklist(): void {
+    this.loadBetaChecklist();
+    this.betaChecklistOpen.set(true);
+  }
+
+  goToChecklistItem(item: { actionView: string }): void {
+    this.betaChecklistOpen.set(false);
+    if (this.navItems.some((nav) => nav.key === item.actionView)) {
+      this.selectView(item.actionView as ViewKey);
+    }
   }
 
   loadDashboard(): void {

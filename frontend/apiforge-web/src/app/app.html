@@ -407,6 +407,8 @@
           <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
           <app-badge [label]="'Live ' + realtimeStatus()" [tone]="realtimeStatus() === 'online' ? 'success' : 'default'"></app-badge>
           <button class="primary-action" type="button" (click)="selectView('team')">Invite</button>
+          <button class="secondary-action compact-button" type="button" (click)="openBetaChecklist()">Beta checklist</button>
+          <button class="ghost-button compact-button" type="button" (click)="openFeedback()">Feedback</button>
           <button class="ghost-button compact-button" type="button" (click)="openPricing()">Pricing</button>
           <button class="ghost-button compact-button" type="button" (click)="selectView('activity')">Alerts</button>
           <button class="ghost-button" type="button" (click)="selectView('documentation')">Help &amp; Docs</button>
@@ -1866,6 +1868,83 @@
           </section>
         }
 
+        @if (activeView() === 'beta-feedback') {
+          <section class="page-header">
+            <div>
+              <span class="eyebrow">Closed beta</span>
+              <h2>Feedback inbox</h2>
+              <p>Review authenticated tester feedback, triage issues, and keep beta signals tied to organization activity.</p>
+            </div>
+            <div class="toolbar">
+              <input class="search compact-search" placeholder="Search feedback" [(ngModel)]="feedbackSearch" (keyup.enter)="loadBetaFeedback()" />
+              <button class="secondary-action" type="button" (click)="loadBetaFeedback()">Search</button>
+              <button class="primary-action" type="button" (click)="openFeedback()">Add feedback</button>
+            </div>
+          </section>
+
+          <section class="feedback-console">
+            <article class="panel checklist-card">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Beta readiness</span>
+                  <h3>{{ betaChecklist()?.completedCount || 0 }}/{{ betaChecklist()?.totalCount || 0 }} complete</h3>
+                </div>
+                <button class="secondary-action compact-action" type="button" (click)="openBetaChecklist()">Open checklist</button>
+              </div>
+              @for (item of betaChecklist()?.items ?? []; track item.key) {
+                <button class="checklist-row" type="button" (click)="goToChecklistItem(item)">
+                  <span class="check-dot" [class.done]="item.completed"></span>
+                  <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+                </button>
+              } @empty {
+                <app-empty-state title="Checklist loading" description="Select an organization to load the closed beta readiness checklist.">
+                  <button class="secondary-action" type="button" (click)="loadBetaChecklist()">Refresh checklist</button>
+                </app-empty-state>
+              }
+            </article>
+
+            <article class="panel feedback-list-panel">
+              <div class="panel-title">
+                <div>
+                  <span class="eyebrow">Inbox</span>
+                  <h3>{{ betaFeedback().length }} feedback items</h3>
+                </div>
+                <button class="secondary-action compact-action" type="button" (click)="loadBetaFeedback()">Refresh</button>
+              </div>
+
+              @for (feedback of betaFeedback(); track feedback.id) {
+                <div class="feedback-item">
+                  <div class="feedback-item-head">
+                    <div>
+                      <strong>{{ feedback.title }}</strong>
+                      <span>{{ feedback.actorName }} · {{ feedback.actorEmail }} · {{ feedback.createdOn | date:'short' }}</span>
+                    </div>
+                    <div class="feedback-badges">
+                      <app-badge [label]="feedback.category" [tone]="feedback.category === 'Bug' ? 'danger' : 'default'"></app-badge>
+                      <app-badge [label]="feedback.status" [tone]="feedback.status === 'Resolved' ? 'success' : 'accent'"></app-badge>
+                    </div>
+                  </div>
+                  <p>{{ feedback.message }}</p>
+                  <div class="feedback-meta">
+                    <span>Sentiment {{ feedback.sentiment }}</span>
+                    <span>Rating {{ feedback.rating || '-' }}/5</span>
+                    <span>Route {{ feedback.route || '-' }}</span>
+                  </div>
+                  <div class="feedback-admin-row">
+                    <app-premium-select label="Status" [options]="feedbackStatusOptions()" [value]="feedbackStatusDraft[feedback.id] || feedback.status" (valueChange)="feedbackStatusDraft[feedback.id] = $event"></app-premium-select>
+                    <label>Admin notes<input [ngModel]="feedbackAdminNotes[feedback.id] || ''" (ngModelChange)="feedbackAdminNotes[feedback.id] = $event" placeholder="Internal triage note" /></label>
+                    <button class="primary-action" type="button" (click)="updateFeedbackStatus(feedback)">Save status</button>
+                  </div>
+                </div>
+              } @empty {
+                <app-empty-state title="No beta feedback yet" description="Authenticated testers can submit feedback from the top bar. Submitted items appear here with route, category, rating, and triage status.">
+                  <button class="primary-action" type="button" (click)="openFeedback()">Submit first feedback</button>
+                </app-empty-state>
+              }
+            </article>
+          </section>
+        }
+
         @if (activeView() === 'settings') {
           <section class="page-header">
             <div>
@@ -1893,6 +1972,71 @@
   }
 
   <app-toast [title]="toast()?.title ?? ''" [message]="toast()?.message ?? ''" [tone]="toast()?.tone ?? 'default'"></app-toast>
+
+  @if (feedbackOpen()) {
+    <div class="command-overlay" (click)="feedbackOpen.set(false)">
+      <div class="command-panel feedback-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">Closed beta</span>
+            <h3>Send product feedback</h3>
+          </div>
+          <button class="icon-action" type="button" (click)="feedbackOpen.set(false)" aria-label="Close feedback">x</button>
+        </div>
+        <div class="feedback-form-grid">
+          <app-premium-select label="Category" [options]="feedbackCategoryOptions()" [value]="feedbackCategory" (valueChange)="feedbackCategory = $event"></app-premium-select>
+          <app-premium-select label="Sentiment" [options]="feedbackSentimentOptions()" [value]="feedbackSentiment" (valueChange)="feedbackSentiment = $event"></app-premium-select>
+          <label>Rating
+            <select [(ngModel)]="feedbackRating">
+              <option [ngValue]="1">1 - blocked</option>
+              <option [ngValue]="2">2 - rough</option>
+              <option [ngValue]="3">3 - usable</option>
+              <option [ngValue]="4">4 - strong</option>
+              <option [ngValue]="5">5 - excellent</option>
+            </select>
+          </label>
+        </div>
+        <label>Title<input [(ngModel)]="feedbackTitle" maxlength="180" placeholder="Short summary" /></label>
+        <label>Details<textarea rows="6" [(ngModel)]="feedbackMessage" maxlength="2000" placeholder="What happened, what did you expect, and how important is it?"></textarea></label>
+        <div class="feedback-context">
+          <span>Route: {{ activeView() }}</span>
+          <span>Workspace: {{ selectedWorkspace()?.name || 'not selected' }}</span>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-action" type="button" (click)="feedbackOpen.set(false)">Cancel</button>
+          <button class="primary-action" type="button" (click)="submitFeedback()" [disabled]="pageLoading()">Submit feedback</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (betaChecklistOpen()) {
+    <div class="command-overlay" (click)="betaChecklistOpen.set(false)">
+      <div class="command-panel feedback-modal" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <div>
+            <span class="eyebrow">Closed beta</span>
+            <h3>Beta readiness checklist</h3>
+          </div>
+          <button class="icon-action" type="button" (click)="betaChecklistOpen.set(false)" aria-label="Close checklist">x</button>
+        </div>
+        <div class="checklist-summary">
+          <strong>{{ betaChecklist()?.completedCount || 0 }} of {{ betaChecklist()?.totalCount || 0 }} complete</strong>
+          <span>Use these real product actions to prepare a workspace for beta testers.</span>
+        </div>
+        @for (item of betaChecklist()?.items ?? []; track item.key) {
+          <button class="checklist-row large" type="button" (click)="goToChecklistItem(item)">
+            <span class="check-dot" [class.done]="item.completed"></span>
+            <span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+          </button>
+        } @empty {
+          <app-empty-state title="Checklist unavailable" description="Select an organization and workspace to load beta readiness signals.">
+            <button class="secondary-action" type="button" (click)="loadBetaChecklist()">Refresh checklist</button>
+          </app-empty-state>
+        }
+      </div>
+    </div>
+  }
 
   @if (commandOpen()) {
     <div class="command-overlay" (click)="commandOpen.set(false)">

@@ -545,3 +545,50 @@ export interface BuildInfo {
   deploymentTimestampUtc?: string;
   environmentName: string;
 }
+
+export interface CreateBetaFeedbackRequest {
+  organizationId: string;
+  workspaceId?: string;
+  category: string;
+  sentiment: string;
+  rating?: number;
+  title: string;
+  message: string;
+  route?: string;
+  browserInfo?: string;
+}
+
+export interface BetaFeedback {
+  id: string;
+  organizationId: string;
+  workspaceId?: string;
+  actorUserId: string;
+  actorName: string;
+  actorEmail: string;
+  category: string;
+  sentiment: string;
+  rating?: number;
+  title: string;
+  message: string;
+  route?: string;
+  browserInfo?: string;
+  status: string;
+  adminNotes?: string;
+  createdOn: string;
+  modifiedOn?: string;
+  versionNumber: number;
+}
+
+export interface BetaChecklistItem {
+  key: string;
+  label: string;
+  description: string;
+  completed: boolean;
+  actionView: string;
+}
+
+export interface BetaChecklist {
+  completedCount: number;
+  totalCount: number;
+  items: BetaChecklistItem[];
+}

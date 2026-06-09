@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 
-const baseUrl = process.env.E2E_BASE_URL || 'http://127.0.0.1:4200';
+const baseUrl = process.env.E2E_BASE_URL || 'http://localhost:4200';
 const email = process.env.E2E_EMAIL || 'admin@apiforge.local';
 const password = process.env.E2E_PASSWORD || 'Admin@12345';
 
@@ -97,7 +97,7 @@ async function clickFirst(page, locator) {
   });
 
   await check('refresh preserves protected session', async () => {
-    await page.reload({ waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
     assert(await visible(page, 'Workspace dashboard'), 'Protected session did not survive refresh.');
   });
 

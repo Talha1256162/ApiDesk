@@ -142,6 +142,46 @@ describe('ApiClientService', () => {
     expect(localStorage.getItem('apiforge.accessToken')).toBeNull();
     expect(localStorage.getItem('apiforge.refreshToken')).toBeNull();
   });
+
+  it('submits beta feedback to the authenticated feedback endpoint', () => {
+    api.createBetaFeedback({
+      organizationId: 'org-1',
+      workspaceId: 'workspace-1',
+      category: 'UX',
+      sentiment: 'Neutral',
+      rating: 4,
+      title: 'Improve onboarding',
+      message: 'The beta checklist should be easy to find.',
+      route: 'dashboard',
+      browserInfo: 'karma'
+    }).subscribe();
+
+    const request = http.expectOne('/api/beta-feedback');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.title).toBe('Improve onboarding');
+    expect(request.request.body.workspaceId).toBe('workspace-1');
+    request.flush({ succeeded: true, message: 'Success', data: {}, errors: [] });
+  });
+
+  it('loads and updates beta feedback through organization scoped endpoints', () => {
+    api.betaFeedback('org-1', 'bug').subscribe();
+    const list = http.expectOne((request) => request.url === '/api/organizations/org-1/beta-feedback' && request.params.get('searchString') === 'bug');
+    expect(list.request.method).toBe('GET');
+    list.flush({ succeeded: true, message: 'Success', data: { items: [], totalCount: 0, offset: 0, count: 100 }, errors: [] });
+
+    api.updateBetaFeedbackStatus('feedback-1', { status: 'Reviewed', adminNotes: 'Triaged' }).subscribe();
+    const update = http.expectOne('/api/beta-feedback/feedback-1/status');
+    expect(update.request.method).toBe('PATCH');
+    expect(update.request.body.status).toBe('Reviewed');
+    update.flush({ succeeded: true, message: 'Success', data: {}, errors: [] });
+  });
+
+  it('loads the beta checklist with optional workspace scope', () => {
+    api.betaChecklist('org-1', 'workspace-1').subscribe();
+    const request = http.expectOne((item) => item.url === '/api/organizations/org-1/beta-checklist' && item.params.get('workspaceId') === 'workspace-1');
+    expect(request.request.method).toBe('GET');
+    request.flush({ succeeded: true, message: 'Success', data: { completedCount: 0, totalCount: 5, items: [] }, errors: [] });
+  });
 });
 
 describe('App collection and request search', () => {
@@ -237,6 +277,23 @@ describe('App collection and request search', () => {
     expect(app.isNavGroupExpanded(apiGroup!)).toBeTrue();
     expect(JSON.parse(localStorage.getItem('apiforge.sidebar.expandedGroups') ?? '[]')).toContain('api-client');
     expect(app.activeView()).toBe('api-client');
+  });
+
+  it('opens beta feedback view and loads real feedback and checklist APIs', () => {
+    app.selectedOrganizationId.set('org-1');
+    app.selectedWorkspaceId.set('workspace-1');
+
+    app.selectView('beta-feedback');
+
+    const feedback = http.expectOne('/api/organizations/org-1/beta-feedback?count=100');
+    expect(feedback.request.method).toBe('GET');
+    feedback.flush({ succeeded: true, message: 'Success', data: { items: [], totalCount: 0, offset: 0, count: 100 }, errors: [] });
+
+    const checklist = http.expectOne('/api/organizations/org-1/beta-checklist?workspaceId=workspace-1');
+    expect(checklist.request.method).toBe('GET');
+    checklist.flush({ succeeded: true, message: 'Success', data: { completedCount: 1, totalCount: 5, items: [] }, errors: [] });
+
+    expect(app.activeView()).toBe('beta-feedback');
   });
 
   it('sidebar restores expanded groups from localStorage', () => {

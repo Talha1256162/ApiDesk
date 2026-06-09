@@ -3594,6 +3594,161 @@ app-empty-state {
   font-size: 12px;
 }
 
+.feedback-console {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.6fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.checklist-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  text-align: left;
+  transition: border-color 180ms ease, transform 180ms ease, background 180ms ease;
+}
+
+.checklist-row + .checklist-row {
+  margin-top: 10px;
+}
+
+.checklist-row:hover {
+  transform: translateY(-1px);
+  border-color: rgba(91, 124, 250, 0.45);
+  background: var(--surface-raised);
+}
+
+.checklist-row strong,
+.checklist-row small {
+  display: block;
+}
+
+.checklist-row small {
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+}
+
+.check-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(2, 6, 23, 0.44);
+  box-shadow: inset 0 0 0 4px rgba(2, 6, 23, 0.4);
+}
+
+.check-dot.done {
+  border-color: rgba(34, 197, 94, 0.8);
+  background: #22c55e;
+}
+
+.feedback-item {
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.feedback-item + .feedback-item {
+  margin-top: 14px;
+}
+
+.feedback-item-head,
+.feedback-admin-row,
+.feedback-meta,
+.feedback-badges {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.feedback-item-head {
+  justify-content: space-between;
+}
+
+.feedback-item-head span,
+.feedback-meta {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.feedback-item p {
+  margin: 12px 0;
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+
+.feedback-meta {
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.feedback-admin-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.5fr) minmax(220px, 1fr) auto;
+  align-items: end;
+}
+
+.feedback-admin-row label,
+.feedback-form-grid label,
+.feedback-modal label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.feedback-admin-row input,
+.feedback-modal input,
+.feedback-modal textarea,
+.feedback-modal select,
+.compact-search {
+  width: 100%;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+  padding: 11px 12px;
+  outline: none;
+}
+
+.feedback-modal {
+  width: min(720px, calc(100vw - 28px));
+}
+
+.feedback-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.checklist-summary {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.feedback-context {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.checklist-summary {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
 .context-panel {
   min-width: 0;
   display: grid;
@@ -4161,6 +4316,12 @@ app-empty-state {
 }
 
 @media (max-width: 1080px) {
+  .feedback-console,
+  .feedback-admin-row,
+  .feedback-form-grid {
+    grid-template-columns: 1fr;
+  }
+
   .app-shell {
     grid-template-columns: 1fr;
   }
