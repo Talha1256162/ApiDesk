@@ -28,6 +28,7 @@ import {
   CreatedApiKey,
   CreateBetaFeedbackRequest,
   EnvironmentModel,
+  EnvironmentVariable,
   GovernanceFinding,
   ImportCollectionPayload,
   ManagerSummary,
@@ -216,8 +217,24 @@ export class ApiClientService {
     return this.http.post<ApiResult<EnvironmentModel>>(`${this.apiBaseUrl}/environments`, payload);
   }
 
+  updateEnvironment(environmentId: string, payload: { name: string; isDefault: boolean }) {
+    return this.http.put<ApiResult<EnvironmentModel>>(`${this.apiBaseUrl}/environments/${environmentId}`, payload);
+  }
+
+  duplicateEnvironment(environmentId: string, payload: { name?: string; isDefault: boolean }) {
+    return this.http.post<ApiResult<EnvironmentModel>>(`${this.apiBaseUrl}/environments/${environmentId}/duplicate`, payload);
+  }
+
+  deleteEnvironment(environmentId: string) {
+    return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/environments/${environmentId}`);
+  }
+
+  environmentVariables(environmentId: string) {
+    return this.http.get<ApiResult<EnvironmentVariable[]>>(`${this.apiBaseUrl}/environments/${environmentId}/variables`);
+  }
+
   upsertEnvironmentVariables(environmentId: string, variables: { key: string; value?: string; scope: string; isSecret: boolean; enabled: boolean }[]) {
-    return this.http.put<ApiResult<unknown>>(`${this.apiBaseUrl}/environments/${environmentId}/variables`, { variables });
+    return this.http.put<ApiResult<EnvironmentVariable[]>>(`${this.apiBaseUrl}/environments/${environmentId}/variables`, { variables });
   }
 
   activity(organizationId: string, workspaceId?: string) {

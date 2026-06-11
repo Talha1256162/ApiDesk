@@ -52,10 +52,10 @@ public sealed class ApiRunnerIntegrationTests(ApiDeskWebApplicationFactory facto
     }
 
     [Theory]
-    [InlineData("rawJson", "{\"name\":\"API Desk\"}", "application/json")]
+    [InlineData("rawJson", "{\"name\":\"Apeiron\"}", "application/json")]
     [InlineData("rawText", "plain body", "text/plain")]
-    [InlineData("formUrlEncoded", "name=API Desk\nmode=test", "application/x-www-form-urlencoded")]
-    [InlineData("formData", "name=API Desk\nmode=test", "multipart/form-data")]
+    [InlineData("formUrlEncoded", "name=Apeiron\nmode=test", "application/x-www-form-urlencoded")]
+    [InlineData("formData", "name=Apeiron\nmode=test", "multipart/form-data")]
     public async Task Runner_sends_supported_body_types(string bodyType, string body, string expectedContentType)
     {
         var session = await factory.LoginAsync();

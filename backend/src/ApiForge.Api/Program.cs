@@ -112,7 +112,7 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "API DESK API",
+        Title = "Apeiron API",
         Version = "v1",
         Description = "Modern API collaboration platform for engineering teams."
     });

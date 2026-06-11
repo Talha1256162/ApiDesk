@@ -9,7 +9,7 @@ export function resolveTemplateVariables(input: string, variables: VariableMap):
   const missing = new Set<string>();
   const value = input.replace(/\{\{\s*([^{}\s]+)\s*\}\}/g, (_match, key: string) => {
     const replacement = variables[key];
-    if (replacement === undefined || replacement === '') {
+    if (replacement === undefined) {
       missing.add(key);
       return `{{${key}}}`;
     }

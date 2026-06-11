@@ -26,6 +26,7 @@ import {
   CollectionRunResult,
   CreateBetaFeedbackRequest,
   EnvironmentModel,
+  EnvironmentVariable,
   ImportApiRequestPayload,
   ImportApiRequestWithFolderPayload,
   ImportCollectionPayload,
@@ -48,6 +49,7 @@ import {
   WorkspaceDashboard
 } from './core/api.models';
 import { DeveloperToolsService, JsonDiff, JsonStats } from './features/developer-tools/developer-tools.service';
+import { resolveTemplateVariables } from './core/environment-resolver';
 import { MonacoEditorComponent } from './shared/monaco-editor.component';
 import { BadgeComponent } from './shared/ui/badge.component';
 import { EmptyStateComponent } from './shared/ui/empty-state.component';
@@ -92,6 +94,7 @@ type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
 type ResponseViewMode = 'pretty' | 'raw' | 'tree';
 type EditableKeyValue = KeyValueItem & { id: string };
 type EditableKeyValueKind = 'headers' | 'query' | 'path';
+type EditableEnvironmentVariable = EnvironmentVariable & { clientId: string; valueDraft: string; showSecret: boolean };
 type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummary[] };
 type PublicView = 'landing' | 'login' | 'pricing';
 type ImportTargetMode = 'workspace' | 'newWorkspace' | 'mergeCollection';
@@ -151,7 +154,7 @@ type GeneratedCollectionPreview = {
   styleUrl: './app.css'
 })
 export class App implements OnInit {
-  readonly productName = signal('API DESK');
+  readonly productName = signal('Apeiron');
   readonly activeView = signal<ViewKey>('dashboard');
   readonly shellLoading = signal(false);
   readonly pageLoading = signal(false);
@@ -175,6 +178,13 @@ export class App implements OnInit {
   readonly requests = signal<ApiRequestSummary[]>([]);
   readonly requestDetail = signal<ApiRequestDetail | null>(null);
   readonly environments = signal<EnvironmentModel[]>([]);
+  readonly environmentVariables = signal<EnvironmentVariable[]>([]);
+  readonly environmentEditorOpen = signal(false);
+  readonly environmentEditorDirty = signal(false);
+  readonly environmentEditorVersion = signal(0);
+  readonly environmentEditorSaving = signal(false);
+  readonly editingEnvironmentId = signal('');
+  readonly environmentValidationErrors = signal<string[]>([]);
   readonly activity = signal<ActivityEvent[]>([]);
   readonly filteredActivity = signal<ActivityEvent[]>([]);
   readonly auditLogs = signal<AuditLog[]>([]);
@@ -213,6 +223,7 @@ export class App implements OnInit {
   readonly selectedCollectionId = signal('');
   readonly selectedRequestId = signal('');
   readonly selectedEnvironmentId = signal('');
+  readonly requestUrlVersion = signal(0);
   readonly openRequestIds = signal<string[]>([]);
   readonly draggedRequestId = signal('');
   readonly collectionSearch = signal('');
@@ -223,6 +234,38 @@ export class App implements OnInit {
   readonly isSignedIn = computed(() => this.api.isAuthenticated());
   readonly selectedWorkspace = computed(() => this.workspaces().find((workspace) => workspace.id === this.selectedWorkspaceId()));
   readonly selectedEnvironment = computed(() => this.environments().find((environment) => environment.id === this.selectedEnvironmentId()));
+  readonly activeEnvironmentVariables = computed(() => {
+    const editingSelected = this.environmentEditorOpen() && this.editingEnvironmentId() === this.selectedEnvironmentId();
+    if (editingSelected) {
+      this.environmentEditorVersion();
+      return this.environmentVariableRows.map((row) => ({
+        id: row.id,
+        key: row.key,
+        value: row.valueDraft,
+        scope: row.scope,
+        isSecret: row.isSecret,
+        enabled: row.enabled,
+        createdOn: row.createdOn,
+        modifiedOn: row.modifiedOn
+      } satisfies EnvironmentVariable));
+    }
+    return this.environmentVariables();
+  });
+  readonly environmentVariableMap = computed(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const variable of this.activeEnvironmentVariables()) {
+      if (!variable.enabled || !variable.key.trim()) {
+        continue;
+      }
+      map[variable.key.trim()] = variable.value ?? '';
+    }
+    return map;
+  });
+  readonly resolvedRequestUrl = computed(() => {
+    this.requestUrlVersion();
+    return resolveTemplateVariables(this.requestUrl, this.environmentVariableMap());
+  });
+  readonly missingRequestVariables = computed(() => this.resolvedRequestUrl().missing);
   readonly selectedCollection = computed(() => this.collections().find((collection) => collection.id === this.selectedCollectionId()));
   readonly selectedRequestSummary = computed(() => this.requests().find((request) => request.id === this.selectedRequestId()));
   readonly selectedRequest = computed(() => this.requestDetail() ?? this.selectedRequestSummary());
@@ -306,9 +349,7 @@ export class App implements OnInit {
       .map((id) => requests.find((request) => request.id === id))
       .filter((request): request is ApiRequestSummary => !!request);
   });
-  readonly canSendRequest = computed(
-    () => !!this.selectedRequestId() && !this.pageLoading() && (!this.selectedRequestNeedsEnvironment() || !!this.selectedEnvironmentId())
-  );
+  readonly canSendRequest = computed(() => !!this.selectedRequestId() && !this.pageLoading() && this.missingRequestVariables().length === 0);
   readonly requestActivity = computed(() => {
     const selected = this.selectedRequest();
     if (!selected) {
@@ -327,7 +368,7 @@ export class App implements OnInit {
   });
   readonly maxRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.requestsPerDay ?? []).map((point) => point.value))));
   readonly maxFailedRequestsPerDay = computed(() => Math.max(1, ...((this.managerSummary()?.failedRequestsPerDay ?? []).map((point) => point.value))));
-  readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'API DESK user');
+  readonly currentUserName = computed(() => this.api.auth()?.user.fullName || 'Apeiron user');
   readonly currentUserInitials = computed(() =>
     this.currentUserName()
       .split(/\s+/)
@@ -559,6 +600,9 @@ export class App implements OnInit {
   requestQueryRows: EditableKeyValue[] = [];
   requestPathRows: EditableKeyValue[] = [];
   requestBodyRows: EditableKeyValue[] = [];
+  environmentName = '';
+  environmentIsDefault = false;
+  environmentVariableRows: EditableEnvironmentVariable[] = [];
   curlCommand = '';
   importPreview?: ImportPreview;
   importSuccess?: ImportSuccess;
@@ -603,7 +647,7 @@ export class App implements OnInit {
   generatedTests = '';
   generatedMockBody = '';
   generatedMockRandomized = false;
-  settingsProductName = 'API DESK';
+  settingsProductName = 'Apeiron';
   settingsRetentionDays = 365;
   apiKeyName = '';
   createdPlainApiKey = '';
@@ -662,7 +706,7 @@ export class App implements OnInit {
   contactSales(): void {
     this.contactSalesInterest.set(true);
     this.showLogin(false);
-    this.showToast('Contact sales', 'Sign in or create an account and invite the API Desk team for onboarding support.', 'success');
+    this.showToast('Contact sales', 'Sign in or create an account and invite the Apeiron team for onboarding support.', 'success');
   }
 
   openPricing(): void {
@@ -732,6 +776,9 @@ export class App implements OnInit {
     this.requests.set([]);
     this.requestDetail.set(null);
     this.environments.set([]);
+    this.environmentVariables.set([]);
+    this.selectedEnvironmentId.set('');
+    this.resetEnvironmentEditor();
     this.activity.set([]);
     this.filteredActivity.set([]);
     this.auditLogs.set([]);
@@ -840,8 +887,11 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set('');
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.selectedEnvironmentId.set('');
+    this.environmentVariables.set([]);
     this.requestSearch.set('');
     this.requestDetail.set(null);
+    this.resetEnvironmentEditor();
     this.loadWorkspaces();
   }
 
@@ -849,10 +899,22 @@ export class App implements OnInit {
     this.selectedWorkspaceId.set(workspaceId);
     this.selectedCollectionId.set('');
     this.selectedRequestId.set('');
+    this.selectedEnvironmentId.set('');
+    this.environmentVariables.set([]);
     this.requestSearch.set('');
     this.requestDetail.set(null);
     this.comments.set([]);
+    this.resetEnvironmentEditor();
     this.loadWorkspaceData();
+  }
+
+  onEnvironmentChange(environmentId: string): void {
+    if (this.environmentEditorDirty() && !this.confirmAction('You have unsaved environment changes. Switch environments anyway?')) {
+      return;
+    }
+    this.selectedEnvironmentId.set(environmentId);
+    this.resetEnvironmentEditor();
+    this.loadEnvironmentVariables();
   }
 
   onCollectionChange(collectionId: string): void {
@@ -1202,14 +1264,41 @@ export class App implements OnInit {
   }
 
   loadEnvironments(): void {
+    if (!this.selectedWorkspaceId()) {
+      this.environments.set([]);
+      this.environmentVariables.set([]);
+      this.selectedEnvironmentId.set('');
+      return;
+    }
+
     this.api.environments(this.selectedWorkspaceId()).subscribe({
       next: (result) => {
-        this.environments.set(result.data?.items ?? []);
-        if (!this.selectedEnvironmentId()) {
-          this.selectedEnvironmentId.set(this.environments().find((environment) => environment.isDefault)?.id ?? this.environments()[0]?.id ?? '');
+        const environments = result.data?.items ?? [];
+        this.environments.set(environments);
+        const selectedExists = environments.some((environment) => environment.id === this.selectedEnvironmentId());
+        if (!selectedExists) {
+          this.selectedEnvironmentId.set(environments.find((environment) => environment.isDefault)?.id ?? environments[0]?.id ?? '');
         }
+        this.loadEnvironmentVariables();
       },
       error: () => this.showToast('Environments failed', 'Could not load environments.', 'danger')
+    });
+  }
+
+  loadEnvironmentVariables(): void {
+    if (!this.selectedEnvironmentId()) {
+      this.environmentVariables.set([]);
+      return;
+    }
+
+    this.api.environmentVariables(this.selectedEnvironmentId()).subscribe({
+      next: (result) => {
+        this.environmentVariables.set(result.data ?? []);
+        if (this.environmentEditorOpen() && this.editingEnvironmentId() === this.selectedEnvironmentId() && !this.environmentEditorDirty()) {
+          this.hydrateEnvironmentEditor(this.selectedEnvironment(), result.data ?? []);
+        }
+      },
+      error: () => this.showToast('Variables failed', 'Could not load environment variables.', 'danger')
     });
   }
 
@@ -1990,7 +2079,7 @@ export class App implements OnInit {
       return { id: `pay_${stamp}`, status: 'paid', amount: 2500, currency: 'PKR', voucherCode: `VCH-${stamp}`, paidOnUtc: new Date().toISOString() };
     }
     if (lower.includes('merchant') || lower.includes('customer') || lower.includes('user') || lower.includes('profile')) {
-      return { id: `usr_${stamp}`, fullName: 'API Desk User', email: 'user@example.com', role: 'customer', active: true };
+      return { id: `usr_${stamp}`, fullName: 'Apeiron User', email: 'user@example.com', role: 'customer', active: true };
     }
     if (lower.includes('product') || lower.includes('order')) {
       return { id: `ord_${stamp}`, status: 'confirmed', items: [{ sku: 'SKU-100', name: 'Sample Product', quantity: 1 }], total: 1200 };
@@ -2071,8 +2160,8 @@ export class App implements OnInit {
       return;
     }
 
-    if (this.selectedRequestNeedsEnvironment() && !this.selectedEnvironmentId()) {
-      this.showToast('Select an environment', 'This request uses variables and needs an environment before it can run.', 'danger');
+    if (this.missingRequestVariables().length) {
+      this.showToast('Missing variables', `Define these variables before sending: ${this.missingRequestVariables().join(', ')}.`, 'danger');
       return;
     }
 
@@ -2109,6 +2198,7 @@ export class App implements OnInit {
     this.resetRequestEditor();
     this.requestName = 'New request';
     this.requestUrl = 'https://example.com';
+    this.requestUrlVersion.update((version) => version + 1);
     this.requestMethod = 'GET';
     const payload = this.buildRequestPayload(1);
     this.pageLoading.set(true);
@@ -2275,7 +2365,7 @@ export class App implements OnInit {
       return;
     }
     this.activeView.set('collections');
-    this.showToast('Collection required', 'Import or create a collection first, then API Desk can generate mocks and documentation from it.', 'danger');
+    this.showToast('Collection required', 'Import or create a collection first, then Apeiron can generate mocks and documentation from it.', 'danger');
   }
 
   createWorkspaceQuick(): void {
@@ -2321,7 +2411,7 @@ export class App implements OnInit {
       organizationId: this.selectedOrganizationId(),
       name: 'Demo Workspace',
       type: 'Team',
-      description: 'Demo workspace - safe to delete after exploring API Desk.'
+      description: 'Demo workspace - safe to delete after exploring Apeiron.'
     }).subscribe({
       next: (workspaceResult) => {
         if (!workspaceResult.succeeded || !workspaceResult.data) {
@@ -2381,7 +2471,7 @@ export class App implements OnInit {
 
   private createDemoCollectionAndEnvironment(workspaceId: string): void {
     const demoCollection: ImportCollectionPayload = {
-      name: 'API Desk Demo Collection',
+      name: 'Apeiron Demo Collection',
       description: 'Demo collection - shows variables, auth headers, GET/POST requests, mocks, and docs.',
       folders: [['Demo Users'], ['Demo Billing']],
       requests: [
@@ -2540,7 +2630,7 @@ export class App implements OnInit {
         name: 'Health check',
         description: 'First request for validating the API runner.',
         method: 'GET',
-        url: 'https://postman-echo.com/get?source=api-desk',
+        url: 'https://postman-echo.com/get?source=apeiron',
         bodyType: 'none',
         bodyContent: '',
         timeoutMs: 30000,
@@ -2594,6 +2684,9 @@ export class App implements OnInit {
         this.selectedEnvironmentId.set(result.data.id);
         this.showToast('Environment created', `${result.data.name} is selected.`, 'success');
         this.activeView.set('environments');
+        this.environments.update((items) => [result.data!, ...items.filter((item) => item.id !== result.data!.id)]);
+        this.environmentVariables.set([]);
+        this.openEnvironmentEditor(result.data);
         this.loadEnvironments();
       },
       error: (error) => {
@@ -2601,6 +2694,258 @@ export class App implements OnInit {
         this.showToast('Environment failed', error?.error?.message ?? 'Could not create an environment.', 'danger');
       }
     });
+  }
+
+  openEnvironmentEditor(environment?: EnvironmentModel): void {
+    const target = environment ?? this.selectedEnvironment();
+    if (!target) {
+      this.createEnvironmentQuick();
+      return;
+    }
+
+    this.selectedEnvironmentId.set(target.id);
+    this.editingEnvironmentId.set(target.id);
+    this.environmentEditorOpen.set(true);
+    this.environmentEditorDirty.set(false);
+    this.environmentValidationErrors.set([]);
+    this.hydrateEnvironmentEditor(target, target.id === this.selectedEnvironmentId() ? this.environmentVariables() : []);
+    if (!this.environmentVariables().length || target.id !== this.selectedEnvironmentId()) {
+      this.loadEnvironmentVariables();
+    }
+  }
+
+  closeEnvironmentEditor(): void {
+    if (this.environmentEditorDirty() && !this.confirmAction('You have unsaved environment changes. Close without saving?')) {
+      return;
+    }
+    this.resetEnvironmentEditor();
+  }
+
+  saveEnvironmentEditor(): void {
+    if (!this.editingEnvironmentId()) {
+      return;
+    }
+
+    const errors = this.validateEnvironmentEditor();
+    this.environmentValidationErrors.set(errors);
+    if (errors.length) {
+      this.showToast('Environment has errors', errors[0], 'danger');
+      return;
+    }
+
+    this.environmentEditorSaving.set(true);
+    this.api.updateEnvironment(this.editingEnvironmentId(), {
+      name: this.environmentName.trim(),
+      isDefault: this.environmentIsDefault
+    }).subscribe({
+      next: (environmentResult) => {
+        if (!environmentResult.succeeded || !environmentResult.data) {
+          this.environmentEditorSaving.set(false);
+          this.showToast('Environment failed', environmentResult.message, 'danger');
+          return;
+        }
+
+        this.api.upsertEnvironmentVariables(this.editingEnvironmentId(), this.environmentVariablePayload()).subscribe({
+          next: (variablesResult) => {
+            this.environmentEditorSaving.set(false);
+            if (!variablesResult.succeeded) {
+              this.showToast('Variables failed', variablesResult.message, 'danger');
+              return;
+            }
+
+            this.selectedEnvironmentId.set(environmentResult.data.id);
+            this.environmentVariables.set(variablesResult.data ?? []);
+            this.environmentEditorDirty.set(false);
+            this.environmentValidationErrors.set([]);
+            this.showToast('Environment saved', `${environmentResult.data.name} is ready for request execution.`, 'success');
+            this.loadEnvironments();
+            this.loadActivity();
+          },
+          error: (error) => {
+            this.environmentEditorSaving.set(false);
+            this.showToast('Variables failed', error?.error?.message ?? 'Could not save variables.', 'danger');
+          }
+        });
+      },
+      error: (error) => {
+        this.environmentEditorSaving.set(false);
+        this.showToast('Environment failed', error?.error?.message ?? 'Could not save environment.', 'danger');
+      }
+    });
+  }
+
+  deleteEnvironment(environment?: EnvironmentModel): void {
+    const target = environment ?? this.selectedEnvironment();
+    if (!target || !this.confirmAction(`Delete ${target.name}? Requests using its variables will show missing-variable warnings.`)) {
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.deleteEnvironment(target.id).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded) {
+          this.showToast('Delete failed', result.message, 'danger');
+          return;
+        }
+        if (this.selectedEnvironmentId() === target.id) {
+          this.selectedEnvironmentId.set('');
+          this.environmentVariables.set([]);
+        }
+        this.resetEnvironmentEditor();
+        this.showToast('Environment deleted', `${target.name} was removed.`, 'success');
+        this.loadEnvironments();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Delete failed', error?.error?.message ?? 'Could not delete environment.', 'danger');
+      }
+    });
+  }
+
+  duplicateEnvironment(environment?: EnvironmentModel): void {
+    const target = environment ?? this.selectedEnvironment();
+    if (!target) {
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.duplicateEnvironment(target.id, {
+      name: `${target.name} Copy`,
+      isDefault: false
+    }).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Duplicate failed', result.message, 'danger');
+          return;
+        }
+        this.selectedEnvironmentId.set(result.data.id);
+        this.showToast('Environment duplicated', `${result.data.name} is selected.`, 'success');
+        this.loadEnvironments();
+        this.openEnvironmentEditor(result.data);
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Duplicate failed', error?.error?.message ?? 'Could not duplicate environment.', 'danger');
+      }
+    });
+  }
+
+  addEnvironmentVariableRow(): void {
+    this.environmentVariableRows.push(this.createEnvironmentVariableRow());
+    this.markEnvironmentDirty();
+  }
+
+  removeEnvironmentVariableRow(clientId: string): void {
+    this.environmentVariableRows = this.environmentVariableRows.filter((row) => row.clientId !== clientId);
+    this.markEnvironmentDirty();
+  }
+
+  markEnvironmentDirty(): void {
+    this.environmentEditorDirty.set(true);
+    this.environmentEditorVersion.update((version) => version + 1);
+    this.environmentValidationErrors.set(this.validateEnvironmentEditor(false));
+  }
+
+  toggleEnvironmentSecret(row: EditableEnvironmentVariable): void {
+    row.showSecret = !row.showSecret;
+    this.markEnvironmentDirty();
+  }
+
+  onRequestUrlChange(value: string): void {
+    this.requestUrl = value;
+    this.requestUrlVersion.update((version) => version + 1);
+  }
+
+  private resetEnvironmentEditor(): void {
+    this.environmentEditorOpen.set(false);
+    this.environmentEditorDirty.set(false);
+    this.environmentEditorVersion.set(0);
+    this.environmentEditorSaving.set(false);
+    this.editingEnvironmentId.set('');
+    this.environmentName = '';
+    this.environmentIsDefault = false;
+    this.environmentVariableRows = [];
+    this.environmentValidationErrors.set([]);
+  }
+
+  private hydrateEnvironmentEditor(environment?: EnvironmentModel, variables: EnvironmentVariable[] = []): void {
+    if (!environment) {
+      return;
+    }
+
+    this.environmentName = environment.name;
+    this.environmentIsDefault = environment.isDefault;
+    this.environmentVariableRows = variables.map((variable) => ({
+      ...variable,
+      clientId: variable.id || this.createClientId('env-var'),
+      valueDraft: variable.value ?? '',
+      showSecret: false
+    }));
+  }
+
+  private createEnvironmentVariableRow(): EditableEnvironmentVariable {
+    const stamp = this.createClientId('env-var');
+    return {
+      id: stamp,
+      clientId: stamp,
+      key: '',
+      value: '',
+      valueDraft: '',
+      scope: 'Environment',
+      isSecret: false,
+      enabled: true,
+      showSecret: false,
+      createdOn: new Date().toISOString()
+    };
+  }
+
+  private environmentVariablePayload() {
+    return this.environmentVariableRows
+      .filter((row) => row.key.trim())
+      .map((row) => ({
+        key: row.key.trim(),
+        value: row.valueDraft,
+        scope: row.scope || 'Environment',
+        isSecret: row.isSecret,
+        enabled: row.enabled
+      }));
+  }
+
+  private validateEnvironmentEditor(showEmptyName = true): string[] {
+    const errors: string[] = [];
+    if (showEmptyName && !this.environmentName.trim()) {
+      errors.push('Environment name is required.');
+    }
+    if (this.environmentName.trim().length > 160) {
+      errors.push('Environment name must be 160 characters or fewer.');
+    }
+
+    const seen = new Set<string>();
+    const keyRegex = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+    for (const row of this.environmentVariableRows) {
+      const key = row.key.trim();
+      if (!key && !row.valueDraft) {
+        continue;
+      }
+      if (!keyRegex.test(key)) {
+        errors.push(`Invalid variable name: ${key || '(empty)'}.`);
+        continue;
+      }
+      const normalized = key.toLowerCase();
+      if (seen.has(normalized)) {
+        errors.push(`Duplicate variable key: ${key}.`);
+      }
+      seen.add(normalized);
+    }
+
+    return [...new Set(errors)];
+  }
+
+  private createClientId(prefix: string): string {
+    return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   importCollectionFile(event: Event): void {
@@ -2936,7 +3281,7 @@ export class App implements OnInit {
     const content = this.responseViewerBody() || this.responseBody() || response.body || '';
     const contentType = response.contentType || response.headers?.['Content-Type']?.[0] || 'text/plain';
     const extension = contentType.toLowerCase().includes('json') || this.looksLikeJson(content) ? 'json' : 'txt';
-    this.downloadBlob(`api-desk-response-${response.statusCode}.${extension}`, content, contentType);
+    this.downloadBlob(`apeiron-response-${response.statusCode}.${extension}`, content, contentType);
     this.showToast('Downloaded', 'Response body was downloaded.', 'success');
   }
 
@@ -3030,6 +3375,7 @@ export class App implements OnInit {
     const token = `{{${variableName}}}`;
     if (!this.requestUrl.includes(token)) {
       this.requestUrl = `${this.requestUrl}${this.requestUrl.endsWith('/') || !this.requestUrl ? '' : '/'}${token}`;
+      this.requestUrlVersion.update((version) => version + 1);
     }
   }
 
@@ -3053,6 +3399,7 @@ export class App implements OnInit {
       };
       this.requestMethod = (parsed.method || 'GET').toUpperCase();
       this.requestUrl = parsed.url || this.requestUrl;
+      this.requestUrlVersion.update((version) => version + 1);
       this.requestHeadersRows = (parsed.headers ?? []).map((item) => this.toEditableKeyValue(item.key, item.value));
       this.syncTextFromRows('headers');
       if (parsed.body) {
@@ -3137,7 +3484,7 @@ export class App implements OnInit {
     }
 
     this.api.exportActivityCsv(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
-      next: (csv) => this.downloadBlob('api-desk-activity.csv', csv, 'text/csv'),
+      next: (csv) => this.downloadBlob('apeiron-activity.csv', csv, 'text/csv'),
       error: () => this.showToast('Export failed', 'Could not export activity CSV.', 'danger')
     });
   }
@@ -3148,7 +3495,7 @@ export class App implements OnInit {
     }
 
     this.api.exportAuditCsv(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
-      next: (csv) => this.downloadBlob('api-desk-audit.csv', csv, 'text/csv'),
+      next: (csv) => this.downloadBlob('apeiron-audit.csv', csv, 'text/csv'),
       error: () => this.showToast('Export failed', 'Could not export audit CSV.', 'danger')
     });
   }
@@ -3367,7 +3714,8 @@ export class App implements OnInit {
       ...this.extractVariables(this.requestUrl),
       ...this.extractVariables(this.requestBodyContent),
       ...this.extractVariables(this.requestHeadersRows.map((row) => `${row.key}:${row.value ?? ''}`).join('\n')),
-      ...this.extractVariables(this.requestQueryRows.map((row) => `${row.key}:${row.value ?? ''}`).join('\n'))
+      ...this.extractVariables(this.requestQueryRows.map((row) => `${row.key}:${row.value ?? ''}`).join('\n')),
+      ...this.activeEnvironmentVariables().filter((variable) => variable.enabled).map((variable) => variable.key)
     ]);
   }
 
@@ -3420,6 +3768,7 @@ export class App implements OnInit {
     this.requestDescription = request.description ?? '';
     this.requestMethod = request.method ?? 'GET';
     this.requestUrl = request.url ?? '';
+    this.requestUrlVersion.update((version) => version + 1);
     this.requestAuthType = request.authType ?? '';
     this.requestAuthConfigJson = request.authConfigJson ?? '';
     this.requestBodyType = request.bodyType ?? 'none';
@@ -3444,6 +3793,7 @@ export class App implements OnInit {
     this.requestDescription = '';
     this.requestMethod = 'GET';
     this.requestUrl = '';
+    this.requestUrlVersion.update((version) => version + 1);
     this.requestAuthType = '';
     this.requestAuthConfigJson = '';
     this.requestBodyType = 'none';
@@ -3820,7 +4170,7 @@ export class App implements OnInit {
       };
     }
 
-    throw new Error('Only API DESK exports, simplified collection JSON, and Postman collection JSON are supported.');
+    throw new Error('Only Apeiron exports, simplified collection JSON, and Postman collection JSON are supported.');
   }
 
   private flattenPostmanItems(items: any[], folderPath: string[] = []): ImportApiRequestWithFolderPayload[] {

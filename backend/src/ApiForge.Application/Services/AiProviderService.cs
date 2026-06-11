@@ -41,7 +41,7 @@ public sealed class AiProviderService(IConfiguration configuration, IHttpClientF
             temperature = 0.2,
             messages = new[]
             {
-                new { role = "system", content = "You generate concise API Desk suggestions. Return only a JSON array of 3 to 6 short strings. Do not include markdown." },
+                new { role = "system", content = "You generate concise Apeiron suggestions. Return only a JSON array of 3 to 6 short strings. Do not include markdown." },
                 new { role = "user", content = $"Action: {action}\nContext: {context}" }
             }
         }), Encoding.UTF8, "application/json");

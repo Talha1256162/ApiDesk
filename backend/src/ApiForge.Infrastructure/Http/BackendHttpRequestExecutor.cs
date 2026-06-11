@@ -234,7 +234,7 @@ public sealed partial class BackendHttpRequestExecutor(IConfiguration configurat
         var addresses = await Dns.GetHostAddressesAsync(targetUri.Host, cancellationToken);
         if (addresses.Length == 0 || addresses.Any(IsPrivateAddress))
         {
-            throw new InvalidOperationException("Private, localhost, and internal network targets are blocked by the API Desk request runner.");
+            throw new InvalidOperationException("Private, localhost, and internal network targets are blocked by the Apeiron request runner.");
         }
     }
 

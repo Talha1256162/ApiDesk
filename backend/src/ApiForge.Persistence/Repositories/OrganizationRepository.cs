@@ -38,7 +38,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
 
         await connection.ExecuteAsync(new CommandDefinition("""
             insert into organizations (id, name, slug, productName, createdOn, createdBy, isDeleted, versionNumber)
-            values (@OrganizationId, @Name, @Slug, coalesce(@ProductName, 'API DESK'), sysutcdatetime(), @UserId, 0, 1);
+            values (@OrganizationId, @Name, @Slug, coalesce(@ProductName, 'Apeiron'), sysutcdatetime(), @UserId, 0, 1);
 
             insert into organizationMembers (id, organizationId, userId, roleId, status, invitedByUserId, joinedOn, createdOn, createdBy, isDeleted, versionNumber)
             values (newid(), @OrganizationId, @UserId, @OwnerRoleId, 'Active', @UserId, sysutcdatetime(), sysutcdatetime(), @UserId, 0, 1);
@@ -48,7 +48,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
             cancellationToken: cancellationToken));
 
         transaction.Commit();
-        return new OrganizationDto(organizationId, request.Name, slug, request.ProductName ?? "API DESK", DateTime.UtcNow);
+        return new OrganizationDto(organizationId, request.Name, slug, request.ProductName ?? "Apeiron", DateTime.UtcNow);
     }
 
     public async Task<PagedResult<OrganizationMemberDto>> GetMembersAsync(Guid organizationId, PagedRequest request, CancellationToken cancellationToken)

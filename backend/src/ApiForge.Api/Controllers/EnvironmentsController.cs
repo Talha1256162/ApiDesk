@@ -22,6 +22,30 @@ public sealed class EnvironmentsController(IEnvironmentService environmentServic
         return FromResult(await environmentService.CreateAsync(request, cancellationToken));
     }
 
+    [HttpPut("environments/{environmentId:guid}")]
+    public async Task<IActionResult> Update(Guid environmentId, UpdateEnvironmentRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await environmentService.UpdateAsync(environmentId, request, cancellationToken));
+    }
+
+    [HttpPost("environments/{environmentId:guid}/duplicate")]
+    public async Task<IActionResult> Duplicate(Guid environmentId, DuplicateEnvironmentRequest request, CancellationToken cancellationToken)
+    {
+        return FromResult(await environmentService.DuplicateAsync(environmentId, request, cancellationToken));
+    }
+
+    [HttpDelete("environments/{environmentId:guid}")]
+    public async Task<IActionResult> Delete(Guid environmentId, CancellationToken cancellationToken)
+    {
+        return FromResult(await environmentService.DeleteAsync(environmentId, cancellationToken));
+    }
+
+    [HttpGet("environments/{environmentId:guid}/variables")]
+    public async Task<IActionResult> GetVariables(Guid environmentId, CancellationToken cancellationToken)
+    {
+        return FromResult(await environmentService.GetVariablesAsync(environmentId, cancellationToken));
+    }
+
     [HttpPut("environments/{environmentId:guid}/variables")]
     public async Task<IActionResult> UpsertVariables(Guid environmentId, UpsertEnvironmentVariablesRequest request, CancellationToken cancellationToken)
     {

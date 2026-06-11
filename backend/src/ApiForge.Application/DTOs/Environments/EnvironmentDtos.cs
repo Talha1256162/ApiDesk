@@ -13,6 +13,10 @@ public sealed record EnvironmentDto(
 
 public sealed record CreateEnvironmentRequest(Guid WorkspaceId, string Name, bool IsDefault);
 
+public sealed record UpdateEnvironmentRequest(string Name, bool IsDefault);
+
+public sealed record DuplicateEnvironmentRequest(string? Name, bool IsDefault);
+
 public sealed record UpsertEnvironmentVariablesRequest(IReadOnlyList<EnvironmentVariableUpsertDto> Variables);
 
 public sealed record EnvironmentVariableUpsertDto(string Key, string? Value, string Scope, bool IsSecret, bool Enabled);

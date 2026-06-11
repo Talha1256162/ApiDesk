@@ -41,7 +41,7 @@ export function parsePostmanCollectionV21(source: string): PostmanImportPreview 
   }
 
   if (!root.info?.schema?.includes('v2.1.0') || !Array.isArray(root.item)) {
-    throw new Error('Unsupported Postman collection. API Desk expects Postman Collection v2.1 JSON.');
+    throw new Error('Unsupported Postman collection. Apeiron expects Postman Collection v2.1 JSON.');
   }
 
   const folders: string[][] = [];

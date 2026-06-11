@@ -26,13 +26,13 @@ declare @invoiceRequest uniqueidentifier = '72000000-0000-0000-0000-000000000004
 if not exists (select 1 from dbo.users where email = 'admin@apiforge.local')
 begin
     insert into dbo.users (id, email, passwordHash, fullName, avatarUrl, timeZone, lastActiveOn, createdOn, createdBy, isDeleted, versionNumber)
-    values (@adminUser, 'admin@apiforge.local', '$2a$12$SAhWOzEhuv8l9hrf6KYQLuyt6cknInKNE1Iarzv6K8rDbqAFhtHgS', 'API DESK Admin', null, 'UTC', sysutcdatetime(), sysutcdatetime(), @adminUser, 0, 1);
+    values (@adminUser, 'admin@apiforge.local', '$2a$12$SAhWOzEhuv8l9hrf6KYQLuyt6cknInKNE1Iarzv6K8rDbqAFhtHgS', 'Apeiron Admin', null, 'UTC', sysutcdatetime(), sysutcdatetime(), @adminUser, 0, 1);
 end
 
 if not exists (select 1 from dbo.organizations where id = @org)
 begin
     insert into dbo.organizations (id, name, slug, productName, retentionDays, createdOn, createdBy, isDeleted, versionNumber)
-    values (@org, 'Northstar Software House', 'northstar-software-house', 'API DESK', 365, sysutcdatetime(), @adminUser, 0, 1);
+    values (@org, 'Northstar Software House', 'northstar-software-house', 'Apeiron', 365, sysutcdatetime(), @adminUser, 0, 1);
 end
 
 if not exists (select 1 from dbo.organizationMembers where organizationId = @org and userId = @adminUser)
@@ -116,7 +116,7 @@ begin
     insert into dbo.requests
     (id, organizationId, workspaceId, collectionId, folderId, name, description, method, url, authType, authConfigJson, bodyType, preRequestScript, testScript, timeoutMs, followRedirects, sslVerification, ownerUserId, lastModifiedByUserId, createdOn, createdBy, isDeleted, versionNumber)
     values
-    (@loginRequest, @org, @workspace, @collection, @folder, 'Login with email', 'Issues an access token for API DESK users.', 'POST', '{{base_url}}/api/auth/login', null, null, 'rawJson', null, null, 30000, 1, 1, @leadUser, @leadUser, sysutcdatetime(), @leadUser, 0, 1),
+    (@loginRequest, @org, @workspace, @collection, @folder, 'Login with email', 'Issues an access token for Apeiron users.', 'POST', '{{base_url}}/api/auth/login', null, null, 'rawJson', null, null, 30000, 1, 1, @leadUser, @leadUser, sysutcdatetime(), @leadUser, 0, 1),
     (@profileRequest, @org, @workspace, @collection, @customerFolder, 'Customer profile lookup', 'Loads customer profile by username.', 'GET', '{{base_url}}/api/customers/{{username}}', 'Bearer', '{"token":"{{access_token}}"}', 'none', null, null, 30000, 1, 1, @developerUser, @developerUser, sysutcdatetime(), @developerUser, 0, 1),
     (@invoiceRequest, @org, @workspace, @collection, @billingFolder, 'Create invoice draft', 'Creates a draft invoice for QA validation.', 'POST', '{{base_url}}/api/billing/invoices', 'ApiKey', '{"name":"X-API-Key","value":"{{api_key}}","location":"header"}', 'rawJson', null, null, 30000, 1, 1, @qaUser, @qaUser, sysutcdatetime(), @qaUser, 0, 1);
 end

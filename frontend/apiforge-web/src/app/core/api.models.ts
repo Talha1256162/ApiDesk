@@ -193,6 +193,17 @@ export interface EnvironmentModel {
   modifiedOn?: string;
 }
 
+export interface EnvironmentVariable {
+  id: string;
+  key: string;
+  value?: string;
+  scope: string;
+  isSecret: boolean;
+  enabled: boolean;
+  createdOn: string;
+  modifiedOn?: string;
+}
+
 export interface ActivityEvent {
   id: string;
   actorName: string;

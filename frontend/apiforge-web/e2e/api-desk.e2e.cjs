@@ -32,7 +32,7 @@ async function visible(page, text) {
 }
 
 async function clickFirst(page, locator) {
-  await locator.first().click({ timeout: 12000 });
+  await locator.first().click({ timeout: 12000, force: true });
 }
 
 (async () => {

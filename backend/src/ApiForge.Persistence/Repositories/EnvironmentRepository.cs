@@ -78,6 +78,170 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
         return new EnvironmentDto(environmentId, request.WorkspaceId, request.Name, request.IsDefault, 0, 0, 1, DateTime.UtcNow, null);
     }
 
+    public async Task<EnvironmentDto?> UpdateAsync(Guid environmentId, UpdateEnvironmentRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var scope = await connection.QuerySingleOrDefaultAsync<(Guid OrganizationId, Guid WorkspaceId)>(new CommandDefinition(
+            "select organizationId, workspaceId from environments where id = @EnvironmentId and isDeleted = 0;",
+            new { EnvironmentId = environmentId },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (scope.OrganizationId == Guid.Empty)
+        {
+            transaction.Rollback();
+            return null;
+        }
+
+        if (request.IsDefault)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "update environments set isDefault = 0, modifiedOn = sysutcdatetime(), modifiedBy = @UserId where workspaceId = @WorkspaceId and isDeleted = 0;",
+                new { scope.WorkspaceId, UserId = userId },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition("""
+            update environments
+            set name = @Name,
+                isDefault = @IsDefault,
+                modifiedOn = sysutcdatetime(),
+                modifiedBy = @UserId,
+                versionNumber = versionNumber + 1
+            where id = @EnvironmentId and isDeleted = 0;
+            """,
+            new { EnvironmentId = environmentId, request.Name, request.IsDefault, UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        transaction.Commit();
+        return await GetEnvironmentAsync(environmentId, cancellationToken);
+    }
+
+    public async Task<EnvironmentDto?> DuplicateAsync(Guid environmentId, DuplicateEnvironmentRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var source = await connection.QuerySingleOrDefaultAsync<EnvironmentSourceRow>(new CommandDefinition("""
+            select id, organizationId, workspaceId, name, isDefault
+            from environments
+            where id = @EnvironmentId and isDeleted = 0;
+            """,
+            new { EnvironmentId = environmentId },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (source is null)
+        {
+            transaction.Rollback();
+            return null;
+        }
+
+        var duplicateId = Guid.NewGuid();
+        var duplicateName = string.IsNullOrWhiteSpace(request.Name) ? $"{source.Name} Copy" : request.Name!.Trim();
+
+        if (request.IsDefault)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "update environments set isDefault = 0, modifiedOn = sysutcdatetime(), modifiedBy = @UserId where workspaceId = @WorkspaceId and isDeleted = 0;",
+                new { source.WorkspaceId, UserId = userId },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition("""
+            insert into environments (id, organizationId, workspaceId, name, isDefault, createdOn, createdBy, isDeleted, versionNumber)
+            values (@DuplicateId, @OrganizationId, @WorkspaceId, @Name, @IsDefault, sysutcdatetime(), @UserId, 0, 1);
+
+            insert into environmentVariables
+            (id, organizationId, workspaceId, collectionId, environmentId, userId, [key], [value], scope, isSecret, enabled, createdOn, createdBy, isDeleted, versionNumber)
+            select newid(), organizationId, workspaceId, collectionId, @DuplicateId, userId, [key], [value], scope, isSecret, enabled, sysutcdatetime(), @UserId, 0, 1
+            from environmentVariables
+            where environmentId = @EnvironmentId and isDeleted = 0;
+
+            insert into environmentVersions (id, environmentId, snapshotJson, createdOn, createdBy, isDeleted)
+            select newid(), @DuplicateId,
+                   (select [key], case when isSecret = 1 then '********' else [value] end as [value], scope, isSecret, enabled
+                    from environmentVariables
+                    where environmentId = @DuplicateId and isDeleted = 0
+                    for json path),
+                   sysutcdatetime(), @UserId, 0;
+            """,
+            new
+            {
+                DuplicateId = duplicateId,
+                source.OrganizationId,
+                source.WorkspaceId,
+                Name = duplicateName,
+                request.IsDefault,
+                UserId = userId,
+                EnvironmentId = environmentId
+            },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        transaction.Commit();
+        return await GetEnvironmentAsync(duplicateId, cancellationToken);
+    }
+
+    public async Task<bool> DeleteAsync(Guid environmentId, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var source = await connection.QuerySingleOrDefaultAsync<EnvironmentSourceRow>(new CommandDefinition("""
+            select id, organizationId, workspaceId, name, isDefault
+            from environments
+            where id = @EnvironmentId and isDeleted = 0;
+            """,
+            new { EnvironmentId = environmentId },
+            transaction,
+            cancellationToken: cancellationToken));
+        if (source is null)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        await connection.ExecuteAsync(new CommandDefinition("""
+            update environments
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where id = @EnvironmentId and isDeleted = 0;
+
+            update environmentVariables
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where environmentId = @EnvironmentId and isDeleted = 0;
+            """,
+            new { EnvironmentId = environmentId, UserId = userId },
+            transaction,
+            cancellationToken: cancellationToken));
+
+        if (source.IsDefault)
+        {
+            await connection.ExecuteAsync(new CommandDefinition("""
+                update environments
+                set isDefault = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+                where id = (
+                    select top 1 id
+                    from environments
+                    where workspaceId = @WorkspaceId and isDeleted = 0
+                    order by createdOn, name
+                );
+                """,
+                new { source.WorkspaceId, UserId = userId },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        transaction.Commit();
+        return true;
+    }
+
     public async Task<IReadOnlyList<EnvironmentVariableDto>> UpsertVariablesAsync(Guid environmentId, UpsertEnvironmentVariablesRequest request, Guid userId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
@@ -89,6 +253,16 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
             new { EnvironmentId = environmentId },
             transaction,
             cancellationToken: cancellationToken));
+
+        var existingValues = (await connection.QueryAsync<ExistingVariableRow>(new CommandDefinition("""
+            select [key], [value], isSecret
+            from environmentVariables
+            where environmentId = @EnvironmentId and isDeleted = 0;
+            """,
+            new { EnvironmentId = environmentId },
+            transaction,
+            cancellationToken: cancellationToken)))
+            .ToDictionary(row => row.Key, StringComparer.OrdinalIgnoreCase);
 
         await connection.ExecuteAsync(new CommandDefinition("""
             update environmentVariables
@@ -106,9 +280,9 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
             scope.WorkspaceId,
             EnvironmentId = environmentId,
             UserId = string.Equals(v.Scope, "LocalPrivate", StringComparison.OrdinalIgnoreCase) ? userId : (Guid?)null,
-            v.Key,
-            Value = v.Value,
-            v.Scope,
+            Key = v.Key.Trim(),
+            Value = ResolveSubmittedValue(v, existingValues),
+            Scope = NormalizeScope(v.Scope),
             v.IsSecret,
             v.Enabled,
             CreatedBy = userId
@@ -172,7 +346,7 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
         return variables;
     }
 
-    private async Task<IReadOnlyList<EnvironmentVariableDto>> GetVariablesAsync(Guid environmentId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<EnvironmentVariableDto>> GetVariablesAsync(Guid environmentId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
         var rows = await connection.QueryAsync<EnvironmentVariableDto>(new CommandDefinition("""
@@ -187,11 +361,63 @@ public sealed class EnvironmentRepository(ISqlConnectionFactory connectionFactor
         return rows.Select(v => v with { Value = v.IsSecret ? SensitiveDataMasker.MaskValue(v.Key, v.Value) : v.Value }).ToList();
     }
 
+    private async Task<EnvironmentDto?> GetEnvironmentAsync(Guid environmentId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<EnvironmentDto>(new CommandDefinition("""
+            select e.id, e.workspaceId, e.name, e.isDefault,
+                   count(ev.id) as variableCount,
+                   sum(case when ev.isSecret = 1 then 1 else 0 end) as secretCount,
+                   e.versionNumber, e.createdOn, e.modifiedOn
+            from environments e
+            left join environmentVariables ev on ev.environmentId = e.id and ev.isDeleted = 0
+            where e.id = @EnvironmentId and e.isDeleted = 0
+            group by e.id, e.workspaceId, e.name, e.isDefault, e.versionNumber, e.createdOn, e.modifiedOn;
+            """,
+            new { EnvironmentId = environmentId },
+            cancellationToken: cancellationToken));
+    }
+
+    private static string NormalizeScope(string scope) =>
+        string.Equals(scope, "LocalPrivate", StringComparison.OrdinalIgnoreCase) ? "LocalPrivate" : "Environment";
+
+    private static string? ResolveSubmittedValue(EnvironmentVariableUpsertDto submitted, IReadOnlyDictionary<string, ExistingVariableRow> existingValues)
+    {
+        if (submitted.IsSecret
+            && existingValues.TryGetValue(submitted.Key.Trim(), out var existing)
+            && existing.IsSecret
+            && IsMaskedPlaceholder(submitted.Value))
+        {
+            return existing.Value;
+        }
+
+        return submitted.Value;
+    }
+
+    private static bool IsMaskedPlaceholder(string? value) =>
+        !string.IsNullOrEmpty(value) && value.All(character => character == '*');
+
     private sealed class VariableResolutionRow
     {
         public string Key { get; init; } = string.Empty;
         public string? Value { get; init; }
         public string Scope { get; init; } = string.Empty;
         public int Priority { get; init; }
+    }
+
+    private sealed class EnvironmentSourceRow
+    {
+        public Guid Id { get; init; }
+        public Guid OrganizationId { get; init; }
+        public Guid WorkspaceId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public bool IsDefault { get; init; }
+    }
+
+    private sealed class ExistingVariableRow
+    {
+        public string Key { get; init; } = string.Empty;
+        public string? Value { get; init; }
+        public bool IsSecret { get; init; }
     }
 }

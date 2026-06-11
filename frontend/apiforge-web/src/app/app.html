@@ -3,8 +3,8 @@
     @if (publicView === 'landing') {
       <main class="marketing-shell">
         <nav class="marketing-nav" aria-label="Public navigation">
-          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to API Desk home">
-            <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to Apeiron home">
+            <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
             <span>{{ productName() }}</span>
           </button>
           <div>
@@ -109,10 +109,10 @@
         <section class="marketing-section">
           <div class="section-heading">
             <span class="eyebrow">Comparison</span>
-            <h2>API Desk vs traditional API tools</h2>
+            <h2>Apeiron vs traditional API tools</h2>
           </div>
           <div class="comparison-table">
-            <div><strong>Capability</strong><strong>API Desk</strong><strong>Traditional setup</strong></div>
+            <div><strong>Capability</strong><strong>Apeiron</strong><strong>Traditional setup</strong></div>
             <div><span>Team collaboration</span><span>Unlimited team workflow</span><span>Often seat-limited</span></div>
             <div><span>Postman import</span><span>Collection and environment migration</span><span>Manual migration varies</span></div>
             <div><span>Environment management</span><span>Workspace variables and secret masking</span><span>Often scattered per user</span></div>
@@ -150,7 +150,7 @@
           <div class="footer-grid">
             <div class="footer-brand">
               <div class="brand-row">
-                <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+                <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
                 <strong>{{ productName() }}</strong>
               </div>
               <p>The API workspace for modern teams.</p>
@@ -159,14 +159,14 @@
             <nav aria-label="Resource links"><strong>Resources</strong><button type="button" (click)="showLogin()">Documentation</button><button type="button" (click)="showPricing()">Pricing</button><button type="button" (click)="showLogin(true)">Postman Migration</button><button type="button" (click)="showLogin()">Changelog</button></nav>
             <nav aria-label="Company links"><strong>Company</strong><button type="button" (click)="contactSales()">About</button><button type="button" (click)="contactSales()">Contact</button><button type="button" (click)="contactSales()">Privacy Policy</button><button type="button" (click)="contactSales()">Terms of Service</button></nav>
           </div>
-          <div class="footer-bottom"><small>Copyright 2026 API Desk. All rights reserved.</small><button type="button" (click)="showPricing()">View pricing</button></div>
+          <div class="footer-bottom"><small>Copyright 2026 Apeiron. All rights reserved.</small><button type="button" (click)="showPricing()">View pricing</button></div>
         </footer>
       </main>
     } @else if (publicView === 'pricing') {
       <main class="marketing-shell">
         <nav class="marketing-nav" aria-label="Public navigation">
-          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to API Desk home">
-            <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+          <button class="brand-button" type="button" (click)="showLanding()" aria-label="Go to Apeiron home">
+            <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
             <span>{{ productName() }}</span>
           </button>
           <div>
@@ -184,7 +184,7 @@
               <app-badge label="First month free" tone="success"></app-badge>
               <span>Free Trial</span>
               <strong>$0<small>/first month</small></strong>
-              <p>Explore API Desk with your whole team before choosing a paid plan.</p>
+              <p>Explore Apeiron with your whole team before choosing a paid plan.</p>
               <div class="feature-list">
                 <span>First month free</span>
                 <span>Unlimited team members during trial</span>
@@ -239,7 +239,7 @@
           <div class="footer-grid">
             <div class="footer-brand">
               <div class="brand-row">
-                <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+                <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
                 <strong>{{ productName() }}</strong>
               </div>
               <p>The API workspace for modern teams.</p>
@@ -248,7 +248,7 @@
             <nav aria-label="Resource links"><strong>Resources</strong><button type="button" (click)="showLogin()">Documentation</button><button type="button" (click)="showPricing()">Pricing</button><button type="button" (click)="showLogin(true)">Postman Migration</button><button type="button" (click)="showLogin()">Changelog</button></nav>
             <nav aria-label="Company links"><strong>Company</strong><button type="button" (click)="contactSales()">About</button><button type="button" (click)="contactSales()">Contact</button><button type="button" (click)="contactSales()">Privacy Policy</button><button type="button" (click)="contactSales()">Terms of Service</button></nav>
           </div>
-          <div class="footer-bottom"><small>Copyright 2026 API Desk. All rights reserved.</small><button type="button" (click)="showLanding()">Back to product</button></div>
+          <div class="footer-bottom"><small>Copyright 2026 Apeiron. All rights reserved.</small><button type="button" (click)="showLanding()">Back to product</button></div>
         </footer>
       </main>
     } @else {
@@ -256,7 +256,7 @@
       <section class="auth-card">
         <div class="auth-copy">
           <div class="brand-row">
-            <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+            <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
             <div>
               <strong>{{ productName() }}</strong>
               <span>API collaboration platform</span>
@@ -268,7 +268,7 @@
             <div class="inline-info">Free month selected. Create an account to start with Postman import, demo workspace, API runner, mocks, docs, and team invites.</div>
           }
           @if (contactSalesInterest()) {
-            <div class="inline-info">Enterprise interest selected. Sign in or create an account, then invite the API Desk team for onboarding and deployment discussion.</div>
+            <div class="inline-info">Enterprise interest selected. Sign in or create an account, then invite the Apeiron team for onboarding and deployment discussion.</div>
           }
           <div class="auth-proof">
             <span>Real request runner</span>
@@ -335,7 +335,7 @@
   } @else {
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <img class="brand-mark" src="api-desk-mark.svg" alt="API Desk" />
+        <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
         <div>
           <strong>{{ productName() }}</strong>
           <span>API collaboration platform</span>
@@ -422,7 +422,7 @@
         <section class="scope-bar">
           <app-premium-select label="Organization" [options]="organizationOptions()" [value]="selectedOrganizationId()" (valueChange)="onOrganizationChange($event)"></app-premium-select>
           <app-premium-select label="Workspace" [options]="workspaceOptions()" [value]="selectedWorkspaceId()" (valueChange)="onWorkspaceChange($event)"></app-premium-select>
-          <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="selectedEnvironmentId.set($event)"></app-premium-select>
+          <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="onEnvironmentChange($event)"></app-premium-select>
         </section>
 
         @if (activeView() === 'dashboard') {
@@ -443,7 +443,7 @@
             <div>
               <span class="eyebrow">Postman migration</span>
               <h3>Built for teams that outgrow Postman's collaboration limits.</h3>
-              <p>API Desk keeps familiar API testing workflows, then adds unlimited team collaboration, activity visibility, JSON tools, mock servers, shareable docs, Postman import, and AI-assisted API workflows.</p>
+              <p>Apeiron keeps familiar API testing workflows, then adds unlimited team collaboration, activity visibility, JSON tools, mock servers, shareable docs, Postman import, and AI-assisted API workflows.</p>
             </div>
             <div class="benefit-grid">
               <span>Postman-style API testing</span>
@@ -835,7 +835,7 @@
                 </div>
                 <div class="url-command-shell">
                   <span>{{ selectedEnvironment()?.name || 'No environment' }}</span>
-                  <input class="url-input" [(ngModel)]="requestUrl" [placeholder]="'https://api.example.com/users/{{id}}'" />
+                  <input class="url-input" [ngModel]="requestUrl" (ngModelChange)="onRequestUrlChange($event)" [placeholder]="'https://api.example.com/users/{{id}}'" />
                 </div>
                 <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">
                   {{ pageLoading() ? 'Sending...' : 'Send' }}
@@ -849,6 +849,11 @@
                   <button type="button" class="variable-chip" (click)="insertVariableIntoUrl(variable)">{{ '{{' + variable + '}}' }}</button>
                 } @empty {
                   <small>No variables detected in this request yet.</small>
+                }
+                @if (missingRequestVariables().length) {
+                  <small class="inline-error">Missing: {{ missingRequestVariables().join(', ') }}</small>
+                } @else if (requestUrl.includes('{{')) {
+                  <small class="inline-success">Resolved: {{ resolvedRequestUrl().value }}</small>
                 }
               </div>
 
@@ -988,7 +993,7 @@
                         <div>
                           <span class="eyebrow">Request payload</span>
                           <h3>Body</h3>
-                          <p>Choose how API Desk should serialize the request body when this request is sent.</p>
+                          <p>Choose how Apeiron should serialize the request body when this request is sent.</p>
                         </div>
                         <app-premium-select label="Body type" [options]="bodyTypeOptions()" [value]="requestBodyType" (valueChange)="onBodyTypeChange($event)"></app-premium-select>
                       </div>
@@ -1180,6 +1185,41 @@
                     </div>
                   </article>
                   <article class="panel">
+                    <span class="eyebrow">Environment variables</span>
+                    <div class="context-panel-head">
+                      <h3>{{ selectedEnvironment()?.name || 'No environment selected' }}</h3>
+                      <button class="ghost-button mini-button" type="button" (click)="openEnvironmentEditor()" [disabled]="!selectedEnvironmentId()">Edit</button>
+                    </div>
+                    @if (selectedEnvironmentId()) {
+                      <div class="environment-variable-preview">
+                        @for (variable of activeEnvironmentVariables(); track variable.id) {
+                          <div class="env-preview-row" [class.disabled-row]="!variable.enabled">
+                            <code>{{ variable.key }}</code>
+                            <span>{{ maskValue(variable.value, variable.isSecret) || '(empty)' }}</span>
+                            @if (variable.isSecret) {
+                              <app-badge label="Secret" tone="default"></app-badge>
+                            }
+                          </div>
+                        } @empty {
+                          <app-empty-state title="No variables" description="Add variables to resolve {{ '{{api_url}}' }}, tokens, and IDs while sending requests.">
+                            <button class="secondary-action" type="button" (click)="openEnvironmentEditor()">Add variable</button>
+                          </app-empty-state>
+                        }
+                      </div>
+                      <div class="resolved-preview-card">
+                        <span>URL preview</span>
+                        <strong>{{ resolvedRequestUrl().value || '-' }}</strong>
+                        @if (missingRequestVariables().length) {
+                          <small class="inline-error">Missing variables: {{ missingRequestVariables().join(', ') }}</small>
+                        }
+                      </div>
+                    } @else {
+                      <app-empty-state title="No environment selected" description="Create or select an environment to resolve request variables.">
+                        <button class="secondary-action" type="button" (click)="createEnvironmentQuick()">Create environment</button>
+                      </app-empty-state>
+                    }
+                  </article>
+                  <article class="panel">
                     <span class="eyebrow">Request activity</span>
                     @for (event of requestActivity(); track event.id) {
                       <div class="mini-activity">
@@ -1219,23 +1259,117 @@
             <div>
               <span class="eyebrow">Variables</span>
               <h2>Environments</h2>
-              <p>Environment records and counts are loaded from SQL-backed APIs.</p>
+              <p>Create, edit, duplicate, delete, and manage request variables without leaving the workspace.</p>
+            </div>
+            <div class="toolbar">
+              <button class="primary-action" type="button" (click)="createEnvironmentQuick()" [disabled]="pageLoading()">Create environment</button>
+              <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman environment</button>
             </div>
           </section>
-          <section class="panel">
-            @for (environment of environments(); track environment.id) {
-              <div class="table-row">
-                <strong>{{ environment.name }}</strong>
-                <span>{{ environment.variableCount }} variables</span>
-                <span>{{ environment.secretCount }} secrets</span>
-                <app-badge [label]="environment.isDefault ? 'Default' : 'Workspace'" [tone]="environment.isDefault ? 'success' : 'default'"></app-badge>
+          <section class="environment-manager-grid">
+            <article class="panel environment-list-panel">
+              <div class="panel-title">
+                <div><span class="eyebrow">Workspace scope</span><h3>Environment library</h3></div>
+                <app-badge [label]="environments().length + ' total'" tone="default"></app-badge>
               </div>
-            } @empty {
-              <app-empty-state title="No environments" description="Create an environment or import a Postman environment to resolve {{ '{{baseUrl}}' }}, tokens, IDs, and secrets before request execution.">
-                <button class="primary-action" type="button" (click)="createEnvironmentQuick()" [disabled]="pageLoading()">Create environment</button>
-                <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman environment</button>
-              </app-empty-state>
-            }
+              @for (environment of environments(); track environment.id) {
+                <button class="environment-list-item" type="button" [class.active]="selectedEnvironmentId() === environment.id" (click)="onEnvironmentChange(environment.id)">
+                  <span>
+                    <strong>{{ environment.name }}</strong>
+                    <small>{{ environment.variableCount }} variables · {{ environment.secretCount }} secrets</small>
+                  </span>
+                  <app-badge [label]="environment.isDefault ? 'Default' : 'Workspace'" [tone]="environment.isDefault ? 'success' : 'default'"></app-badge>
+                </button>
+              } @empty {
+                <app-empty-state title="No environments" description="Create an environment or import a Postman environment to resolve {{ '{{baseUrl}}' }}, tokens, IDs, and secrets before request execution.">
+                  <button class="primary-action" type="button" (click)="createEnvironmentQuick()" [disabled]="pageLoading()">Create environment</button>
+                  <button class="secondary-action" type="button" (click)="openPostmanImport()">Import Postman environment</button>
+                </app-empty-state>
+              }
+            </article>
+
+            <article class="panel environment-editor-panel">
+              @if (!selectedEnvironmentId() && !environmentEditorOpen()) {
+                <app-empty-state title="No environment selected" description="Select an environment to inspect variables, edit names, set defaults, duplicate, or delete.">
+                  <button class="primary-action" type="button" (click)="createEnvironmentQuick()">Create environment</button>
+                </app-empty-state>
+              } @else {
+                <div class="panel-title">
+                  <div>
+                    <span class="eyebrow">Editor</span>
+                    <h3>{{ environmentEditorOpen() ? environmentName : selectedEnvironment()?.name }}</h3>
+                  </div>
+                  <div class="toolbar">
+                    @if (!environmentEditorOpen()) {
+                      <button class="secondary-action" type="button" (click)="openEnvironmentEditor()">Edit</button>
+                      <button class="ghost-button" type="button" (click)="duplicateEnvironment()">Duplicate</button>
+                      <button class="danger-action" type="button" (click)="deleteEnvironment()">Delete</button>
+                    } @else {
+                      <button class="ghost-button" type="button" (click)="closeEnvironmentEditor()">Cancel</button>
+                      <button class="primary-action" type="button" (click)="saveEnvironmentEditor()" [disabled]="environmentEditorSaving() || environmentValidationErrors().length > 0">
+                        {{ environmentEditorSaving() ? 'Saving...' : 'Save changes' }}
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                @if (environmentEditorOpen()) {
+                  <div class="environment-editor-form">
+                    <label>Environment name<input [(ngModel)]="environmentName" (ngModelChange)="markEnvironmentDirty()" placeholder="Staging" /></label>
+                    <label class="toggle-row"><input type="checkbox" [(ngModel)]="environmentIsDefault" (ngModelChange)="markEnvironmentDirty()" /> Set as default environment</label>
+                    @if (environmentValidationErrors().length) {
+                      <div class="validation-stack">
+                        @for (error of environmentValidationErrors(); track error) {
+                          <span>{{ error }}</span>
+                        }
+                      </div>
+                    }
+                    <div class="variable-editor-table">
+                      <div class="variable-editor-head"><span></span><span>Key</span><span>Value</span><span>Secret</span><span></span></div>
+                      @for (row of environmentVariableRows; track row.clientId) {
+                        <div class="variable-editor-row" [class.disabled-row]="!row.enabled">
+                          <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="markEnvironmentDirty()" aria-label="Enable variable" />
+                          <input [(ngModel)]="row.key" (ngModelChange)="markEnvironmentDirty()" placeholder="api_url" />
+                          <div class="secret-input-shell">
+                            <input [(ngModel)]="row.valueDraft" (ngModelChange)="markEnvironmentDirty()" [type]="row.isSecret && !row.showSecret ? 'password' : 'text'" placeholder="https://api.example.com" />
+                            @if (row.isSecret) {
+                              <button class="icon-action" type="button" (click)="toggleEnvironmentSecret(row)" [attr.aria-label]="row.showSecret ? 'Hide secret' : 'Show secret'">{{ row.showSecret ? 'hide' : 'show' }}</button>
+                            }
+                          </div>
+                          <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="row.showSecret = false; markEnvironmentDirty()" aria-label="Secret variable" />
+                          <button class="icon-action" type="button" (click)="removeEnvironmentVariableRow(row.clientId)" aria-label="Remove variable">x</button>
+                        </div>
+                      } @empty {
+                        <button class="compact-empty action-empty" type="button" (click)="addEnvironmentVariableRow()">Add your first variable</button>
+                      }
+                    </div>
+                    <button class="ghost-button" type="button" (click)="addEnvironmentVariableRow()">Add variable</button>
+                  </div>
+                } @else {
+                  <div class="environment-readonly-detail">
+                    <div class="settings-grid">
+                      <div><span>Status</span><strong>{{ selectedEnvironment()?.isDefault ? 'Default' : 'Workspace' }}</strong></div>
+                      <div><span>Variables</span><strong>{{ selectedEnvironment()?.variableCount ?? 0 }}</strong></div>
+                      <div><span>Secrets</span><strong>{{ selectedEnvironment()?.secretCount ?? 0 }}</strong></div>
+                      <div><span>Version</span><strong>v{{ selectedEnvironment()?.versionNumber ?? 1 }}</strong></div>
+                    </div>
+                    <div class="environment-variable-preview large">
+                      @for (variable of environmentVariables(); track variable.id) {
+                        <div class="env-preview-row" [class.disabled-row]="!variable.enabled">
+                          <code>{{ variable.key }}</code>
+                          <span>{{ maskValue(variable.value, variable.isSecret) || '(empty)' }}</span>
+                          <app-badge [label]="variable.isSecret ? 'Secret' : variable.scope" [tone]="variable.isSecret ? 'default' : 'success'"></app-badge>
+                        </div>
+                      } @empty {
+                        <app-empty-state title="No variables yet" description="Edit this environment to add variables used by the API runner.">
+                          <button class="secondary-action" type="button" (click)="openEnvironmentEditor()">Add variable</button>
+                        </app-empty-state>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </article>
           </section>
         }
 
@@ -1314,7 +1448,7 @@
             <label>Name<input [(ngModel)]="monitorName" placeholder="Production identity monitor" /></label>
             <label>Schedule<input [(ngModel)]="monitorSchedule" placeholder="every 15 minutes" /></label>
             <app-premium-select label="Collection" [options]="collectionOptions()" [value]="selectedCollectionId()" (valueChange)="selectedCollectionId.set($event)"></app-premium-select>
-            <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="selectedEnvironmentId.set($event)"></app-premium-select>
+            <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="onEnvironmentChange($event)"></app-premium-select>
             <button class="primary-action" type="button" (click)="createMonitor()">Create monitor</button>
           </section>
           <section class="report-grid">
@@ -1422,7 +1556,7 @@
 
         @if (activeView() === 'ai-assistant') {
           <section class="page-header">
-            <div><span class="eyebrow">AI API Agent Orchestra</span><h2>Generate runnable API flows</h2><p>Describe a business flow in English, Urdu, or Roman Urdu. If no provider key is configured, API Desk uses a transparent deterministic fallback.</p></div>
+            <div><span class="eyebrow">AI API Agent Orchestra</span><h2>Generate runnable API flows</h2><p>Describe a business flow in English, Urdu, or Roman Urdu. If no provider key is configured, Apeiron uses a transparent deterministic fallback.</p></div>
             <div class="toolbar"><button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button><button class="primary-action" type="button" (click)="aiAgentOpen.set(true)">Open agent</button></div>
           </section>
           <div class="inline-info">

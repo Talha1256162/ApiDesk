@@ -8,7 +8,7 @@ import { resolveTemplateVariables } from './environment-resolver';
 import { parsePostmanCollectionV21 } from './postman-importer';
 import { canEditWorkspaceContent, canManageMember } from './team-permissions';
 
-describe('API Desk product helpers', () => {
+describe('Apeiron product helpers', () => {
   it('resolves environment variables and reports missing values', () => {
     const result = resolveTemplateVariables('{{baseUrl}}/users/{{userId}}/{{missing}}', {
       baseUrl: 'https://api.example.com',
@@ -16,6 +16,16 @@ describe('API Desk product helpers', () => {
     });
 
     expect(result.value).toBe('https://api.example.com/users/123/{{missing}}');
+    expect(result.missing).toEqual(['missing']);
+  });
+
+  it('allows empty environment variable values while only reporting absent variables as missing', () => {
+    const result = resolveTemplateVariables('{{baseUrl}}/users/{{optional}}/{{missing}}', {
+      baseUrl: 'https://api.example.com',
+      optional: ''
+    });
+
+    expect(result.value).toBe('https://api.example.com/users//{{missing}}');
     expect(result.missing).toEqual(['missing']);
   });
 
@@ -181,6 +191,30 @@ describe('ApiClientService', () => {
     const request = http.expectOne((item) => item.url === '/api/organizations/org-1/beta-checklist' && item.params.get('workspaceId') === 'workspace-1');
     expect(request.request.method).toBe('GET');
     request.flush({ succeeded: true, message: 'Success', data: { completedCount: 0, totalCount: 5, items: [] }, errors: [] });
+  });
+
+  it('updates, duplicates, deletes, and loads environment variables through real endpoints', () => {
+    api.updateEnvironment('env-1', { name: 'Staging', isDefault: true }).subscribe();
+    const update = http.expectOne('/api/environments/env-1');
+    expect(update.request.method).toBe('PUT');
+    expect(update.request.body.name).toBe('Staging');
+    update.flush({ succeeded: true, message: 'Success', data: {}, errors: [] });
+
+    api.duplicateEnvironment('env-1', { name: 'Staging Copy', isDefault: false }).subscribe();
+    const duplicate = http.expectOne('/api/environments/env-1/duplicate');
+    expect(duplicate.request.method).toBe('POST');
+    expect(duplicate.request.body.name).toBe('Staging Copy');
+    duplicate.flush({ succeeded: true, message: 'Success', data: {}, errors: [] });
+
+    api.environmentVariables('env-1').subscribe();
+    const variables = http.expectOne('/api/environments/env-1/variables');
+    expect(variables.request.method).toBe('GET');
+    variables.flush({ succeeded: true, message: 'Success', data: [], errors: [] });
+
+    api.deleteEnvironment('env-1').subscribe();
+    const deleteRequest = http.expectOne('/api/environments/env-1');
+    expect(deleteRequest.request.method).toBe('DELETE');
+    deleteRequest.flush({ succeeded: true, message: 'Success', data: null, errors: [] });
   });
 });
 
@@ -380,7 +414,7 @@ describe('App collection and request search', () => {
         name: 'Demo Workspace',
         slug: 'demo-workspace',
         type: 'Team',
-        description: 'Demo workspace - safe to delete after exploring API Desk.',
+        description: 'Demo workspace - safe to delete after exploring Apeiron.',
         createdOn: new Date().toISOString()
       },
       errors: []
@@ -388,7 +422,7 @@ describe('App collection and request search', () => {
 
     const importRequest = http.expectOne('/api/workspaces/demo-workspace/collections/import');
     expect(importRequest.request.method).toBe('POST');
-    expect(importRequest.request.body.name).toBe('API Desk Demo Collection');
+    expect(importRequest.request.body.name).toBe('Apeiron Demo Collection');
     expect(importRequest.request.body.requests.map((item: { name: string }) => item.name)).toEqual([
       'GET Demo Users',
       'POST Create Demo User',
@@ -398,7 +432,7 @@ describe('App collection and request search', () => {
     importRequest.flush({
       succeeded: true,
       message: 'Success',
-      data: { collectionId: 'demo-collection', name: 'API Desk Demo Collection', requestCount: 4 },
+      data: { collectionId: 'demo-collection', name: 'Apeiron Demo Collection', requestCount: 4 },
       errors: []
     });
 
@@ -431,6 +465,40 @@ describe('App collection and request search', () => {
     expect(app.selectedEnvironmentId()).toBe('demo-environment');
 
     flushPendingAppReloads(http);
+  });
+
+  it('validates environment duplicate keys and invalid variable names before saving', () => {
+    app.selectedEnvironmentId.set('env-1');
+    app.environments.set([environment('env-1', 'Local', true)]);
+    app.environmentVariables.set([]);
+    app.openEnvironmentEditor(app.environments()[0]);
+    http.expectOne('/api/environments/env-1/variables').flush({ succeeded: true, message: 'Success', data: [], errors: [] });
+
+    app.environmentVariableRows = [
+      { id: 'one', clientId: 'one', key: 'api_url', value: '', valueDraft: 'https://one.example', scope: 'Environment', isSecret: false, enabled: true, showSecret: false, createdOn: new Date().toISOString() },
+      { id: 'two', clientId: 'two', key: 'API_URL', value: '', valueDraft: 'https://two.example', scope: 'Environment', isSecret: false, enabled: true, showSecret: false, createdOn: new Date().toISOString() },
+      { id: 'three', clientId: 'three', key: '1 bad', value: '', valueDraft: '', scope: 'Environment', isSecret: false, enabled: true, showSecret: false, createdOn: new Date().toISOString() }
+    ];
+    app.markEnvironmentDirty();
+
+    expect(app.environmentValidationErrors()).toContain('Duplicate variable key: API_URL.');
+    expect(app.environmentValidationErrors()).toContain('Invalid variable name: 1 bad.');
+  });
+
+  it('updates resolved URL preview from edited environment variable rows', () => {
+    app.selectedEnvironmentId.set('env-1');
+    app.environments.set([environment('env-1', 'Local', true)]);
+    app.environmentVariables.set([{ id: 'var-1', key: 'api_url', value: 'https://old.example', scope: 'Environment', isSecret: false, enabled: true, createdOn: new Date().toISOString() }]);
+    app.openEnvironmentEditor(app.environments()[0]);
+    app.onRequestUrlChange('{{api_url}}/health/{{missing}}');
+
+    expect(app.resolvedRequestUrl().value).toBe('https://old.example/health/{{missing}}');
+    expect(app.missingRequestVariables()).toEqual(['missing']);
+
+    app.environmentVariableRows[0].valueDraft = 'https://new.example';
+    app.markEnvironmentDirty();
+
+    expect(app.resolvedRequestUrl().value).toBe('https://new.example/health/{{missing}}');
   });
 
   it('deletes a clearly marked demo workspace through the workspace API', () => {
@@ -476,6 +544,19 @@ function request(id: string, name: string, method: string, url: string, folderNa
   };
 }
 
+function environment(id: string, name: string, isDefault: boolean) {
+  return {
+    id,
+    workspaceId: 'workspace-1',
+    name,
+    isDefault,
+    variableCount: 0,
+    secretCount: 0,
+    versionNumber: 1,
+    createdOn: new Date().toISOString()
+  };
+}
+
 function collectionWorkspace(id: string, name: string) {
   return {
     id,
@@ -483,7 +564,7 @@ function collectionWorkspace(id: string, name: string) {
     name,
     slug: name.toLowerCase().replace(/\s+/g, '-'),
     type: 'Team',
-    description: 'Demo workspace - safe to delete after exploring API Desk.',
+    description: 'Demo workspace - safe to delete after exploring Apeiron.',
     createdOn: new Date().toISOString()
   };
 }
