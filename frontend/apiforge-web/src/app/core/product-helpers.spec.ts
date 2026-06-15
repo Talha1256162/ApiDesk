@@ -319,9 +319,14 @@ describe('App collection and request search', () => {
 
     app.selectView('beta-feedback');
 
-    const feedback = http.expectOne('/api/organizations/org-1/beta-feedback?count=100');
+    const feedback = http.expectOne((request) =>
+      request.url === '/api/organizations/org-1/beta-feedback'
+      && request.params.get('offset') === '0'
+      && request.params.get('count') === '10'
+      && request.params.get('sorting') === 'createdOn desc'
+    );
     expect(feedback.request.method).toBe('GET');
-    feedback.flush({ succeeded: true, message: 'Success', data: { items: [], totalCount: 0, offset: 0, count: 100 }, errors: [] });
+    feedback.flush({ succeeded: true, message: 'Success', data: { items: [], totalCount: 0, offset: 0, count: 10 }, errors: [] });
 
     const checklist = http.expectOne('/api/organizations/org-1/beta-checklist?workspaceId=workspace-1');
     expect(checklist.request.method).toBe('GET');

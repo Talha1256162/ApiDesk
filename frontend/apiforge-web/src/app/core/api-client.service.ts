@@ -42,6 +42,7 @@ import {
   OrganizationMember,
   OrganizationRole,
   OrganizationSaasSettings,
+  PagedQuery,
   PublishedDoc,
   PagedResult,
   RequestRun,
@@ -142,12 +143,28 @@ export class ApiClientService {
     return this.http.get<ApiResult<Organization[]>>(`${this.apiBaseUrl}/organizations`);
   }
 
+  private pagedParams(query: PagedQuery = {}, seed?: HttpParams): HttpParams {
+    let params = seed ?? new HttpParams();
+    params = params.set('offset', Math.max(0, query.offset ?? 0));
+    params = params.set('count', Math.max(1, Math.min(query.count ?? 25, 200)));
+    if (query.searchString?.trim()) {
+      params = params.set('searchString', query.searchString.trim());
+    }
+    if (query.sorting?.trim()) {
+      params = params.set('sorting', query.sorting.trim());
+    }
+    if (query.searchFilter?.trim()) {
+      params = params.set('searchFilter', query.searchFilter.trim());
+    }
+    return params;
+  }
+
   buildInfo() {
     return this.http.get<ApiResult<BuildInfo>>(`${this.apiBaseUrl}/build-info`);
   }
 
-  workspaces(organizationId: string) {
-    const params = new HttpParams().set('organizationId', organizationId).set('count', 100);
+  workspaces(organizationId: string, query: PagedQuery = { count: 100 }) {
+    const params = this.pagedParams(query, new HttpParams().set('organizationId', organizationId));
     return this.http.get<ApiResult<PagedResult<Workspace>>>(`${this.apiBaseUrl}/workspaces`, { params });
   }
 
@@ -163,9 +180,9 @@ export class ApiClientService {
     return this.http.get<ApiResult<WorkspaceDashboard>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/dashboard`);
   }
 
-  collections(workspaceId: string) {
+  collections(workspaceId: string, query: PagedQuery = { count: 100 }) {
     return this.http.get<ApiResult<PagedResult<Collection>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/collections`, {
-      params: new HttpParams().set('count', 100)
+      params: this.pagedParams(query)
     });
   }
 
@@ -207,9 +224,9 @@ export class ApiClientService {
     });
   }
 
-  environments(workspaceId: string) {
+  environments(workspaceId: string, query: PagedQuery = { count: 100 }) {
     return this.http.get<ApiResult<PagedResult<EnvironmentModel>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/environments`, {
-      params: new HttpParams().set('count', 100)
+      params: this.pagedParams(query)
     });
   }
 
@@ -237,8 +254,8 @@ export class ApiClientService {
     return this.http.put<ApiResult<EnvironmentVariable[]>>(`${this.apiBaseUrl}/environments/${environmentId}/variables`, { variables });
   }
 
-  activity(organizationId: string, workspaceId?: string) {
-    let params = new HttpParams().set('organizationId', organizationId).set('count', 50);
+  activity(organizationId: string, workspaceId?: string, query: PagedQuery = { count: 50 }) {
+    let params = this.pagedParams(query, new HttpParams().set('organizationId', organizationId));
     if (workspaceId) {
       params = params.set('workspaceId', workspaceId);
     }
@@ -253,9 +270,12 @@ export class ApiClientService {
     status?: string;
     fromUtc?: string;
     toUtc?: string;
+    offset?: number;
     count?: number;
+    searchString?: string;
+    sorting?: string;
   }) {
-    let params = new HttpParams().set('organizationId', filter.organizationId).set('count', filter.count ?? 100);
+    let params = this.pagedParams(filter, new HttpParams().set('organizationId', filter.organizationId));
     if (filter.workspaceId) params = params.set('workspaceId', filter.workspaceId);
     if (filter.userId) params = params.set('userId', filter.userId);
     if (filter.eventType) params = params.set('eventType', filter.eventType);
@@ -265,8 +285,8 @@ export class ApiClientService {
     return this.http.get<ApiResult<PagedResult<ActivityEvent>>>(`${this.apiBaseUrl}/activity`, { params });
   }
 
-  auditLogs(organizationId: string, workspaceId?: string, userId?: string) {
-    let params = new HttpParams().set('organizationId', organizationId).set('count', 100);
+  auditLogs(organizationId: string, workspaceId?: string, userId?: string, query: PagedQuery = { count: 100 }) {
+    let params = this.pagedParams(query, new HttpParams().set('organizationId', organizationId));
     if (workspaceId) params = params.set('workspaceId', workspaceId);
     if (userId) params = params.set('userId', userId);
     return this.http.get<ApiResult<PagedResult<AuditLog>>>(`${this.apiBaseUrl}/activity/audit`, { params });
@@ -292,9 +312,9 @@ export class ApiClientService {
     });
   }
 
-  members(organizationId: string) {
+  members(organizationId: string, query: PagedQuery = { count: 100 }) {
     return this.http.get<ApiResult<PagedResult<OrganizationMember>>>(`${this.apiBaseUrl}/organizations/${organizationId}/members`, {
-      params: new HttpParams().set('count', 100)
+      params: this.pagedParams(query)
     });
   }
 
@@ -395,9 +415,9 @@ export class ApiClientService {
     return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/published-docs/${docId}`);
   }
 
-  apiSpecs(workspaceId: string) {
+  apiSpecs(workspaceId: string, query: PagedQuery = { count: 50 }) {
     return this.http.get<ApiResult<PagedResult<ApiSpec>>>(`${this.apiBaseUrl}/workspaces/${workspaceId}/api-specs`, {
-      params: new HttpParams().set('count', 50)
+      params: this.pagedParams(query)
     });
   }
 
@@ -449,11 +469,9 @@ export class ApiClientService {
     return this.http.post<ApiResult<BetaFeedback>>(`${this.apiBaseUrl}/beta-feedback`, payload);
   }
 
-  betaFeedback(organizationId: string, searchString = '') {
-    let params = new HttpParams().set('count', 100);
-    if (searchString.trim()) {
-      params = params.set('searchString', searchString.trim());
-    }
+  betaFeedback(organizationId: string, query: PagedQuery | string = {}) {
+    const normalized = typeof query === 'string' ? { searchString: query, count: 100 } : query;
+    const params = this.pagedParams(normalized);
     return this.http.get<ApiResult<PagedResult<BetaFeedback>>>(`${this.apiBaseUrl}/organizations/${organizationId}/beta-feedback`, { params });
   }
 

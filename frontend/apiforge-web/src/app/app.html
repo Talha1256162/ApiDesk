@@ -816,6 +816,16 @@
                   </app-empty-state>
                 }
               }
+              <div class="list-pager compact-pager">
+                <span>{{ pagerLabel(collectionsPager()) }}</span>
+                <select [ngModel]="collectionsPager().count" (ngModelChange)="changeCollectionsPageSize($event)" aria-label="Collections page size">
+                  <option [ngValue]="10">10</option>
+                  <option [ngValue]="25">25</option>
+                  <option [ngValue]="50">50</option>
+                </select>
+                <button class="ghost-button mini-button" type="button" (click)="previousCollectionsPage()" [disabled]="!pagerCanPrevious(collectionsPager())">Prev</button>
+                <button class="ghost-button mini-button" type="button" (click)="nextCollectionsPage()" [disabled]="!pagerCanNext(collectionsPager())">Next</button>
+              </div>
             </aside>
 
             <section class="api-client">
@@ -1136,7 +1146,7 @@
                       <span>{{ formatBytes(apiResponse()?.sizeBytes) }}</span>
                     </div>
                     <div class="toolbar">
-                      <button class="ghost-button" type="button" (click)="copyResponseBody()">Copy</button>
+                      <button class="ghost-button" type="button" (click)="copyResponseBody()" [disabled]="!apiResponse()">Copy</button>
                       <button class="ghost-button" type="button" (click)="downloadResponseBody()" [disabled]="!apiResponse()">Download</button>
                       <button class="ghost-button" type="button" (click)="saveCurrentResponseAsExample()" [disabled]="!apiResponse()">Save example</button>
                       <button class="ghost-button" type="button" (click)="generateMockForSelectedRequest()">Generate mock</button>
@@ -1181,7 +1191,10 @@
                       }
                     } @else {
                       <div class="response-empty-state">
-                        <app-empty-state title="No response yet" description="Send the selected request to inspect body, headers, cookies, timing, and saved history."></app-empty-state>
+                        <div class="response-empty-copy">
+                          <strong>No response yet</strong>
+                          <span>Send a request to inspect body, headers, cookies, timing, and history.</span>
+                        </div>
                       </div>
                     }
                   } @else if (responseTab === 'Headers') {
@@ -1814,17 +1827,17 @@
               label="Team member"
               [options]="activityMemberOptions()"
               [value]="activityUserFilter"
-              (valueChange)="activityUserFilter = $event; loadManagerActivity(); loadAuditLogs()"></app-premium-select>
+              (valueChange)="activityUserFilter = $event; applyActivityFilters()"></app-premium-select>
             <label>
               Event type
-              <input placeholder="RequestSent, CommentCreated..." [(ngModel)]="activityEventFilter" (keyup.enter)="loadManagerActivity()" />
+              <input placeholder="RequestSent, CommentCreated..." [(ngModel)]="activityEventFilter" (keyup.enter)="applyActivityFilters()" />
             </label>
             <app-premium-select
               label="Status"
               [options]="activityStatusOptions()"
               [value]="activityStatusFilter"
-              (valueChange)="activityStatusFilter = $event; loadManagerActivity()"></app-premium-select>
-            <button class="primary-action" type="button" (click)="loadManagerActivity(); loadAuditLogs()">Apply filters</button>
+              (valueChange)="activityStatusFilter = $event; applyActivityFilters()"></app-premium-select>
+            <button class="primary-action" type="button" (click)="applyActivityFilters()">Apply filters</button>
           </section>
           @if (activeView() === 'reports') {
             <section class="report-grid">
@@ -1886,6 +1899,16 @@
                 <button class="secondary-action" type="button" (click)="goToTeamInvites()">Invite teammate</button>
               </app-empty-state>
             }
+            <div class="list-pager">
+              <span>{{ pagerLabel(activityPager()) }}</span>
+              <select [ngModel]="activityPager().count" (ngModelChange)="changeActivityPageSize($event)" aria-label="Activity page size">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="25">25</option>
+                <option [ngValue]="50">50</option>
+              </select>
+              <button class="ghost-button mini-button" type="button" (click)="previousActivityPage()" [disabled]="!pagerCanPrevious(activityPager())">Previous</button>
+              <button class="ghost-button mini-button" type="button" (click)="nextActivityPage()" [disabled]="!pagerCanNext(activityPager())">Next</button>
+            </div>
           </section>
           <section class="panel activity-panel">
             <div class="panel-title">
@@ -1910,6 +1933,16 @@
                 <button class="secondary-action" type="button" (click)="loadAuditLogs()">Refresh audit logs</button>
               </app-empty-state>
             }
+            <div class="list-pager">
+              <span>{{ pagerLabel(auditPager()) }}</span>
+              <select [ngModel]="auditPager().count" (ngModelChange)="changeAuditPageSize($event)" aria-label="Audit page size">
+                <option [ngValue]="10">10</option>
+                <option [ngValue]="25">25</option>
+                <option [ngValue]="50">50</option>
+              </select>
+              <button class="ghost-button mini-button" type="button" (click)="previousAuditPage()" [disabled]="!pagerCanPrevious(auditPager())">Previous</button>
+              <button class="ghost-button mini-button" type="button" (click)="nextAuditPage()" [disabled]="!pagerCanNext(auditPager())">Next</button>
+            </div>
           </section>
         }
 
@@ -1988,6 +2021,16 @@
               </app-empty-state>
             }
           </section>
+          <div class="list-pager page-pager">
+            <span>{{ pagerLabel(membersPager()) }}</span>
+            <select [ngModel]="membersPager().count" (ngModelChange)="changeMembersPageSize($event)" aria-label="Members page size">
+              <option [ngValue]="12">12</option>
+              <option [ngValue]="24">24</option>
+              <option [ngValue]="48">48</option>
+            </select>
+            <button class="ghost-button mini-button" type="button" (click)="previousMembersPage()" [disabled]="!pagerCanPrevious(membersPager())">Previous</button>
+            <button class="ghost-button mini-button" type="button" (click)="nextMembersPage()" [disabled]="!pagerCanNext(membersPager())">Next</button>
+          </div>
         }
 
         @if (activeView() === 'json-tools') {
@@ -2097,8 +2140,8 @@
               <p>Review authenticated tester feedback, triage issues, and keep beta signals tied to organization activity.</p>
             </div>
             <div class="toolbar">
-              <input class="search compact-search" placeholder="Search feedback" [(ngModel)]="feedbackSearch" (keyup.enter)="loadBetaFeedback()" />
-              <button class="secondary-action" type="button" (click)="loadBetaFeedback()">Search</button>
+              <input class="search compact-search" placeholder="Search feedback" [(ngModel)]="feedbackSearch" (keyup.enter)="searchFeedback()" />
+              <button class="secondary-action" type="button" (click)="searchFeedback()">Search</button>
               <button class="primary-action" type="button" (click)="openFeedback()">Add feedback</button>
             </div>
           </section>
@@ -2162,6 +2205,16 @@
                   <button class="primary-action" type="button" (click)="openFeedback()">Submit first feedback</button>
                 </app-empty-state>
               }
+              <div class="list-pager">
+                <span>{{ pagerLabel(feedbackPager()) }}</span>
+                <select [ngModel]="feedbackPager().count" (ngModelChange)="changeFeedbackPageSize($event)" aria-label="Feedback page size">
+                  <option [ngValue]="5">5</option>
+                  <option [ngValue]="10">10</option>
+                  <option [ngValue]="25">25</option>
+                </select>
+                <button class="ghost-button mini-button" type="button" (click)="previousFeedbackPage()" [disabled]="!pagerCanPrevious(feedbackPager())">Previous</button>
+                <button class="ghost-button mini-button" type="button" (click)="nextFeedbackPage()" [disabled]="!pagerCanNext(feedbackPager())">Next</button>
+              </div>
             </article>
           </section>
         }

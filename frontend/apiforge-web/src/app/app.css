@@ -2490,6 +2490,42 @@ app-empty-state {
   white-space: nowrap;
 }
 
+.list-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 12px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.list-pager.compact-pager {
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+
+.list-pager.page-pager {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-card);
+  padding: 12px;
+}
+
+.list-pager select {
+  min-height: 30px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--text-primary);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .timeline-row small {
   display: block;
   margin-top: 4px;
@@ -3416,11 +3452,30 @@ app-empty-state {
   display: grid;
   min-height: 248px;
   place-items: center;
-  border: 1px dashed var(--border-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  background:
-    linear-gradient(135deg, rgba(80, 111, 255, 0.08), transparent 34%),
-    var(--surface-soft);
+  background: rgba(8, 13, 24, 0.38);
+}
+
+.response-empty-copy {
+  display: grid;
+  max-width: 420px;
+  gap: 8px;
+  place-items: center;
+  padding: 28px;
+  text-align: center;
+}
+
+.response-empty-copy strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.response-empty-copy span {
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .response-toolbar {
@@ -3453,6 +3508,11 @@ app-empty-state {
   min-width: 38px;
   min-height: 34px;
   padding-inline: 10px;
+}
+
+.client-content .response-toolbar .ghost-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .response-toolbar[data-status-tone='success'] {
@@ -5643,10 +5703,14 @@ app-empty-state {
   min-height: 0;
   height: calc(100% - 12px);
   margin: 0 12px 12px;
+  border-style: solid;
+  background:
+    radial-gradient(circle at center top, rgba(99, 102, 241, 0.08), transparent 42%),
+    rgba(8, 13, 24, 0.34);
 }
 
-.client-content .response-empty-state app-empty-state {
-  transform: translateY(-10px);
+.client-content .response-empty-copy {
+  transform: translateY(-2px);
 }
 
 .client-content .context-panel {

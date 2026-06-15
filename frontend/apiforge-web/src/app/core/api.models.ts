@@ -12,6 +12,14 @@ export interface PagedResult<T> {
   count: number;
 }
 
+export interface PagedQuery {
+  offset?: number;
+  count?: number;
+  searchString?: string;
+  sorting?: string;
+  searchFilter?: string;
+}
+
 export interface AuthUser {
   id: string;
   email: string;

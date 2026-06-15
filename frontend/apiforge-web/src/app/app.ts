@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, WritableSignal, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HubConnection, HubConnectionBuilder } from '@microsoft/signalr';
 import { ApiClientService } from './core/api-client.service';
@@ -136,6 +136,15 @@ type GeneratedCollectionPreview = {
   payload: ImportCollectionPayload;
 };
 
+type PagerState = {
+  offset: number;
+  count: number;
+  totalCount: number;
+  loading: boolean;
+  searchString: string;
+  sorting: string;
+};
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -228,6 +237,13 @@ export class App implements OnInit {
   readonly draggedRequestId = signal('');
   readonly collectionSearch = signal('');
   readonly requestSearch = signal('');
+  readonly collectionsPager = signal<PagerState>(this.createPager(25, 'modifiedOn desc'));
+  readonly environmentsPager = signal<PagerState>(this.createPager(25, 'modifiedOn desc'));
+  readonly activityPager = signal<PagerState>(this.createPager(25, 'createdOn desc'));
+  readonly auditPager = signal<PagerState>(this.createPager(25, 'createdOn desc'));
+  readonly membersPager = signal<PagerState>(this.createPager(24, 'createdOn desc'));
+  readonly feedbackPager = signal<PagerState>(this.createPager(10, 'createdOn desc'));
+  readonly apiSpecsPager = signal<PagerState>(this.createPager(25, 'createdOn desc'));
   readonly trialInterest = signal(false);
   readonly contactSalesInterest = signal(false);
 
@@ -884,6 +900,16 @@ export class App implements OnInit {
     localStorage.setItem(this.navStorageKey, JSON.stringify([...new Set(groups)]));
   }
 
+  private resetWorkspaceScopedPagers(): void {
+    this.collectionsPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.environmentsPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.activityPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.auditPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.membersPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.feedbackPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.apiSpecsPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+  }
+
   onOrganizationChange(organizationId: string): void {
     this.selectedOrganizationId.set(organizationId);
     this.selectedWorkspaceId.set('');
@@ -893,6 +919,7 @@ export class App implements OnInit {
     this.environmentVariables.set([]);
     this.requestSearch.set('');
     this.requestDetail.set(null);
+    this.resetWorkspaceScopedPagers();
     this.resetEnvironmentEditor();
     this.loadWorkspaces();
   }
@@ -906,6 +933,7 @@ export class App implements OnInit {
     this.requestSearch.set('');
     this.requestDetail.set(null);
     this.comments.set([]);
+    this.resetWorkspaceScopedPagers();
     this.resetEnvironmentEditor();
     this.loadWorkspaceData();
   }
@@ -1012,19 +1040,156 @@ export class App implements OnInit {
     });
   }
 
+  private createPager(count: number, sorting: string): PagerState {
+    return { offset: 0, count, totalCount: 0, loading: false, searchString: '', sorting };
+  }
+
+  pagerLabel(pager: PagerState): string {
+    if (!pager.totalCount) {
+      return '0 records';
+    }
+    const start = pager.offset + 1;
+    const end = Math.min(pager.offset + pager.count, pager.totalCount);
+    return `${start}-${end} of ${pager.totalCount}`;
+  }
+
+  pagerCanPrevious(pager: PagerState): boolean {
+    return pager.offset > 0 && !pager.loading;
+  }
+
+  pagerCanNext(pager: PagerState): boolean {
+    return pager.offset + pager.count < pager.totalCount && !pager.loading;
+  }
+
+  private markPagerLoading(pager: WritableSignal<PagerState>, loading: boolean): void {
+    pager.update((state) => ({ ...state, loading }));
+  }
+
+  private updatePagerResult(pager: WritableSignal<PagerState>, totalCount: number, offset?: number, count?: number): void {
+    pager.update((state) => ({
+      ...state,
+      totalCount,
+      offset: Math.max(0, offset ?? state.offset),
+      count: Math.max(1, count ?? state.count),
+      loading: false
+    }));
+  }
+
+  private resetPagerSearch(pager: WritableSignal<PagerState>, searchString: string): void {
+    pager.update((state) => ({ ...state, offset: 0, searchString }));
+  }
+
+  previousCollectionsPage(): void {
+    this.collectionsPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadCollections();
+  }
+
+  nextCollectionsPage(): void {
+    this.collectionsPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadCollections();
+  }
+
+  changeCollectionsPageSize(count: string | number): void {
+    this.collectionsPager.update((state) => ({ ...state, count: Number(count) || 25, offset: 0 }));
+    this.loadCollections();
+  }
+
+  previousActivityPage(): void {
+    this.activityPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadManagerActivity();
+  }
+
+  nextActivityPage(): void {
+    this.activityPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadManagerActivity();
+  }
+
+  changeActivityPageSize(count: string | number): void {
+    this.activityPager.update((state) => ({ ...state, count: Number(count) || 25, offset: 0 }));
+    this.loadManagerActivity();
+  }
+
+  applyActivityFilters(): void {
+    this.activityPager.update((state) => ({ ...state, offset: 0 }));
+    this.auditPager.update((state) => ({ ...state, offset: 0 }));
+    this.loadManagerActivity();
+    this.loadAuditLogs();
+  }
+
+  previousAuditPage(): void {
+    this.auditPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadAuditLogs();
+  }
+
+  nextAuditPage(): void {
+    this.auditPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadAuditLogs();
+  }
+
+  changeAuditPageSize(count: string | number): void {
+    this.auditPager.update((state) => ({ ...state, count: Number(count) || 25, offset: 0 }));
+    this.loadAuditLogs();
+  }
+
+  previousMembersPage(): void {
+    this.membersPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadMembers();
+  }
+
+  nextMembersPage(): void {
+    this.membersPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadMembers();
+  }
+
+  changeMembersPageSize(count: string | number): void {
+    this.membersPager.update((state) => ({ ...state, count: Number(count) || 24, offset: 0 }));
+    this.loadMembers();
+  }
+
+  previousFeedbackPage(): void {
+    this.feedbackPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadBetaFeedback();
+  }
+
+  nextFeedbackPage(): void {
+    this.feedbackPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadBetaFeedback();
+  }
+
+  changeFeedbackPageSize(count: string | number): void {
+    this.feedbackPager.update((state) => ({ ...state, count: Number(count) || 10, offset: 0 }));
+    this.loadBetaFeedback();
+  }
+
+  searchFeedback(): void {
+    this.resetPagerSearch(this.feedbackPager, this.feedbackSearch);
+    this.loadBetaFeedback();
+  }
+
   loadBetaFeedback(): void {
     if (!this.selectedOrganizationId()) {
       this.betaFeedback.set([]);
       return;
     }
 
-    this.api.betaFeedback(this.selectedOrganizationId(), this.feedbackSearch).subscribe({
+    const pager = this.feedbackPager();
+    this.markPagerLoading(this.feedbackPager, true);
+    this.api.betaFeedback(this.selectedOrganizationId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString,
+      sorting: pager.sorting
+    }).subscribe({
       next: (result) => {
         this.betaFeedback.set(result.data?.items ?? []);
+        this.updatePagerResult(this.feedbackPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
         this.feedbackStatusDraft = Object.fromEntries(this.betaFeedback().map((item) => [item.id, item.status]));
         this.feedbackAdminNotes = Object.fromEntries(this.betaFeedback().map((item) => [item.id, item.adminNotes ?? '']));
       },
-      error: (error) => this.showToast('Feedback failed', error?.error?.message ?? 'Could not load beta feedback.', 'danger')
+      error: (error) => {
+        this.markPagerLoading(this.feedbackPager, false);
+        this.showToast('Feedback failed', error?.error?.message ?? 'Could not load beta feedback.', 'danger');
+      }
     });
   }
 
@@ -1148,9 +1313,17 @@ export class App implements OnInit {
   }
 
   loadCollections(): void {
-    this.api.collections(this.selectedWorkspaceId()).subscribe({
+    const pager = this.collectionsPager();
+    this.markPagerLoading(this.collectionsPager, true);
+    this.api.collections(this.selectedWorkspaceId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString,
+      sorting: pager.sorting
+    }).subscribe({
       next: (result) => {
         this.collections.set(result.data?.items ?? []);
+        this.updatePagerResult(this.collectionsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
         if (!this.selectedCollectionId()) {
           this.selectedCollectionId.set(this.collections()[0]?.id ?? '');
         }
@@ -1160,7 +1333,10 @@ export class App implements OnInit {
           this.requests.set([]);
         }
       },
-      error: () => this.showToast('Collections failed', 'Could not load collections.', 'danger')
+      error: () => {
+        this.markPagerLoading(this.collectionsPager, false);
+        this.showToast('Collections failed', 'Could not load collections.', 'danger');
+      }
     });
   }
 
@@ -1273,17 +1449,28 @@ export class App implements OnInit {
       return;
     }
 
-    this.api.environments(this.selectedWorkspaceId()).subscribe({
+    const pager = this.environmentsPager();
+    this.markPagerLoading(this.environmentsPager, true);
+    this.api.environments(this.selectedWorkspaceId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString,
+      sorting: pager.sorting
+    }).subscribe({
       next: (result) => {
         const environments = result.data?.items ?? [];
         this.environments.set(environments);
+        this.updatePagerResult(this.environmentsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
         const selectedExists = environments.some((environment) => environment.id === this.selectedEnvironmentId());
         if (!selectedExists) {
           this.selectedEnvironmentId.set(environments.find((environment) => environment.isDefault)?.id ?? environments[0]?.id ?? '');
         }
         this.loadEnvironmentVariables();
       },
-      error: () => this.showToast('Environments failed', 'Could not load environments.', 'danger')
+      error: () => {
+        this.markPagerLoading(this.environmentsPager, false);
+        this.showToast('Environments failed', 'Could not load environments.', 'danger');
+      }
     });
   }
 
@@ -1309,7 +1496,7 @@ export class App implements OnInit {
       return;
     }
 
-    this.api.activity(this.selectedOrganizationId(), this.selectedWorkspaceId()).subscribe({
+    this.api.activity(this.selectedOrganizationId(), this.selectedWorkspaceId(), { offset: 0, count: 12, sorting: 'createdOn desc' }).subscribe({
       next: (result) => this.activity.set(result.data?.items ?? []),
       error: () => this.showToast('Activity failed', 'Could not load activity feed.', 'danger')
     });
@@ -1320,16 +1507,26 @@ export class App implements OnInit {
       return;
     }
 
+    const pager = this.activityPager();
+    this.markPagerLoading(this.activityPager, true);
     this.api.activityFiltered({
       organizationId: this.selectedOrganizationId(),
       workspaceId: this.selectedWorkspaceId() || undefined,
       userId: this.activityUserFilter || undefined,
       eventType: this.activityEventFilter.trim() || undefined,
       status: this.activityStatusFilter || undefined,
-      count: 100
+      offset: pager.offset,
+      count: pager.count,
+      sorting: pager.sorting
     }).subscribe({
-      next: (result) => this.filteredActivity.set(result.data?.items ?? []),
-      error: () => this.showToast('Manager feed failed', 'Could not load filtered team activity.', 'danger')
+      next: (result) => {
+        this.filteredActivity.set(result.data?.items ?? []);
+        this.updatePagerResult(this.activityPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+      },
+      error: () => {
+        this.markPagerLoading(this.activityPager, false);
+        this.showToast('Manager feed failed', 'Could not load filtered team activity.', 'danger');
+      }
     });
   }
 
@@ -1338,9 +1535,21 @@ export class App implements OnInit {
       return;
     }
 
-    this.api.auditLogs(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined).subscribe({
-      next: (result) => this.auditLogs.set(result.data?.items ?? []),
-      error: () => this.showToast('Audit logs failed', 'Could not load immutable audit logs.', 'danger')
+    const pager = this.auditPager();
+    this.markPagerLoading(this.auditPager, true);
+    this.api.auditLogs(this.selectedOrganizationId(), this.selectedWorkspaceId(), this.activityUserFilter || undefined, {
+      offset: pager.offset,
+      count: pager.count,
+      sorting: pager.sorting
+    }).subscribe({
+      next: (result) => {
+        this.auditLogs.set(result.data?.items ?? []);
+        this.updatePagerResult(this.auditPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+      },
+      error: () => {
+        this.markPagerLoading(this.auditPager, false);
+        this.showToast('Audit logs failed', 'Could not load immutable audit logs.', 'danger');
+      }
     });
   }
 
@@ -1361,14 +1570,25 @@ export class App implements OnInit {
       return;
     }
 
-    this.api.members(this.selectedOrganizationId()).subscribe({
+    const pager = this.membersPager();
+    this.markPagerLoading(this.membersPager, true);
+    this.api.members(this.selectedOrganizationId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString,
+      sorting: pager.sorting
+    }).subscribe({
       next: (result) => {
         const members = result.data?.items ?? [];
         this.members.set(members);
+        this.updatePagerResult(this.membersPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
         const roleByName = new Map(this.organizationRoles().map((role) => [role.name, role.id]));
         this.selectedMemberRoles = Object.fromEntries(members.map((member) => [member.id, roleByName.get(member.roleName) ?? '']));
       },
-      error: () => this.showToast('Team failed', 'Could not load organization members.', 'danger')
+      error: () => {
+        this.markPagerLoading(this.membersPager, false);
+        this.showToast('Team failed', 'Could not load organization members.', 'danger');
+      }
     });
   }
 
@@ -1737,9 +1957,22 @@ export class App implements OnInit {
       return;
     }
 
-    this.api.apiSpecs(this.selectedWorkspaceId()).subscribe({
-      next: (result) => this.apiSpecs.set(result.data?.items ?? []),
-      error: () => this.showToast('Specs failed', 'Could not load API specs.', 'danger')
+    const pager = this.apiSpecsPager();
+    this.markPagerLoading(this.apiSpecsPager, true);
+    this.api.apiSpecs(this.selectedWorkspaceId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString,
+      sorting: pager.sorting
+    }).subscribe({
+      next: (result) => {
+        this.apiSpecs.set(result.data?.items ?? []);
+        this.updatePagerResult(this.apiSpecsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+      },
+      error: () => {
+        this.markPagerLoading(this.apiSpecsPager, false);
+        this.showToast('Specs failed', 'Could not load API specs.', 'danger');
+      }
     });
   }
 

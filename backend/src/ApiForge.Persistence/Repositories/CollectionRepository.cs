@@ -55,11 +55,23 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
     public async Task<PagedResult<CollectionDto>> GetCollectionsAsync(Guid workspaceId, PagedRequest request, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
+        var orderBy = request.Sorting?.Trim().ToLowerInvariant() switch
+        {
+            "name asc" => "c.name asc",
+            "name desc" => "c.name desc",
+            "createdon asc" => "c.createdOn asc",
+            "createdon desc" => "c.createdOn desc",
+            "modifiedon asc" => "coalesce(c.modifiedOn, c.createdOn) asc",
+            "modifiedon desc" => "coalesce(c.modifiedOn, c.createdOn) desc",
+            _ => "coalesce(c.modifiedOn, c.createdOn) desc"
+        };
+
         using var grid = await connection.QueryMultipleAsync(new CommandDefinition("""
             select count(1)
             from collections c
+            join users u on u.id = c.ownerUserId
             where c.workspaceId = @WorkspaceId and c.isDeleted = 0
-                and (@Search is null or c.name like '%' + @Search + '%');
+                and (@Search is null or c.name like '%' + @Search + '%' or c.description like '%' + @Search + '%' or u.fullName like '%' + @Search + '%');
 
             select c.id, c.workspaceId, c.name, c.description, c.ownerUserId, u.fullName as ownerName,
                    (select count(1) from requests r where r.collectionId = c.id and r.isDeleted = 0) as requestCount,
@@ -67,11 +79,11 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
             from collections c
             join users u on u.id = c.ownerUserId
             where c.workspaceId = @WorkspaceId and c.isDeleted = 0
-                and (@Search is null or c.name like '%' + @Search + '%')
-            order by c.modifiedOn desc, c.createdOn desc
+                and (@Search is null or c.name like '%' + @Search + '%' or c.description like '%' + @Search + '%' or u.fullName like '%' + @Search + '%')
+            order by /**orderby**/
             offset @Offset rows fetch next @Count rows only;
-            """,
-            new { WorkspaceId = workspaceId, Search = request.SearchString, Offset = request.SafeOffset, Count = request.SafeCount },
+            """.Replace("/**orderby**/", orderBy),
+            new { WorkspaceId = workspaceId, Search = string.IsNullOrWhiteSpace(request.SearchString) ? null : request.SearchString.Trim(), Offset = request.SafeOffset, Count = request.SafeCount },
             cancellationToken: cancellationToken));
 
         var total = await grid.ReadSingleAsync<int>();
