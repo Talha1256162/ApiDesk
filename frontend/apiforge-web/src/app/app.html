@@ -1187,7 +1187,7 @@
                           </div>
                         } @else {
                           <div class="editor-shell response-editor-shell">
-                            <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
+                            <pre class="response-code-viewer">{{ responseViewerBody() }}</pre>
                           </div>
                         }
                       </div>

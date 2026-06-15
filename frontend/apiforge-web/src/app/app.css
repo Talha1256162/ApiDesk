@@ -3575,6 +3575,22 @@ app-empty-state {
   height: 520px;
 }
 
+.response-code-viewer {
+  height: 100%;
+  margin: 0;
+  overflow: auto;
+  color: #d8e2ff;
+  font: 12px/1.6 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: 14px 16px;
+  tab-size: 2;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.light-shell .response-code-viewer {
+  color: #1f2937;
+}
+
 .request-editor {
   min-height: 280px;
   height: min(46vh, 440px);
