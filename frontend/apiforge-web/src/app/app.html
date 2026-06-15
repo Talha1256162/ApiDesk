@@ -1165,35 +1165,39 @@
                   </div>
                   @if (responseTab === 'Body') {
                     @if (apiResponse()) {
-                      <div class="response-body-tools">
-                        <div class="segmented-control">
-                          @for (mode of responseViewModes; track mode) {
-                            <button type="button" [class.active]="responseViewMode() === mode" (click)="responseViewMode.set(mode)">{{ mode }}</button>
-                          }
+                      <div class="response-content">
+                        <div class="response-body-tools">
+                          <div class="segmented-control">
+                            @for (mode of responseViewModes; track mode) {
+                              <button type="button" [class.active]="responseViewMode() === mode" (click)="responseViewMode.set(mode)">{{ mode }}</button>
+                            }
+                          </div>
+                          <label class="response-search">
+                            <input [(ngModel)]="responseSearch" placeholder="Search response" />
+                            <span>{{ responseSearchMatches() }} matches</span>
+                          </label>
                         </div>
-                        <label class="response-search">
-                          <input [(ngModel)]="responseSearch" placeholder="Search response" />
-                          <span>{{ responseSearchMatches() }} matches</span>
-                        </label>
+                        @if (responseViewMode() === 'Visualize' && responseTreeValue()) {
+                          <div class="response-tree-shell">
+                            <app-json-tree [value]="responseTreeValue()" rootLabel="response"></app-json-tree>
+                          </div>
+                        } @else if (responseViewMode() === 'Preview') {
+                          <div class="response-preview-frame">
+                            <pre>{{ responseViewerBody() }}</pre>
+                          </div>
+                        } @else {
+                          <div class="editor-shell response-editor-shell">
+                            <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
+                          </div>
+                        }
                       </div>
-                      @if (responseViewMode() === 'Visualize' && responseTreeValue()) {
-                        <div class="response-tree-shell">
-                          <app-json-tree [value]="responseTreeValue()" rootLabel="response"></app-json-tree>
-                        </div>
-                      } @else if (responseViewMode() === 'Preview') {
-                        <div class="response-preview-frame">
-                          <pre>{{ responseViewerBody() }}</pre>
-                        </div>
-                      } @else {
-                        <div class="editor-shell">
-                          <app-monaco-editor [value]="responseViewerBody()" [language]="responseViewerLanguage()" [readonly]="true"></app-monaco-editor>
-                        </div>
-                      }
                     } @else {
-                      <div class="response-empty-state">
-                        <div class="response-empty-copy">
-                          <strong>No response yet</strong>
-                          <span>Send a request to inspect body, headers, cookies, timing, and history.</span>
+                      <div class="response-content response-content-empty">
+                        <div class="response-empty-state">
+                          <div class="response-empty-copy">
+                            <strong>No response yet</strong>
+                            <span>Send a request to inspect body, headers, cookies, timing, and history.</span>
+                          </div>
                         </div>
                       </div>
                     }

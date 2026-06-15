@@ -2502,6 +2502,10 @@ app-empty-state {
   font-size: 12px;
 }
 
+.list-pager span {
+  white-space: nowrap;
+}
+
 .list-pager.compact-pager {
   justify-content: space-between;
   margin-top: 10px;
@@ -3446,6 +3450,19 @@ app-empty-state {
 .response-panel {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.response-content {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 12px 12px;
+  overflow: hidden;
+}
+
+.response-content-empty {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .response-empty-state {
@@ -5688,7 +5705,7 @@ app-empty-state {
 }
 
 .client-content .response-body-tools {
-  padding: 8px 12px;
+  padding: 8px 0 0;
 }
 
 .client-content .editor-shell,
@@ -5701,8 +5718,8 @@ app-empty-state {
 
 .client-content .response-empty-state {
   min-height: 0;
-  height: calc(100% - 12px);
-  margin: 0 12px 12px;
+  height: 100%;
+  margin: 0;
   border-style: solid;
   background:
     radial-gradient(circle at center top, rgba(99, 102, 241, 0.08), transparent 42%),
