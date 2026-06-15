@@ -5205,6 +5205,563 @@ app-empty-state {
   color: var(--success);
 }
 
+.content.client-content {
+  width: 100%;
+  height: 100vh;
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.client-content .client-focus-topbar {
+  position: static;
+  min-height: 58px;
+  grid-template-columns: auto minmax(190px, 230px) minmax(260px, 1fr) auto;
+  padding: 0 14px;
+}
+
+.client-content .client-layout {
+  height: calc(100vh - 58px);
+  min-height: 0;
+  grid-template-columns: 76px clamp(250px, 20vw, 304px) minmax(0, 1fr);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(79, 70, 229, 0.09), transparent 32%),
+    #070b13;
+}
+
+.client-content .client-icon-rail {
+  position: static;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 7px;
+}
+
+.client-content .client-icon-rail button {
+  min-height: 58px;
+  gap: 5px;
+  border-radius: 9px;
+  padding: 7px 4px;
+}
+
+.client-content .client-icon-rail small {
+  font-size: 10px;
+}
+
+.client-content .client-plan-card {
+  padding: 8px 5px;
+}
+
+.client-content .collection-rail {
+  position: static;
+  height: 100%;
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  scrollbar-width: thin;
+}
+
+.client-content .collection-rail::-webkit-scrollbar,
+.client-content .context-panel::-webkit-scrollbar,
+.client-content .editable-kv-table::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.client-content .collection-rail::-webkit-scrollbar-thumb,
+.client-content .context-panel::-webkit-scrollbar-thumb,
+.client-content .editable-kv-table::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.28);
+}
+
+.client-content .rail-header {
+  flex: 0 0 auto;
+  margin-bottom: 4px;
+}
+
+.client-content .rail-header h3 {
+  font-size: 15px;
+}
+
+.client-content .client-new-button {
+  min-height: 31px;
+  padding: 0 10px;
+}
+
+.client-content .rail-search {
+  flex: 0 0 auto;
+  min-height: 36px;
+  margin-bottom: 6px;
+}
+
+.client-content .collection-tree-node {
+  flex: 0 0 auto;
+  margin-bottom: 4px;
+  border-radius: 9px;
+}
+
+.client-content .collection-tree-node > button {
+  min-height: 54px;
+  padding: 8px 9px;
+}
+
+.client-content .collection-rail button strong {
+  font-size: 12px;
+}
+
+.client-content .collection-rail button span {
+  font-size: 11px;
+}
+
+.client-content .request-tree {
+  gap: 6px;
+  margin: 6px 6px 8px;
+  padding-top: 8px;
+}
+
+.client-content .request-tree-group-title {
+  padding: 5px 3px 2px;
+}
+
+.client-content .request-tree-item {
+  min-height: 50px;
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+.client-content .request-tree-item small {
+  font-size: 9px;
+}
+
+.client-content .api-client {
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0 12px 12px;
+}
+
+.client-content .api-client-toolbar {
+  position: static;
+  min-width: 0;
+  margin: 0 -12px;
+  padding: 7px 12px;
+}
+
+.client-content .request-tabs {
+  min-width: 0;
+}
+
+.client-content .request-tabs button {
+  min-width: 132px;
+  max-width: 190px;
+  min-height: 38px;
+  padding: 7px 8px;
+}
+
+.client-content .request-inline-search {
+  width: clamp(160px, 14vw, 220px);
+  min-height: 34px;
+}
+
+.client-content .request-bar {
+  grid-template-columns: 128px minmax(260px, 1fr) minmax(150px, 190px) 110px 86px 42px;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 8px;
+}
+
+.client-content .request-more-menu summary {
+  width: 40px;
+  height: 40px;
+}
+
+.client-content .url-input {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.client-content .request-helper-row {
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin: 7px 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.client-content .request-helper-row > span {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.client-content .request-helper-row .variable-chip {
+  min-width: 0;
+  max-width: 128px;
+  min-height: 24px;
+  overflow: hidden;
+  padding: 0 8px;
+  text-overflow: ellipsis;
+}
+
+.client-content .request-helper-row small:not(.inline-error):not(.inline-success) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-content .request-helper-row .inline-error,
+.client-content .request-helper-row .inline-success {
+  justify-self: end;
+  min-height: 24px;
+  max-width: min(420px, 36vw);
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(245, 158, 11, 0.32);
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.09);
+  padding: 0 9px;
+  color: #fbbf24;
+  text-overflow: ellipsis;
+}
+
+.client-content .request-helper-row .inline-success {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--success);
+}
+
+.client-content .request-workbench {
+  min-height: 0;
+  height: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 0;
+  overflow: hidden;
+}
+
+.client-content .request-workbench.context-open {
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 18vw, 292px);
+}
+
+.client-content .request-main {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: minmax(250px, 0.95fr) minmax(230px, 0.78fr);
+  gap: 12px;
+  overflow: hidden;
+}
+
+.client-content .request-config,
+.client-content .response-panel {
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.client-content .request-config {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0;
+}
+
+.client-content .request-config > :not(.tab-strip) {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.client-content .request-config > .tab-strip {
+  margin: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 9px 12px 0;
+}
+
+.client-content .tab-strip button {
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.client-content .request-config-grid {
+  height: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.client-content .kv-editor-card,
+.client-content .body-workbench,
+.client-content .body-kv-card,
+.client-content .body-editor-card {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.client-content .mini-panel-title {
+  flex: 0 0 auto;
+}
+
+.client-content .mini-panel-title h3,
+.client-content .body-toolbar h3 {
+  font-size: 14px;
+}
+
+.client-content .mini-panel-title p,
+.client-content .body-toolbar p {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.client-content .editable-kv-table {
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 5px;
+  padding: 7px;
+}
+
+.client-content .large-kv-table {
+  min-height: 0;
+  max-height: none;
+}
+
+.client-content .editable-kv-head,
+.client-content .editable-kv-row {
+  min-width: 0;
+  grid-template-columns: 24px minmax(92px, 0.46fr) minmax(120px, 1fr) 46px 28px;
+  gap: 6px;
+}
+
+.client-content .editable-kv-row {
+  min-height: 34px;
+  padding: 5px;
+}
+
+.client-content .editable-kv-row input,
+.client-content .body-kv-row select {
+  min-height: 28px;
+  font-size: 11px;
+}
+
+.client-content .body-toolbar {
+  grid-template-columns: minmax(0, 1fr) minmax(178px, 208px);
+  gap: 10px;
+  align-items: start;
+}
+
+.client-content .body-kv-table {
+  min-height: 0;
+  max-height: none;
+}
+
+.client-content .body-kv-head,
+.client-content .body-kv-row {
+  min-width: 0;
+  grid-template-columns: 24px minmax(96px, 0.34fr) minmax(145px, 1fr) minmax(78px, 0.22fr) minmax(110px, 0.34fr) 42px 28px !important;
+  gap: 6px;
+}
+
+.client-content .body-kv-row {
+  min-height: 40px;
+  margin: 0;
+  padding: 5px;
+}
+
+.client-content .secret-cell {
+  gap: 4px;
+}
+
+.client-content .tiny-action {
+  min-width: 32px;
+  height: 28px;
+  font-size: 9px;
+}
+
+.client-content .response-panel {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.client-content .response-toolbar {
+  min-height: 48px;
+  gap: 10px;
+  padding: 9px 12px 7px;
+}
+
+.client-content .response-toolbar::before {
+  margin-right: 8px;
+}
+
+.client-content .response-meta {
+  flex: 0 0 auto;
+}
+
+.client-content .response-toolbar .toolbar {
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  justify-content: flex-end;
+}
+
+.client-content .response-toolbar .toolbar .ghost-button {
+  min-width: 34px;
+  min-height: 30px;
+  padding-inline: 8px;
+  font-size: 11px;
+}
+
+.client-content .response-tabs {
+  margin: 0;
+  padding: 6px 12px 0;
+}
+
+.client-content .response-body-tools {
+  padding: 8px 12px;
+}
+
+.client-content .editor-shell,
+.client-content .response-preview-frame,
+.client-content .response-tree-shell {
+  min-height: 0;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.client-content .response-empty-state {
+  min-height: 0;
+  height: calc(100% - 12px);
+  margin: 0 12px 12px;
+}
+
+.client-content .context-panel {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 10px;
+}
+
+.client-content .context-panel .panel {
+  padding: 12px;
+}
+
+.client-content .context-panel h3 {
+  font-size: 14px;
+}
+
+.client-content .context-list {
+  gap: 7px;
+}
+
+.client-content .context-list span,
+.client-content .context-list strong {
+  font-size: 11px;
+}
+
+.client-content .env-preview-row {
+  grid-template-columns: minmax(70px, 0.55fr) minmax(0, 1fr) auto;
+  gap: 7px;
+  padding: 8px 9px;
+}
+
+.client-content .resolved-preview-card {
+  padding: 10px;
+}
+
+.client-content .compact-editor {
+  min-height: 76px;
+}
+
+.client-content .comment-box {
+  gap: 8px;
+}
+
+@media (max-width: 1500px) {
+  .client-content .request-workbench.context-open {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+
+  .client-content .request-bar {
+    grid-template-columns: 122px minmax(230px, 1fr) minmax(132px, 164px) 104px 78px 40px;
+  }
+
+  .client-content .body-kv-head,
+  .client-content .body-kv-row {
+    grid-template-columns: 24px minmax(86px, 0.32fr) minmax(132px, 1fr) minmax(72px, 0.2fr) 0 40px 28px !important;
+  }
+
+  .client-content .body-kv-head span:nth-child(5),
+  .client-content .body-kv-row > input:nth-of-type(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 1380px) {
+  .client-content .client-focus-topbar {
+    grid-template-columns: auto minmax(170px, 210px) minmax(220px, 1fr) auto;
+    gap: 10px;
+  }
+
+  .client-content .client-layout {
+    grid-template-columns: 70px 250px minmax(0, 1fr);
+  }
+
+  .client-content .client-icon-rail button {
+    min-height: 54px;
+  }
+
+  .client-content .request-workbench.context-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .client-content .context-panel {
+    display: none;
+  }
+
+  .client-content .request-bar {
+    grid-template-columns: 116px minmax(220px, 1fr) minmax(120px, 150px) 96px 72px 38px;
+  }
+
+  .client-content .request-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .client-content .api-client-toolbar-actions {
+    display: none;
+  }
+}
+
+@media (max-width: 1120px) {
+  .client-content .client-layout {
+    grid-template-columns: 66px minmax(0, 1fr);
+  }
+
+  .client-content .collection-rail {
+    display: none;
+  }
+
+  .client-content .request-bar {
+    grid-template-columns: 110px minmax(0, 1fr) 96px 70px 38px;
+  }
+
+  .client-content .request-env-shell {
+    display: none;
+  }
+}
+
 .validation-stack {
   display: grid;
   gap: 6px;
