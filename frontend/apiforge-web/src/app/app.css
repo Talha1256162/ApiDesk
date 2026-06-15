@@ -5553,7 +5553,7 @@ app-empty-state {
 .client-content .request-main {
   min-height: 0;
   height: 100%;
-  grid-template-rows: minmax(210px, 0.95fr) minmax(180px, 0.78fr);
+  grid-template-rows: minmax(170px, 0.68fr) minmax(240px, 1fr);
   gap: 12px;
   overflow: hidden;
 }
