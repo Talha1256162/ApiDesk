@@ -5645,6 +5645,10 @@ app-empty-state {
   margin: 0 12px 12px;
 }
 
+.client-content .response-empty-state app-empty-state {
+  transform: translateY(-10px);
+}
+
 .client-content .context-panel {
   min-height: 0;
   max-height: none;
