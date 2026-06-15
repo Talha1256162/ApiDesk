@@ -1,4 +1,4 @@
-<div class="app-shell" [class.light-shell]="!darkMode()">
+<div class="app-shell" [class.light-shell]="!darkMode()" [class.api-client-app-shell]="isSignedIn() && activeView() === 'api-client'">
   @if (!isSignedIn()) {
     @if (publicView === 'landing') {
       <main class="marketing-shell">
@@ -333,7 +333,7 @@
     </main>
     }
   } @else {
-    <aside class="sidebar">
+    <aside class="sidebar" [class.api-client-hidden]="activeView() === 'api-client'">
       <div class="sidebar-brand">
         <img class="brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
         <div>
@@ -395,8 +395,8 @@
       </div>
     </aside>
 
-    <section class="workspace">
-      <header class="topbar">
+    <section class="workspace" [class.api-client-workspace]="activeView() === 'api-client'">
+      <header class="topbar" [class.api-client-hidden]="activeView() === 'api-client'">
         <div class="topbar-title">
           <strong>{{ activeViewTitle() }}</strong>
           <span>{{ selectedWorkspace()?.name || 'Loading workspace' }}</span>
@@ -419,7 +419,32 @@
       </header>
 
       <main class="content" [class.client-content]="activeView() === 'api-client'">
-        <section class="scope-bar">
+        @if (activeView() === 'api-client') {
+          <header class="client-focus-topbar">
+            <button class="client-brand-button" type="button" (click)="selectView('dashboard')">
+              <img class="client-brand-mark" src="apeiron-mark.svg" alt="Apeiron" />
+              <strong>Apeiron</strong>
+            </button>
+            <app-premium-select [options]="workspaceOptions()" [value]="selectedWorkspaceId()" (valueChange)="onWorkspaceChange($event)"></app-premium-select>
+            <div class="client-search-shell">
+              <span aria-hidden="true"></span>
+              <input class="search" placeholder="Quick Search" [(ngModel)]="globalSearch" />
+              <kbd>Ctrl K</kbd>
+            </div>
+            <div class="client-topbar-icons">
+              <button class="client-icon-button" type="button" (click)="selectView('documentation')" aria-label="Help">?</button>
+              <button class="client-icon-button" type="button" (click)="selectView('activity')" aria-label="Notifications">
+                @if (activity().length) {
+                  <span class="notification-dot">{{ activity().length > 9 ? '9+' : activity().length }}</span>
+                }
+              </button>
+              <button class="client-icon-button" type="button" (click)="toggleTheme()" [attr.aria-label]="darkMode() ? 'Switch to light mode' : 'Switch to dark mode'">T</button>
+              <button class="client-avatar-button" type="button" (click)="selectView('settings')" aria-label="Profile">{{ currentUserInitials() }}</button>
+            </div>
+          </header>
+        }
+
+        <section class="scope-bar" [class.api-client-hidden]="activeView() === 'api-client'">
           <app-premium-select label="Organization" [options]="organizationOptions()" [value]="selectedOrganizationId()" (valueChange)="onOrganizationChange($event)"></app-premium-select>
           <app-premium-select label="Workspace" [options]="workspaceOptions()" [value]="selectedWorkspaceId()" (valueChange)="onWorkspaceChange($event)"></app-premium-select>
           <app-premium-select label="Environment" [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="onEnvironmentChange($event)"></app-premium-select>
@@ -704,10 +729,28 @@
 
         @if (activeView() === 'collections' || activeView() === 'api-client') {
           <section class="client-layout">
+            @if (activeView() === 'api-client') {
+              <aside class="client-icon-rail" aria-label="API Client navigation">
+                <button class="active" type="button" (click)="selectView('api-client')" aria-label="API Client"><span class="rail-glyph">AP</span><small>API Client</small></button>
+                <button type="button" (click)="selectView('collections')" aria-label="Collections"><span class="rail-glyph">CO</span><small>Collections</small></button>
+                <button type="button" (click)="selectView('environments')" aria-label="Environments"><span class="rail-glyph">EN</span><small>Environments</small></button>
+                <button type="button" (click)="selectView('mock-servers')" aria-label="Mock Servers"><span class="rail-glyph">MO</span><small>Mock Servers</small></button>
+                <button type="button" (click)="selectView('monitors')" aria-label="Monitors"><span class="rail-glyph">MN</span><small>Monitors</small></button>
+                <button type="button" (click)="selectView('documentation')" aria-label="Docs"><span class="rail-glyph">DC</span><small>Docs</small></button>
+                <button type="button" (click)="requestConfigTab = 'Tests'" aria-label="History"><span class="rail-glyph">HI</span><small>History</small></button>
+                <button type="button" (click)="selectView('team')" aria-label="Team"><span class="rail-glyph">TM</span><small>Team</small></button>
+                <button type="button" (click)="selectView('settings')" aria-label="Settings"><span class="rail-glyph">ST</span><small>Settings</small></button>
+                <div class="client-plan-card">
+                  <span>AP</span>
+                  <strong>Team Plan</strong>
+                  <small>Unlimited</small>
+                </div>
+              </aside>
+            }
             <aside class="collection-rail">
               <div class="rail-header">
                 <h3>Collections</h3>
-                <app-badge [label]="collections().length + ''" tone="accent"></app-badge>
+                <button class="client-new-button" type="button" (click)="createNewRequest()">+ New</button>
               </div>
               <div class="rail-actions">
                 <button class="secondary-action" type="button" (click)="createNewRequest()">New request</button>
@@ -820,12 +863,11 @@
                   } @empty {
                     <span class="muted">Open a request from the collection tree</span>
                   }
+                  <button class="request-tab-icon" type="button" (click)="createNewRequest()" aria-label="New request tab">+</button>
+                  <button class="request-tab-icon" type="button" aria-label="More open requests">...</button>
                 </div>
                 <div class="api-client-toolbar-actions">
                   <input class="request-inline-search" placeholder="Search requests" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
-                  <button class="primary-action compact-action" type="button" (click)="aiAgentOpen.set(true)">AI Agent</button>
-                  <button class="secondary-action compact-action" type="button" (click)="openCurlImport()">Import cURL</button>
-                  <button class="ghost-button compact-action" type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>
                 </div>
               </div>
 
@@ -834,14 +876,26 @@
                   <app-premium-select [options]="methodOptions()" [value]="requestMethod" (valueChange)="requestMethod = $event"></app-premium-select>
                 </div>
                 <div class="url-command-shell">
-                  <span>{{ selectedEnvironment()?.name || 'No environment' }}</span>
                   <input class="url-input" [ngModel]="requestUrl" (ngModelChange)="onRequestUrlChange($event)" [placeholder]="'https://api.example.com/users/{{id}}'" />
+                </div>
+                <div class="request-env-shell">
+                  <app-premium-select [options]="environmentOptions()" [value]="selectedEnvironmentId()" (valueChange)="onEnvironmentChange($event)"></app-premium-select>
                 </div>
                 <button class="send-button" type="button" (click)="sendSelectedRequest()" [disabled]="!canSendRequest()">
                   {{ pageLoading() ? 'Sending...' : 'Send' }}
                 </button>
                 <button class="secondary-action" type="button" (click)="saveSelectedRequest()" [disabled]="pageLoading()">Save</button>
-                <button class="ghost-button curl-action" type="button" (click)="copyRequestAsCurl()">cURL</button>
+                <details class="request-more-menu">
+                  <summary aria-label="More request actions">...</summary>
+                  <div>
+                    <button type="button" (click)="aiAgentOpen.set(true)">AI Agent</button>
+                    <button type="button" (click)="openCurlImport()">Import cURL</button>
+                    <button type="button" (click)="copyRequestAsCurl()">Export cURL</button>
+                    <button type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>
+                    <button type="button" (click)="duplicateSelectedRequest()">Duplicate Request</button>
+                    <button type="button" class="danger-text" disabled title="Delete request API is not available in this build.">Delete Request</button>
+                  </div>
+                </details>
               </div>
               <div class="request-helper-row">
                 <span>Variables</span>
@@ -1033,12 +1087,22 @@
                             </div>
                           </div>
                           <div class="editable-kv-table body-kv-table">
-                            <div class="editable-kv-head"><span></span><span>Key</span><span>Value</span><span>Secret</span><span></span></div>
+                            <div class="editable-kv-head body-kv-head"><span></span><span>Key</span><span>Value</span><span>Type</span><span>Description</span><span>Secret</span><span></span></div>
                             @for (row of requestBodyRows; track row.id) {
-                              <div class="editable-kv-row" [class.disabled-row]="row.enabled === false">
+                              <div class="editable-kv-row body-kv-row" [class.disabled-row]="row.enabled === false">
                                 <input class="kv-check" type="checkbox" [(ngModel)]="row.enabled" (ngModelChange)="syncBodyContentFromRows()" />
                                 <input [(ngModel)]="row.key" (ngModelChange)="syncBodyContentFromRows()" placeholder="name" />
-                                <input [(ngModel)]="row.value" (ngModelChange)="syncBodyContentFromRows()" [type]="row.isSecret ? 'password' : 'text'" placeholder="value" />
+                                <div class="secret-cell">
+                                  <input [(ngModel)]="row.value" (ngModelChange)="syncBodyContentFromRows()" [type]="row.isSecret && !row.showSecret ? 'password' : 'text'" placeholder="value" />
+                                  @if (row.isSecret) {
+                                    <button class="icon-action tiny-action" type="button" (click)="row.showSecret = !row.showSecret" [attr.aria-label]="row.showSecret ? 'Hide value' : 'Show value'">{{ row.showSecret ? 'hide' : 'show' }}</button>
+                                  }
+                                </div>
+                                <select [(ngModel)]="row.valueType">
+                                  <option>Text</option>
+                                  <option>File</option>
+                                </select>
+                                <input [(ngModel)]="row.description" placeholder="Optional description" />
                                 <input class="kv-check" type="checkbox" [(ngModel)]="row.isSecret" (ngModelChange)="syncBodyContentFromRows()" />
                                 <button class="icon-action" type="button" (click)="removeBodyRow(row.id)" aria-label="Remove body row">x</button>
                               </div>
@@ -1102,9 +1166,13 @@
                           <span>{{ responseSearchMatches() }} matches</span>
                         </label>
                       </div>
-                      @if (responseViewMode() === 'tree' && responseTreeValue()) {
+                      @if (responseViewMode() === 'Visualize' && responseTreeValue()) {
                         <div class="response-tree-shell">
                           <app-json-tree [value]="responseTreeValue()" rootLabel="response"></app-json-tree>
+                        </div>
+                      } @else if (responseViewMode() === 'Preview') {
+                        <div class="response-preview-frame">
+                          <pre>{{ responseViewerBody() }}</pre>
                         </div>
                       } @else {
                         <div class="editor-shell">
@@ -1131,6 +1199,12 @@
                       } @empty {
                         <app-empty-state title="No cookies" description="No cookies were returned by the last response."></app-empty-state>
                       }
+                    </div>
+                  } @else if (responseTab === 'Test Results') {
+                    <div class="settings-grid">
+                      <div><span>Status assertion</span><strong>{{ apiResponse()?.statusCode ? 'Available' : '-' }}</strong></div>
+                      <div><span>Response time</span><strong>{{ apiResponse()?.elapsedMs ?? 0 }}ms</strong></div>
+                      <div><span>Body check</span><strong>{{ apiResponse()?.body ? 'Body returned' : 'No body' }}</strong></div>
                     </div>
                   } @else if (responseTab === 'Timeline') {
                     <div class="settings-grid">
@@ -1218,6 +1292,19 @@
                         <button class="secondary-action" type="button" (click)="createEnvironmentQuick()">Create environment</button>
                       </app-empty-state>
                     }
+                  </article>
+                  <article class="panel runner-details-card">
+                    <span class="eyebrow">Runner details</span>
+                    <div class="context-list">
+                      <span>Request ID <strong>{{ apiResponse()?.runId || selectedRequestId() || '-' }}</strong></span>
+                      <span>Started at <strong>{{ apiResponse()?.startedOnUtc ? (apiResponse()?.startedOnUtc | date:'short') : '-' }}</strong></span>
+                      <span>Environment <strong>{{ selectedEnvironment()?.name || 'No environment' }}</strong></span>
+                      <span>Resolved URL <strong>{{ resolvedRequestUrl().value || '-' }}</strong></span>
+                      <span>Method <strong>{{ requestMethod || '-' }}</strong></span>
+                      <span>Timeout <strong>{{ requestTimeoutMs }} ms</strong></span>
+                      <span>Elapsed <strong>{{ apiResponse()?.elapsedMs ?? 0 }} ms</strong></span>
+                      <span>Error category <strong>{{ missingRequestVariables().length ? 'Missing variables' : apiResponse()?.succeeded === false ? 'HTTP response' : '-' }}</strong></span>
+                    </div>
                   </article>
                   <article class="panel">
                     <span class="eyebrow">Request activity</span>

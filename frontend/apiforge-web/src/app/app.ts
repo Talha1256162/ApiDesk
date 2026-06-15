@@ -90,9 +90,9 @@ type NavItem = { key: ViewKey; label: string; hint: string; icon: string };
 type NavGroup = { id: string; label: string; hint: string; icon: string; key?: ViewKey; children: NavItem[] };
 type NavSection = { title: string; items?: NavItem[]; groups?: NavGroup[] };
 type RequestConfigTab = 'Params' | 'Auth' | 'Headers' | 'Body' | 'Tests' | 'Settings';
-type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Timeline' | 'History';
-type ResponseViewMode = 'pretty' | 'raw' | 'tree';
-type EditableKeyValue = KeyValueItem & { id: string };
+type ResponseTab = 'Body' | 'Headers' | 'Cookies' | 'Test Results' | 'Timeline' | 'History';
+type ResponseViewMode = 'Pretty' | 'Raw' | 'Preview' | 'Visualize';
+type EditableKeyValue = KeyValueItem & { id: string; valueType?: string; description?: string; showSecret?: boolean };
 type EditableKeyValueKind = 'headers' | 'query' | 'path';
 type EditableEnvironmentVariable = EnvironmentVariable & { clientId: string; valueDraft: string; showSecret: boolean };
 type RequestTreeGroup = { key: string; label: string; requests: ApiRequestSummary[] };
@@ -216,7 +216,7 @@ export class App implements OnInit {
   readonly apiResponse = signal<ApiResponse | null>(null);
   readonly collectionRun = signal<CollectionRunResult | null>(null);
   readonly responseBody = signal('');
-  readonly responseViewMode = signal<ResponseViewMode>('pretty');
+  readonly responseViewMode = signal<ResponseViewMode>('Pretty');
   readonly realtimeStatus = signal('offline');
   readonly selectedOrganizationId = signal('');
   readonly selectedWorkspaceId = signal('');
@@ -309,10 +309,10 @@ export class App implements OnInit {
     if (!body) {
       return '';
     }
-    if (this.responseViewMode() === 'raw') {
+    if (this.responseViewMode() === 'Raw') {
       return body;
     }
-    if (this.responseViewMode() === 'tree') {
+    if (this.responseViewMode() === 'Visualize') {
       try {
         return this.developerTools.tree(body);
       } catch {
@@ -328,7 +328,7 @@ export class App implements OnInit {
     }
     return body;
   });
-  readonly responseViewerLanguage = computed(() => (this.responseViewMode() === 'tree' || !this.looksLikeJson(this.responseViewerBody()) ? 'plaintext' : 'json'));
+  readonly responseViewerLanguage = computed(() => (this.responseViewMode() === 'Visualize' || !this.looksLikeJson(this.responseViewerBody()) ? 'plaintext' : 'json'));
   readonly responseTreeValue = computed(() => {
     const body = this.responseBody() || this.apiResponse()?.body || '';
     if (!body || !this.looksLikeJson(body)) {
@@ -400,10 +400,12 @@ export class App implements OnInit {
   ]);
   readonly bodyTypeOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'none', label: 'none', meta: 'No request body' },
-    { value: 'rawJson', label: 'raw JSON', meta: 'Application JSON' },
-    { value: 'text', label: 'raw text', meta: 'Plain text' },
+    { value: 'text', label: 'raw', meta: 'Plain text' },
+    { value: 'rawJson', label: 'JSON', meta: 'Application JSON' },
     { value: 'formData', label: 'form-data', meta: 'Multipart key/value' },
-    { value: 'formUrlEncoded', label: 'x-www-form-urlencoded', meta: 'Encoded key/value' }
+    { value: 'formUrlEncoded', label: 'x-www-form-urlencoded', meta: 'Encoded key/value' },
+    { value: 'binary', label: 'binary', meta: 'Placeholder' },
+    { value: 'graphql', label: 'GraphQL', meta: 'Query text' }
   ]);
   readonly specFormatOptions = computed<PremiumSelectOption[]>(() => [
     { value: 'json', label: 'JSON', meta: 'OpenAPI JSON' },
@@ -449,8 +451,8 @@ export class App implements OnInit {
   );
   readonly jsonTabs = ['Beautify', 'Validate', 'Tree View', 'Minify', 'Compare', 'Convert', 'Schema'] as const;
   readonly requestConfigTabs: RequestConfigTab[] = ['Params', 'Auth', 'Headers', 'Body', 'Tests', 'Settings'];
-  readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Timeline', 'History'];
-  readonly responseViewModes: ResponseViewMode[] = ['pretty', 'raw', 'tree'];
+  readonly responseTabs: ResponseTab[] = ['Body', 'Headers', 'Cookies', 'Test Results', 'Timeline', 'History'];
+  readonly responseViewModes: ResponseViewMode[] = ['Pretty', 'Raw', 'Preview', 'Visualize'];
   private readonly navStorageKey = 'apiforge.sidebar.expandedGroups';
   readonly expandedNavGroups = signal<string[]>(this.readExpandedNavGroups());
   readonly navSections: NavSection[] = [
@@ -552,7 +554,7 @@ export class App implements OnInit {
   registerOrganization = '';
   registerWorkspace = '';
   globalSearch = '';
-  contextPanelOpen = false;
+  contextPanelOpen = true;
   feedbackCategory = 'UX';
   feedbackSentiment = 'Neutral';
   feedbackRating = 4;
@@ -2257,6 +2259,39 @@ export class App implements OnInit {
     });
   }
 
+  duplicateSelectedRequest(): void {
+    if (!this.selectedCollectionId() || !this.requestDetail()) {
+      this.showToast('Select a request', 'Open a saved request before duplicating it.', 'danger');
+      return;
+    }
+
+    const payload = {
+      ...this.buildRequestPayload(1),
+      name: `${this.requestName.trim() || 'Request'} copy`
+    };
+
+    this.pageLoading.set(true);
+    this.api.createRequest(this.selectedCollectionId(), payload).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded || !result.data) {
+          this.showToast('Duplicate failed', result.message, 'danger');
+          return;
+        }
+        this.selectedRequestId.set(result.data.id);
+        this.requestDetail.set(result.data);
+        this.populateRequestEditor(result.data);
+        this.showToast('Request duplicated', result.data.name, 'success');
+        this.loadCollections();
+        this.loadRequestHistory();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Duplicate failed', error?.error?.message ?? 'The request could not be duplicated.', 'danger');
+      }
+    });
+  }
+
   runSelectedCollection(): void {
     if (!this.selectedCollectionId()) {
       this.showToast('Select a collection', 'Choose a collection before running it.', 'danger');
@@ -3656,7 +3691,7 @@ export class App implements OnInit {
   }
 
   isRawBodyType(): boolean {
-    return this.requestBodyType === 'rawJson' || this.requestBodyType === 'text' || this.requestBodyType === 'rawText';
+    return this.requestBodyType === 'rawJson' || this.requestBodyType === 'text' || this.requestBodyType === 'rawText' || this.requestBodyType === 'graphql';
   }
 
   requestTabBadge(tab: RequestConfigTab): string {
@@ -3930,7 +3965,10 @@ export class App implements OnInit {
       key,
       value: value ?? '',
       enabled,
-      isSecret: isSecret ?? this.isSensitiveKey(key)
+      isSecret: isSecret ?? this.isSensitiveKey(key),
+      valueType: 'Text',
+      description: '',
+      showSecret: false
     };
   }
 
