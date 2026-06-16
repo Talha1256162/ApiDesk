@@ -5559,7 +5559,7 @@ app-empty-state {
 }
 
 .client-content .request-main:has(.body-workbench) {
-  grid-template-rows: minmax(380px, 1fr) minmax(106px, 0.34fr);
+  grid-template-rows: minmax(366px, 1fr) minmax(120px, 0.38fr);
 }
 
 .client-content .request-config,
