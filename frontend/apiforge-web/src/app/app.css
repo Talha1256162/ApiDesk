@@ -5602,6 +5602,20 @@ app-empty-state {
   overflow: hidden;
 }
 
+.client-content .body-workbench {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.client-content .body-kv-card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: visible;
+}
+
 .client-content .mini-panel-title {
   flex: 0 0 auto;
 }
@@ -5656,25 +5670,35 @@ app-empty-state {
 }
 
 .client-content .body-kv-table {
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 168px;
   max-height: none;
+  overflow-y: visible;
+  overflow-x: hidden;
 }
 
 .client-content .body-kv-head,
 .client-content .body-kv-row {
   min-width: 0;
-  grid-template-columns: 24px minmax(96px, 0.34fr) minmax(145px, 1fr) minmax(78px, 0.22fr) minmax(110px, 0.34fr) 42px 28px !important;
-  gap: 6px;
+  grid-template-columns: 24px minmax(112px, 0.55fr) minmax(160px, 1fr) minmax(86px, 0.28fr) minmax(132px, 0.48fr) 48px 30px !important;
+  gap: 7px;
 }
 
 .client-content .body-kv-row {
-  min-height: 40px;
+  min-height: 46px;
   margin: 0;
-  padding: 5px;
+  padding: 7px;
+  overflow: visible;
 }
 
 .client-content .secret-cell {
   gap: 4px;
+}
+
+.client-content .body-kv-row input,
+.client-content .body-kv-row select,
+.client-content .body-kv-row .icon-action {
+  align-self: center;
 }
 
 .client-content .tiny-action {

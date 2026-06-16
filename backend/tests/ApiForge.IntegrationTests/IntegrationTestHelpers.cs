@@ -18,7 +18,16 @@ internal static class IntegrationTestHelpers
     public static async Task<Guid> GetAdminMemberIdAsync(this ApiDeskWebApplicationFactory factory, AuthSession admin)
     {
         var memberId = await factory.ExecuteScalarAsync<Guid?>(
-            "select top 1 id from organizationMembers where organizationId = @OrganizationId and status = 'Active' and isDeleted = 0 order by createdOn;",
+            """
+            select top 1 om.id
+            from organizationMembers om
+            join roles r on r.id = om.roleId and r.isDeleted = 0
+            where om.organizationId = @OrganizationId
+                and om.status = 'Active'
+                and om.isDeleted = 0
+                and r.name = 'Owner'
+            order by om.createdOn;
+            """,
             new { admin.OrganizationId });
         memberId.Should().NotBeNull();
         return memberId!.Value;
