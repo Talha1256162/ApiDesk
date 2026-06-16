@@ -33,10 +33,38 @@ import { Component, Input } from '@angular/core';
         height: 36px;
         display: grid;
         place-items: center;
-        border-radius: 10px;
-        background: var(--surface-muted);
+        position: relative;
+        border: 1px solid rgba(99, 102, 241, 0.24);
+        border-radius: 12px;
+        background:
+          radial-gradient(circle at 35% 30%, rgba(99, 102, 241, 0.26), transparent 42%),
+          var(--surface-muted);
         color: var(--text-primary);
-        font-weight: 800;
+        font-size: 10px;
+        font-weight: 900;
+        box-shadow: 0 12px 30px rgba(99, 102, 241, 0.12);
+      }
+
+      .empty-icon::before,
+      .empty-icon::after {
+        content: '';
+        position: absolute;
+        border-radius: 999px;
+        background: currentColor;
+        opacity: 0.5;
+      }
+
+      .empty-icon::before {
+        width: 5px;
+        height: 5px;
+        top: 9px;
+        right: 9px;
+      }
+
+      .empty-icon::after {
+        width: 14px;
+        height: 2px;
+        bottom: 10px;
       }
 
       strong {
@@ -67,7 +95,7 @@ import { Component, Input } from '@angular/core';
   ]
 })
 export class EmptyStateComponent {
-  @Input() icon = 'AF';
+  @Input() icon = 'AP';
   @Input({ required: true }) title = '';
   @Input() description = '';
 }

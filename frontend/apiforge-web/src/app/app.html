@@ -407,12 +407,19 @@
           <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
           <app-badge [label]="'Live ' + realtimeStatus()" [tone]="realtimeStatus() === 'online' ? 'success' : 'default'"></app-badge>
           <button class="primary-action" type="button" (click)="selectView('team')">Invite</button>
-          <button class="secondary-action compact-button" type="button" (click)="openBetaChecklist()">Beta checklist</button>
-          <button class="ghost-button compact-button" type="button" (click)="openFeedback()">Feedback</button>
-          <button class="ghost-button compact-button" type="button" (click)="openPricing()">Pricing</button>
-          <button class="ghost-button compact-button" type="button" (click)="selectView('activity')">Alerts</button>
-          <button class="ghost-button" type="button" (click)="selectView('documentation')">Help &amp; Docs</button>
-          <button class="ghost-button" type="button" (click)="toggleTheme()">{{ darkMode() ? 'Light' : 'Dark' }}</button>
+          <div class="topbar-more">
+            <button class="ghost-button compact-button" type="button" (click)="topbarMoreOpen.set(!topbarMoreOpen())" [attr.aria-expanded]="topbarMoreOpen()" aria-haspopup="menu">More</button>
+            @if (topbarMoreOpen()) {
+              <div class="topbar-more-menu" role="menu">
+                <button type="button" role="menuitem" (click)="openBetaChecklist(); topbarMoreOpen.set(false)">Beta checklist</button>
+                <button type="button" role="menuitem" (click)="openFeedback(); topbarMoreOpen.set(false)">Feedback</button>
+                <button type="button" role="menuitem" (click)="openPricing(); topbarMoreOpen.set(false)">Pricing</button>
+                <button type="button" role="menuitem" (click)="selectView('activity'); topbarMoreOpen.set(false)">Alerts</button>
+                <button type="button" role="menuitem" (click)="selectView('documentation'); topbarMoreOpen.set(false)">Help &amp; Docs</button>
+                <button type="button" role="menuitem" (click)="toggleTheme(); topbarMoreOpen.set(false)">{{ darkMode() ? 'Light mode' : 'Dark mode' }}</button>
+              </div>
+            }
+          </div>
           <button class="profile-button" type="button" (click)="selectView('settings')">{{ currentUserName() }}</button>
           <button class="danger-action" type="button" (click)="logout()">Logout</button>
         </div>
@@ -731,15 +738,15 @@
           <section class="client-layout">
             @if (activeView() === 'api-client') {
               <aside class="client-icon-rail" aria-label="API Client navigation">
-                <button class="active" type="button" (click)="selectView('api-client')" aria-label="API Client"><span class="rail-glyph">AP</span><small>API Client</small></button>
-                <button type="button" (click)="selectView('collections')" aria-label="Collections"><span class="rail-glyph">CO</span><small>Collections</small></button>
-                <button type="button" (click)="selectView('environments')" aria-label="Environments"><span class="rail-glyph">EN</span><small>Environments</small></button>
-                <button type="button" (click)="selectView('mock-servers')" aria-label="Mock Servers"><span class="rail-glyph">MO</span><small>Mock Servers</small></button>
-                <button type="button" (click)="selectView('monitors')" aria-label="Monitors"><span class="rail-glyph">MN</span><small>Monitors</small></button>
-                <button type="button" (click)="selectView('documentation')" aria-label="Docs"><span class="rail-glyph">DC</span><small>Docs</small></button>
-                <button type="button" (click)="requestConfigTab = 'Tests'" aria-label="History"><span class="rail-glyph">HI</span><small>History</small></button>
-                <button type="button" (click)="selectView('team')" aria-label="Team"><span class="rail-glyph">TM</span><small>Team</small></button>
-                <button type="button" (click)="selectView('settings')" aria-label="Settings"><span class="rail-glyph">ST</span><small>Settings</small></button>
+                <button class="active" type="button" (click)="selectView('api-client')" aria-label="API Client"><span class="rail-icon rail-api" aria-hidden="true"></span><small>API Client</small></button>
+                <button type="button" (click)="selectView('collections')" aria-label="Collections"><span class="rail-icon rail-collections" aria-hidden="true"></span><small>Collections</small></button>
+                <button type="button" (click)="selectView('environments')" aria-label="Environments"><span class="rail-icon rail-env" aria-hidden="true"></span><small>Environments</small></button>
+                <button type="button" (click)="selectView('mock-servers')" aria-label="Mock Servers"><span class="rail-icon rail-mock" aria-hidden="true"></span><small>Mock Servers</small></button>
+                <button type="button" (click)="selectView('monitors')" aria-label="Monitors"><span class="rail-icon rail-monitor" aria-hidden="true"></span><small>Monitors</small></button>
+                <button type="button" (click)="selectView('documentation')" aria-label="Docs"><span class="rail-icon rail-docs" aria-hidden="true"></span><small>Docs</small></button>
+                <button type="button" (click)="requestConfigTab = 'Tests'" aria-label="History"><span class="rail-icon rail-history" aria-hidden="true"></span><small>History</small></button>
+                <button type="button" (click)="selectView('team')" aria-label="Team"><span class="rail-icon rail-team" aria-hidden="true"></span><small>Team</small></button>
+                <button type="button" (click)="selectView('settings')" aria-label="Settings"><span class="rail-icon rail-settings" aria-hidden="true"></span><small>Settings</small></button>
                 <div class="client-plan-card">
                   <span>AP</span>
                   <strong>Team Plan</strong>
@@ -1663,7 +1670,16 @@
             <div><span class="eyebrow">AI API Agent Orchestra</span><h2>Generate runnable API flows</h2><p>Describe a business flow in English, Urdu, or Roman Urdu. If no provider key is configured, Apeiron uses a transparent deterministic fallback.</p></div>
             <div class="toolbar"><button class="secondary-action" type="button" (click)="loadAiConfig()">Refresh</button><button class="primary-action" type="button" (click)="aiAgentOpen.set(true)">Open agent</button></div>
           </section>
-          <div class="inline-info">
+          <div class="ai-warning-banner" [class.configured]="aiProviderStatus()?.configured">
+            <div>
+              <strong>{{ aiProviderStatus()?.configured ? 'Real AI provider configured' : 'Fallback generator active' }}</strong>
+              <span>{{ aiProviderStatus()?.providerName || 'Fallback' }} · {{ aiProviderStatus()?.modelName || 'not configured' }}</span>
+            </div>
+            @if (!aiProviderStatus()?.configured) {
+              <a class="secondary-action compact-action" href="#ai-provider-config">Configure provider</a>
+            }
+          </div>
+          <div class="inline-info ai-mode-legacy">
             AI mode:
             <strong>{{ aiProviderStatus()?.configured ? 'Real provider' : 'Fallback only' }}</strong>
             · {{ aiProviderStatus()?.providerName || 'Fallback' }}
@@ -1698,12 +1714,26 @@
                 </div>
                 <button class="primary-action wide" type="button" (click)="approveAiCollection()" [disabled]="aiCreating">{{ aiCreating ? 'Creating...' : 'Approve and create collection' }}</button>
               } @else {
-                <app-empty-state title="No AI preview" description="Generate a preview to review folders, requests, variables, tests, and mock examples before creating anything."></app-empty-state>
+                <div class="ai-preview-empty">
+                  <div class="ai-preview-illustration" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <strong>Your generated collection preview will appear here</strong>
+                  <p>Generate a preview to review folders, requests, variables, tests, and mock examples before creating anything.</p>
+                  <div class="ai-skeleton-preview" aria-hidden="true">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </div>
               }
             </div>
           </section>
           <section class="report-grid">
-            <article class="panel editor-card">
+            <article id="ai-provider-config" class="panel editor-card">
               <app-premium-select label="Provider" [options]="aiProviderOptions()" [value]="aiProvider" (valueChange)="aiProvider = $event"></app-premium-select>
               <input [(ngModel)]="aiModelName" placeholder="Model name" />
               <input [(ngModel)]="aiEndpointUrl" placeholder="Provider endpoint URL" />

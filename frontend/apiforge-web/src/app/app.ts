@@ -173,6 +173,7 @@ export class App implements OnInit {
   readonly postmanImportOpen = signal(false);
   readonly feedbackOpen = signal(false);
   readonly betaChecklistOpen = signal(false);
+  readonly topbarMoreOpen = signal(false);
   readonly aiAgentOpen = signal(false);
   readonly generatedTestsOpen = signal(false);
   readonly generatedMockOpen = signal(false);
