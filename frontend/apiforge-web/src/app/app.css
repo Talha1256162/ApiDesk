@@ -5559,7 +5559,7 @@ app-empty-state {
 }
 
 .client-content .request-main:has(.body-workbench) {
-  grid-template-rows: minmax(360px, 1fr) minmax(126px, 0.42fr);
+  grid-template-rows: minmax(380px, 1fr) minmax(106px, 0.34fr);
 }
 
 .client-content .request-config,
@@ -5675,10 +5675,11 @@ app-empty-state {
 
 .client-content .body-kv-table {
   flex: 1 1 auto;
-  min-height: 168px;
+  min-height: 190px;
   max-height: none;
   overflow-y: visible;
   overflow-x: hidden;
+  padding-bottom: 10px;
 }
 
 .client-content .body-kv-head,
