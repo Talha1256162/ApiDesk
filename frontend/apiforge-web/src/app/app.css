@@ -5558,6 +5558,10 @@ app-empty-state {
   overflow: hidden;
 }
 
+.client-content .request-main:has(.body-workbench) {
+  grid-template-rows: minmax(310px, 1fr) minmax(178px, 0.56fr);
+}
+
 .client-content .request-config,
 .client-content .response-panel {
   min-height: 0;
