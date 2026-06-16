@@ -403,8 +403,10 @@
         </div>
 
         <div class="topbar-actions">
-          <input class="search" placeholder="Search APIs, users, activity" [(ngModel)]="globalSearch" />
-          <button class="ghost-button" type="button" (click)="commandOpen.set(true)">Ctrl K</button>
+          <button class="topbar-search-control" type="button" (click)="commandOpen.set(true)" aria-label="Open command search">
+            <span>{{ globalSearch || 'Search APIs, users, activity' }}</span>
+            <kbd>Ctrl K</kbd>
+          </button>
           <app-badge [label]="'Live ' + realtimeStatus()" [tone]="realtimeStatus() === 'online' ? 'success' : 'default'"></app-badge>
           <button class="primary-action" type="button" (click)="selectView('team')">Invite</button>
           <div class="topbar-more">
