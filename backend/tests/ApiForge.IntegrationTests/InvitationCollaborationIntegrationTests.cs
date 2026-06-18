@@ -70,12 +70,41 @@ public sealed class InvitationCollaborationIntegrationTests(ApiDeskWebApplicatio
         (await RequestNamesAsync(leadClient, collectionId)).Should().Contain("Developer two edited request");
         (await RequestNamesAsync(dev1Client, collectionId)).Should().Contain("Developer two edited request");
 
+        var deleteRequest = await dev1Client.DeleteAsync($"/api/requests/{requestId}");
+        var deleteRequestJson = await deleteRequest.ReadJsonAsync();
+        deleteRequestJson.Succeeded().Should().BeTrue(deleteRequestJson.ToJsonString());
+        (await RequestNamesAsync(leadClient, collectionId)).Should().NotContain("Developer two edited request");
+
         var outsider = await factory.RegisterAsync("workspace-outsider");
         using var outsiderClient = factory.CreateAuthenticatedClient(outsider);
         var blockedCollections = await outsiderClient.GetAsync($"/api/workspaces/{teamLead.WorkspaceId}/collections");
         blockedCollections.StatusCode.Should().Be(HttpStatusCode.Forbidden);
-        var blockedRequest = await outsiderClient.GetAsync($"/api/requests/{requestId}");
+
+        var protectedRequest = await leadClient.PostJsonAsync($"/api/collections/{collectionId}/requests", IntegrationTestHelpers.RequestPayload(teamLead.WorkspaceId, collectionId, "Protected shared request", "GET", "https://api.example.test/protected"));
+        var protectedRequestJson = await protectedRequest.ReadJsonAsync();
+        protectedRequestJson.Succeeded().Should().BeTrue(protectedRequestJson.ToJsonString());
+        var protectedRequestId = protectedRequestJson["data"]!["id"]!.GetValue<Guid>();
+        var blockedRequest = await outsiderClient.GetAsync($"/api/requests/{protectedRequestId}");
         blockedRequest.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var deleteTargetId = await leadClient.CreateCollectionAsync(teamLead.WorkspaceId, $"Delete Target {Guid.NewGuid():N}");
+        var childRequest = await leadClient.PostJsonAsync($"/api/collections/{deleteTargetId}/requests", IntegrationTestHelpers.RequestPayload(teamLead.WorkspaceId, deleteTargetId, "Delete target child", "GET", "https://api.example.test/delete-target"));
+        var childRequestJson = await childRequest.ReadJsonAsync();
+        childRequestJson.Succeeded().Should().BeTrue(childRequestJson.ToJsonString());
+        var childRequestId = childRequestJson["data"]!["id"]!.GetValue<Guid>();
+
+        var outsiderDelete = await outsiderClient.DeleteAsync($"/api/collections/{deleteTargetId}");
+        outsiderDelete.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var deleteCollection = await leadClient.DeleteAsync($"/api/collections/{deleteTargetId}");
+        var deleteCollectionJson = await deleteCollection.ReadJsonAsync();
+        deleteCollectionJson.Succeeded().Should().BeTrue(deleteCollectionJson.ToJsonString());
+        (await GetCollectionNamesAsync(leadClient, teamLead.WorkspaceId, "Delete Target")).Should().BeEmpty();
+
+        var deletedCollectionRequests = await (await leadClient.GetAsync($"/api/collections/{deleteTargetId}/requests")).ReadJsonAsync();
+        deletedCollectionRequests.Succeeded().Should().BeFalse(deletedCollectionRequests.ToJsonString());
+        var deletedRequestDetail = await (await leadClient.GetAsync($"/api/requests/{childRequestId}")).ReadJsonAsync();
+        deletedRequestDetail.Succeeded().Should().BeFalse(deletedRequestDetail.ToJsonString());
 
         var activityCount = await factory.ExecuteScalarAsync<int>("select count(1) from activityEvents where workspaceId = @WorkspaceId and entityType in ('Collection','Request') and isDeleted = 0", new { teamLead.WorkspaceId });
         activityCount.Should().BeGreaterThan(0);
@@ -166,7 +195,7 @@ public sealed class InvitationCollaborationIntegrationTests(ApiDeskWebApplicatio
     {
         var json = await (await client.GetAsync($"/api/collections/{collectionId}/requests")).ReadJsonAsync();
         json.Succeeded().Should().BeTrue(json.ToJsonString());
-        return json["data"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
+        return json["data"]!["items"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
     }
 
     private static string[] PageNames(JsonNode json)

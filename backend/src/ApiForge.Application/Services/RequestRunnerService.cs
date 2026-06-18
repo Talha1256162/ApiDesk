@@ -115,7 +115,7 @@ public sealed partial class RequestRunnerService(
             return Forbidden<CollectionRunResultDto>(PermissionKeys.RunRequests);
         }
 
-        var requests = await collectionRepository.GetCollectionRequestsAsync(collectionId, cancellationToken);
+        var requests = await collectionRepository.GetAllCollectionRequestsAsync(collectionId, cancellationToken);
         var selectedIds = request.RequestIds?.Count > 0 ? request.RequestIds.ToHashSet() : null;
         var runList = selectedIds is null ? requests : requests.Where(item => selectedIds.Contains(item.Id)).ToList();
         var results = new List<CollectionRunItemDto>(runList.Count);

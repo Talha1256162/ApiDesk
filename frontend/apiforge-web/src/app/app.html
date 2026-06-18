@@ -769,7 +769,7 @@
                 <button class="ghost-button" type="button" (click)="exportSelectedCollection()" [disabled]="!selectedCollectionId()">Export</button>
                 <button class="file-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
               </div>
-              <input class="rail-search" placeholder="Search collections" [ngModel]="collectionSearch()" (ngModelChange)="collectionSearch.set($event)" />
+              <input class="rail-search" placeholder="Search collections" [ngModel]="collectionSearch()" (ngModelChange)="onCollectionSearchChange($event)" />
 
               @for (collection of filteredCollections(); track collection.id) {
                 <div class="collection-tree-node" [class.active]="selectedCollectionId() === collection.id">
@@ -779,7 +779,8 @@
                   </button>
                   @if (selectedCollectionId() === collection.id) {
                     <div class="request-tree">
-                      <input class="rail-search request-search" placeholder="Search requests in collection" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
+                      <input class="rail-search request-search" placeholder="Search requests in collection" [ngModel]="requestSearch()" (ngModelChange)="onRequestSearchChange($event)" />
+                      <button class="ghost-button danger-action compact-button" type="button" (click)="deleteSelectedCollection(collection.id)" [disabled]="pageLoading()">Delete collection</button>
                       @for (group of requestTreeGroups(); track group.key) {
                         <div class="request-tree-group">
                           <div class="request-tree-group-title">
@@ -886,7 +887,7 @@
                   <button class="request-tab-icon" type="button" aria-label="More open requests">...</button>
                 </div>
                 <div class="api-client-toolbar-actions">
-                  <input class="request-inline-search" placeholder="Search requests" [ngModel]="requestSearch()" (ngModelChange)="requestSearch.set($event)" />
+                  <input class="request-inline-search" placeholder="Search requests" [ngModel]="requestSearch()" (ngModelChange)="onRequestSearchChange($event)" />
                 </div>
               </div>
 
@@ -912,7 +913,7 @@
                     <button type="button" (click)="copyRequestAsCurl()">Export cURL</button>
                     <button type="button" (click)="contextPanelOpen = !contextPanelOpen">{{ contextPanelOpen ? 'Hide context' : 'Show context' }}</button>
                     <button type="button" (click)="duplicateSelectedRequest()">Duplicate Request</button>
-                    <button type="button" class="danger-text" disabled title="Delete request API is not available in this build.">Delete Request</button>
+                    <button type="button" class="danger-text" (click)="deleteSelectedRequest()" [disabled]="!selectedRequestId() || pageLoading()">Delete Request</button>
                   </div>
                 </details>
               </div>

@@ -89,7 +89,7 @@ public sealed class PostmanImportExportIntegrationTests(ApiDeskWebApplicationFac
         var importedRequests = await client.GetAsync($"/api/collections/{importedCollectionId}/requests");
         var importedRequestsJson = await importedRequests.ReadJsonAsync();
         importedRequestsJson.Succeeded().Should().BeTrue(importedRequestsJson.ToJsonString());
-        importedRequestsJson["data"]!.AsArray().Should().HaveCount(3);
+        importedRequestsJson["data"]!["items"]!.AsArray().Should().HaveCount(3);
         importedRequestsJson["data"]!.ToJsonString().Should().Contain("Payments");
 
         var export = await client.GetAsync($"/api/collections/{importedCollectionId}/export");
@@ -109,7 +109,7 @@ public sealed class PostmanImportExportIntegrationTests(ApiDeskWebApplicationFac
         var reimportedRequestsJson = await reimportedRequests.ReadJsonAsync();
 
         reimportedRequestsJson.Succeeded().Should().BeTrue(reimportedRequestsJson.ToJsonString());
-        reimportedRequestsJson["data"]!.AsArray().Should().HaveCount(3);
+        reimportedRequestsJson["data"]!["items"]!.AsArray().Should().HaveCount(3);
         reimportedRequestsJson["data"]!.ToJsonString().Should().Contain("Payments");
     }
 }

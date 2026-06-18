@@ -239,6 +239,7 @@ export class App implements OnInit {
   readonly collectionSearch = signal('');
   readonly requestSearch = signal('');
   readonly collectionsPager = signal<PagerState>(this.createPager(25, 'modifiedOn desc'));
+  readonly requestsPager = signal<PagerState>(this.createPager(100, 'modifiedOn desc'));
   readonly environmentsPager = signal<PagerState>(this.createPager(25, 'modifiedOn desc'));
   readonly activityPager = signal<PagerState>(this.createPager(25, 'createdOn desc'));
   readonly auditPager = signal<PagerState>(this.createPager(25, 'createdOn desc'));
@@ -909,6 +910,7 @@ export class App implements OnInit {
     this.membersPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
     this.feedbackPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
     this.apiSpecsPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
+    this.requestsPager.update((state) => ({ ...state, offset: 0, totalCount: 0 }));
   }
 
   onOrganizationChange(organizationId: string): void {
@@ -955,7 +957,20 @@ export class App implements OnInit {
     this.requestHistory.set([]);
     this.collectionRun.set(null);
     this.requestSearch.set('');
+    this.requestsPager.update((state) => ({ ...state, offset: 0, totalCount: 0, searchString: '' }));
     this.resetRequestEditor();
+    this.loadRequests();
+  }
+
+  onCollectionSearchChange(search: string): void {
+    this.collectionSearch.set(search);
+    this.collectionsPager.update((state) => ({ ...state, offset: 0, searchString: search }));
+    this.loadCollections();
+  }
+
+  onRequestSearchChange(search: string): void {
+    this.requestSearch.set(search);
+    this.requestsPager.update((state) => ({ ...state, offset: 0, searchString: search }));
     this.loadRequests();
   }
 
@@ -1093,6 +1108,21 @@ export class App implements OnInit {
   changeCollectionsPageSize(count: string | number): void {
     this.collectionsPager.update((state) => ({ ...state, count: Number(count) || 25, offset: 0 }));
     this.loadCollections();
+  }
+
+  previousRequestsPage(): void {
+    this.requestsPager.update((state) => ({ ...state, offset: Math.max(0, state.offset - state.count) }));
+    this.loadRequests();
+  }
+
+  nextRequestsPage(): void {
+    this.requestsPager.update((state) => ({ ...state, offset: state.offset + state.count }));
+    this.loadRequests();
+  }
+
+  changeRequestsPageSize(count: string | number): void {
+    this.requestsPager.update((state) => ({ ...state, count: Number(count) || 100, offset: 0 }));
+    this.loadRequests();
   }
 
   previousActivityPage(): void {
@@ -1344,21 +1374,40 @@ export class App implements OnInit {
   loadRequests(): void {
     if (!this.selectedCollectionId()) {
       this.requests.set([]);
+      this.updatePagerResult(this.requestsPager, 0, 0, this.requestsPager().count);
       return;
     }
 
-    this.api.collectionRequests(this.selectedCollectionId()).subscribe({
+    const pager = this.requestsPager();
+    this.markPagerLoading(this.requestsPager, true);
+    this.api.collectionRequests(this.selectedCollectionId(), {
+      offset: pager.offset,
+      count: pager.count,
+      searchString: pager.searchString || this.requestSearch().trim(),
+      sorting: pager.sorting
+    }).subscribe({
       next: (result) => {
-        this.requests.set(result.data ?? []);
+        this.requests.set(result.data?.items ?? []);
+        this.updatePagerResult(this.requestsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+        if (this.selectedRequestId() && !this.requests().some((request) => request.id === this.selectedRequestId())) {
+          this.selectedRequestId.set('');
+          this.requestDetail.set(null);
+          this.resetRequestEditor();
+        }
         if (!this.selectedRequestId()) {
           this.selectedRequestId.set(this.requests()[0]?.id ?? '');
         }
         if (this.selectedRequestId()) {
           this.rememberOpenRequest(this.selectedRequestId());
+          this.loadRequestDetail();
+        } else {
+          this.requestDetail.set(null);
         }
-        this.loadRequestDetail();
       },
-      error: () => this.showToast('Requests failed', 'Could not load collection requests.', 'danger')
+      error: () => {
+        this.markPagerLoading(this.requestsPager, false);
+        this.showToast('Requests failed', 'Could not load collection requests.', 'danger');
+      }
     });
   }
 
@@ -2533,6 +2582,92 @@ export class App implements OnInit {
       error: (error) => {
         this.pageLoading.set(false);
         this.showToast('Duplicate failed', error?.error?.message ?? 'The request could not be duplicated.', 'danger');
+      }
+    });
+  }
+
+  deleteSelectedCollection(collectionId = this.selectedCollectionId()): void {
+    const collection = this.collections().find((item) => item.id === collectionId);
+    if (!collectionId || !collection) {
+      this.showToast('Select collection', 'Choose a collection before deleting.', 'danger');
+      return;
+    }
+
+    if (!this.confirmAction(`Delete collection "${collection.name}"? This removes its folders and requests from the workspace.`)) {
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.deleteCollection(collectionId).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded) {
+          this.showToast('Delete failed', result.message || 'The collection could not be deleted.', 'danger');
+          return;
+        }
+
+        this.collections.update((items) => items.filter((item) => item.id !== collectionId));
+        if (this.selectedCollectionId() === collectionId) {
+          this.selectedCollectionId.set(this.collections()[0]?.id ?? '');
+          this.selectedRequestId.set('');
+          this.openRequestIds.set([]);
+          this.requests.set([]);
+          this.requestDetail.set(null);
+          this.resetRequestEditor();
+          if (this.selectedCollectionId()) {
+            this.loadRequests();
+          }
+        }
+
+        this.showToast('Collection deleted', collection.name, 'success');
+        this.loadCollections();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Delete failed', error?.error?.message ?? 'The collection could not be deleted.', 'danger');
+      }
+    });
+  }
+
+  deleteSelectedRequest(): void {
+    const requestId = this.selectedRequestId();
+    const request = this.requests().find((item) => item.id === requestId);
+    if (!requestId || !request) {
+      this.showToast('Select request', 'Open a saved request before deleting.', 'danger');
+      return;
+    }
+
+    if (!this.confirmAction(`Delete request "${request.name}"?`)) {
+      return;
+    }
+
+    this.pageLoading.set(true);
+    this.api.deleteRequest(requestId).subscribe({
+      next: (result) => {
+        this.pageLoading.set(false);
+        if (!result.succeeded) {
+          this.showToast('Delete failed', result.message || 'The request could not be deleted.', 'danger');
+          return;
+        }
+
+        this.requests.update((items) => items.filter((item) => item.id !== requestId));
+        this.openRequestIds.update((ids) => ids.filter((id) => id !== requestId));
+        this.selectedRequestId.set(this.requests()[0]?.id ?? '');
+        this.requestDetail.set(null);
+        this.resetRequestEditor();
+        if (this.selectedRequestId()) {
+          this.loadRequestDetail();
+        }
+
+        this.showToast('Request deleted', request.name, 'success');
+        this.loadRequests();
+        this.loadCollections();
+        this.loadActivity();
+      },
+      error: (error) => {
+        this.pageLoading.set(false);
+        this.showToast('Delete failed', error?.error?.message ?? 'The request could not be deleted.', 'danger');
       }
     });
   }

@@ -35,4 +35,40 @@ public sealed class PaginationIntegrationTests(ApiDeskWebApplicationFactory fact
         secondPageNames.Should().Equal($"{prefix} 02", $"{prefix} 03");
         firstPageNames.Should().NotIntersectWith(secondPageNames);
     }
+
+    [Fact]
+    public async Task Collection_requests_endpoint_applies_search_sorting_and_returns_distinct_pages()
+    {
+        var admin = await factory.LoginAsync();
+        using var client = factory.CreateAuthenticatedClient(admin);
+        var collectionId = await client.CreateCollectionAsync(admin.WorkspaceId, $"Request Pagination {Guid.NewGuid():N}");
+        var prefix = $"Paged Request {Guid.NewGuid():N}";
+
+        for (var index = 0; index < 6; index++)
+        {
+            var response = await client.PostJsonAsync($"/api/collections/{collectionId}/requests", IntegrationTestHelpers.RequestPayload(
+                admin.WorkspaceId,
+                collectionId,
+                $"{prefix} {index:00}",
+                index % 2 == 0 ? "GET" : "POST",
+                $"https://api.example.test/paged/{index}"));
+            var json = await response.ReadJsonAsync();
+            json.Succeeded().Should().BeTrue(json.ToJsonString());
+        }
+
+        var pageOne = await (await client.GetAsync($"/api/collections/{collectionId}/requests?offset=0&count=2&searchString={Uri.EscapeDataString(prefix)}&sorting=name%20asc")).ReadJsonAsync();
+        var pageTwo = await (await client.GetAsync($"/api/collections/{collectionId}/requests?offset=2&count=2&searchString={Uri.EscapeDataString(prefix)}&sorting=name%20asc")).ReadJsonAsync();
+
+        pageOne.Succeeded().Should().BeTrue(pageOne.ToJsonString());
+        pageTwo.Succeeded().Should().BeTrue(pageTwo.ToJsonString());
+        pageOne["data"]!["totalCount"]!.GetValue<int>().Should().Be(6);
+        pageTwo["data"]!["offset"]!.GetValue<int>().Should().Be(2);
+
+        var firstPageNames = pageOne["data"]!["items"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
+        var secondPageNames = pageTwo["data"]!["items"]!.AsArray().Select(item => item!["name"]!.GetValue<string>()).ToArray();
+
+        firstPageNames.Should().Equal($"{prefix} 00", $"{prefix} 01");
+        secondPageNames.Should().Equal($"{prefix} 02", $"{prefix} 03");
+        firstPageNames.Should().NotIntersectWith(secondPageNames);
+    }
 }

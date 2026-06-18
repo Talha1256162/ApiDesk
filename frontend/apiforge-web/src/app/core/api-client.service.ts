@@ -186,8 +186,10 @@ export class ApiClientService {
     });
   }
 
-  collectionRequests(collectionId: string) {
-    return this.http.get<ApiResult<ApiRequestSummary[]>>(`${this.apiBaseUrl}/collections/${collectionId}/requests`);
+  collectionRequests(collectionId: string, query: PagedQuery = { count: 100 }) {
+    return this.http.get<ApiResult<PagedResult<ApiRequestSummary>>>(`${this.apiBaseUrl}/collections/${collectionId}/requests`, {
+      params: this.pagedParams(query)
+    });
   }
 
   requestDetail(requestId: string) {
@@ -200,6 +202,14 @@ export class ApiClientService {
 
   updateRequest(requestId: string, payload: SaveApiRequestPayload) {
     return this.http.put<ApiResult<ApiRequestDetail>>(`${this.apiBaseUrl}/requests/${requestId}`, payload);
+  }
+
+  deleteRequest(requestId: string) {
+    return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/requests/${requestId}`);
+  }
+
+  deleteCollection(collectionId: string) {
+    return this.http.delete<ApiResult<unknown>>(`${this.apiBaseUrl}/collections/${collectionId}`);
   }
 
   requestHistory(requestId: string, count = 25) {

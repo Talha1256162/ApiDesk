@@ -36,26 +36,26 @@ public sealed class CollectionService(
         return Result<PagedResult<CollectionDto>>.Success(collections);
     }
 
-    public async Task<Result<IReadOnlyList<ApiRequestSummaryDto>>> GetCollectionRequestsAsync(Guid collectionId, CancellationToken cancellationToken)
+    public async Task<Result<PagedResult<ApiRequestSummaryDto>>> GetCollectionRequestsAsync(Guid collectionId, PagedRequest request, CancellationToken cancellationToken)
     {
         if (CurrentUser is null)
         {
-            return Unauthorized<IReadOnlyList<ApiRequestSummaryDto>>();
+            return Unauthorized<PagedResult<ApiRequestSummaryDto>>();
         }
 
         var scope = await collectionRepository.GetCollectionScopeAsync(collectionId, cancellationToken);
         if (scope is null)
         {
-            return Result<IReadOnlyList<ApiRequestSummaryDto>>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
+            return Result<PagedResult<ApiRequestSummaryDto>>.Failure("Collection was not found.", new ErrorDetail("collection.not_found", "Collection was not found."));
         }
 
         if (!await permissionService.IsWorkspaceMemberAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, cancellationToken))
         {
-            return Forbidden<IReadOnlyList<ApiRequestSummaryDto>>("workspace.member");
+            return Forbidden<PagedResult<ApiRequestSummaryDto>>("workspace.member");
         }
 
-        var requests = await collectionRepository.GetCollectionRequestsAsync(collectionId, cancellationToken);
-        return Result<IReadOnlyList<ApiRequestSummaryDto>>.Success(requests);
+        var requests = await collectionRepository.GetCollectionRequestsAsync(collectionId, request, cancellationToken);
+        return Result<PagedResult<ApiRequestSummaryDto>>.Success(requests);
     }
 
     public async Task<Result<CollectionDto>> CreateCollectionAsync(CreateCollectionRequest request, CancellationToken cancellationToken)
@@ -130,7 +130,12 @@ public sealed class CollectionService(
             return Forbidden(PermissionKeys.DeleteCollection);
         }
 
-        await collectionRepository.DeleteCollectionAsync(collectionId, CurrentUser.UserId, cancellationToken);
+        var deleted = await collectionRepository.DeleteCollectionAsync(collectionId, CurrentUser.UserId, cancellationToken);
+        if (!deleted)
+        {
+            return Result.Failure("Collection delete failed.", new ErrorDetail("collection.delete_failed", "Collection delete failed."));
+        }
+
         await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "CollectionDeleted", "Collection", collectionId, "Collection", "Delete", "Success", "Warning", "Collection deleted.", null, cancellationToken);
         return Result.Success("Collection deleted.");
     }
@@ -263,6 +268,35 @@ public sealed class CollectionService(
 
         await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "RequestUpdated", "Request", requestId, apiRequest.Name, "Update", "Success", "Info", "Request updated.", null, cancellationToken);
         return Result<ApiRequestDetailDto>.Success(apiRequest, "Request updated.");
+    }
+
+    public async Task<Result> DeleteRequestAsync(Guid requestId, CancellationToken cancellationToken)
+    {
+        if (CurrentUser is null)
+        {
+            return Unauthorized();
+        }
+
+        var scope = await collectionRepository.GetRequestScopeAsync(requestId, cancellationToken);
+        if (scope is null)
+        {
+            return Result.Failure("Request was not found.", new ErrorDetail("request.not_found", "Request was not found."));
+        }
+
+        var allowed = await permissionService.HasPermissionAsync(CurrentUser.UserId, scope.Value.OrganizationId, scope.Value.WorkspaceId, PermissionKeys.EditCollection, cancellationToken);
+        if (!allowed)
+        {
+            return Forbidden(PermissionKeys.EditCollection);
+        }
+
+        var deleted = await collectionRepository.DeleteRequestAsync(requestId, CurrentUser.UserId, cancellationToken);
+        if (!deleted)
+        {
+            return Result.Failure("Request delete failed.", new ErrorDetail("request.delete_failed", "Request delete failed."));
+        }
+
+        await RecordActivityAsync(scope.Value.OrganizationId, scope.Value.WorkspaceId, "RequestDeleted", "Request", requestId, "Request", "Delete", "Success", "Warning", "Request deleted.", null, cancellationToken);
+        return Result.Success("Request deleted.");
     }
 
     public async Task<Result<CollectionExportDto>> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken)

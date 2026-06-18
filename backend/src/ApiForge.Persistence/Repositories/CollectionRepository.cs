@@ -91,18 +91,58 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         return new PagedResult<CollectionDto>(items, total, request.SafeOffset, request.SafeCount);
     }
 
-    public async Task<IReadOnlyList<ApiRequestSummaryDto>> GetCollectionRequestsAsync(Guid collectionId, CancellationToken cancellationToken)
+    public async Task<PagedResult<ApiRequestSummaryDto>> GetCollectionRequestsAsync(Guid collectionId, PagedRequest request, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        var orderBy = request.Sorting?.Trim().ToLowerInvariant() switch
+        {
+            "name asc" => "r.name asc",
+            "name desc" => "r.name desc",
+            "method asc" => "r.method asc, r.name asc",
+            "method desc" => "r.method desc, r.name asc",
+            "url asc" => "r.url asc",
+            "url desc" => "r.url desc",
+            "modifiedon asc" => "coalesce(r.modifiedOn, r.createdOn) asc",
+            "modifiedon desc" => "coalesce(r.modifiedOn, r.createdOn) desc",
+            _ => "coalesce(f.sortOrder, 0), f.name, coalesce(r.modifiedOn, r.createdOn) desc"
+        };
+
+        using var grid = await connection.QueryMultipleAsync(new CommandDefinition("""
+            select count(1)
+            from requests r
+            left join folders f on f.id = r.folderId and f.isDeleted = 0
+            join collections c on c.id = r.collectionId and c.isDeleted = 0
+            where r.collectionId = @CollectionId and r.isDeleted = 0
+                and (@Search is null or r.name like '%' + @Search + '%' or r.method like '%' + @Search + '%' or r.url like '%' + @Search + '%' or f.name like '%' + @Search + '%');
+
+            select r.id, r.collectionId, r.folderId, f.name as folderName, r.name, r.method, r.url, coalesce(r.modifiedOn, r.createdOn) as modifiedOn
+            from requests r
+            left join folders f on f.id = r.folderId and f.isDeleted = 0
+            join collections c on c.id = r.collectionId and c.isDeleted = 0
+            where r.collectionId = @CollectionId and r.isDeleted = 0
+                and (@Search is null or r.name like '%' + @Search + '%' or r.method like '%' + @Search + '%' or r.url like '%' + @Search + '%' or f.name like '%' + @Search + '%')
+            order by /**orderby**/
+            offset @Offset rows fetch next @Count rows only;
+            """.Replace("/**orderby**/", orderBy),
+            new { CollectionId = collectionId, Search = string.IsNullOrWhiteSpace(request.SearchString) ? null : request.SearchString.Trim(), Offset = request.SafeOffset, Count = request.SafeCount },
+            cancellationToken: cancellationToken));
+
+        var total = await grid.ReadSingleAsync<int>();
+        var rows = (await grid.ReadAsync<ApiRequestSummaryDto>()).AsList();
+        return new PagedResult<ApiRequestSummaryDto>(rows, total, request.SafeOffset, request.SafeCount);
+    }
+
+    public async Task<IReadOnlyList<ApiRequestSummaryDto>> GetAllCollectionRequestsAsync(Guid collectionId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
         var rows = await connection.QueryAsync<ApiRequestSummaryDto>(new CommandDefinition("""
             select r.id, r.collectionId, r.folderId, f.name as folderName, r.name, r.method, r.url, coalesce(r.modifiedOn, r.createdOn) as modifiedOn
             from requests r
             left join folders f on f.id = r.folderId and f.isDeleted = 0
+            join collections c on c.id = r.collectionId and c.isDeleted = 0
             where r.collectionId = @CollectionId and r.isDeleted = 0
             order by coalesce(f.sortOrder, 0), f.name, coalesce(r.modifiedOn, r.createdOn) desc;
-            """,
-            new { CollectionId = collectionId },
-            cancellationToken: cancellationToken));
+            """, new { CollectionId = collectionId }, cancellationToken: cancellationToken));
         return rows.AsList();
     }
 
@@ -144,13 +184,45 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
     public async Task<bool> DeleteCollectionAsync(Guid collectionId, Guid userId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
         var rows = await connection.ExecuteAsync(new CommandDefinition("""
+            update requestHeaders
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId in (select id from requests where collectionId = @CollectionId) and isDeleted = 0;
+
+            update requestParams
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId in (select id from requests where collectionId = @CollectionId) and isDeleted = 0;
+
+            update requestBodies
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId in (select id from requests where collectionId = @CollectionId) and isDeleted = 0;
+
+            update requestExamples
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId in (select id from requests where collectionId = @CollectionId) and isDeleted = 0;
+
+            update requestVersions
+            set isDeleted = 1
+            where requestId in (select id from requests where collectionId = @CollectionId) and isDeleted = 0;
+
+            update requests
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId, versionNumber = versionNumber + 1
+            where collectionId = @CollectionId and isDeleted = 0;
+
+            update folders
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId, versionNumber = versionNumber + 1
+            where collectionId = @CollectionId and isDeleted = 0;
+
             update collections
             set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId, versionNumber = versionNumber + 1
             where id = @CollectionId and isDeleted = 0;
             """,
             new { CollectionId = collectionId, UserId = userId },
+            transaction,
             cancellationToken: cancellationToken));
+        transaction.Commit();
         return rows > 0;
     }
 
@@ -341,6 +413,42 @@ public sealed class CollectionRepository(ISqlConnectionFactory connectionFactory
         transaction.Commit();
 
         return await GetRequestAsync(requestId, cancellationToken);
+    }
+
+    public async Task<bool> DeleteRequestAsync(Guid requestId, Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var rows = await connection.ExecuteAsync(new CommandDefinition("""
+            update requestHeaders
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId = @RequestId and isDeleted = 0;
+
+            update requestParams
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId = @RequestId and isDeleted = 0;
+
+            update requestBodies
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId = @RequestId and isDeleted = 0;
+
+            update requestExamples
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId
+            where requestId = @RequestId and isDeleted = 0;
+
+            update requestVersions
+            set isDeleted = 1
+            where requestId = @RequestId and isDeleted = 0;
+
+            update requests
+            set isDeleted = 1, modifiedOn = sysutcdatetime(), modifiedBy = @UserId, versionNumber = versionNumber + 1
+            where id = @RequestId and isDeleted = 0;
+            """, new { RequestId = requestId, UserId = userId }, transaction, cancellationToken: cancellationToken));
+
+        transaction.Commit();
+        return rows > 0;
     }
 
     public async Task<CollectionExportDto?> ExportCollectionAsync(Guid collectionId, CancellationToken cancellationToken)

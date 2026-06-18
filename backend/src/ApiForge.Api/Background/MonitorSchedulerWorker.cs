@@ -47,7 +47,7 @@ public sealed class MonitorSchedulerWorker(IServiceScopeFactory scopeFactory, IL
             var stopwatch = Stopwatch.StartNew();
             var passed = 0;
             var failed = 0;
-            var requests = await collectionRepository.GetCollectionRequestsAsync(monitor.CollectionId, cancellationToken);
+            var requests = await collectionRepository.GetAllCollectionRequestsAsync(monitor.CollectionId, cancellationToken);
             foreach (var item in requests)
             {
                 var request = await collectionRepository.GetRequestAsync(item.Id, cancellationToken);

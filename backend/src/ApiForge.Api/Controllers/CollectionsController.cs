@@ -25,9 +25,9 @@ public sealed class CollectionsController(ICollectionService collectionService, 
     }
 
     [HttpGet("collections/{collectionId:guid}/requests")]
-    public async Task<IActionResult> GetCollectionRequests(Guid collectionId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCollectionRequests(Guid collectionId, [FromQuery] PagedRequest request, CancellationToken cancellationToken)
     {
-        return FromResult(await collectionService.GetCollectionRequestsAsync(collectionId, cancellationToken));
+        return FromResult(await collectionService.GetCollectionRequestsAsync(collectionId, request, cancellationToken));
     }
 
     [HttpPut("collections/{collectionId:guid}")]
@@ -70,6 +70,12 @@ public sealed class CollectionsController(ICollectionService collectionService, 
     public async Task<IActionResult> UpdateRequest(Guid requestId, SaveApiRequestRequest request, CancellationToken cancellationToken)
     {
         return FromResult(await collectionService.UpdateRequestAsync(requestId, request, cancellationToken));
+    }
+
+    [HttpDelete("requests/{requestId:guid}")]
+    public async Task<IActionResult> DeleteRequest(Guid requestId, CancellationToken cancellationToken)
+    {
+        return FromResult(await collectionService.DeleteRequestAsync(requestId, cancellationToken));
     }
 
     [HttpPost("requests/{requestId:guid}/examples")]
