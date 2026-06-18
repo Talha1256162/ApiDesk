@@ -1353,10 +1353,18 @@ export class App implements OnInit {
       sorting: pager.sorting
     }).subscribe({
       next: (result) => {
-        this.collections.set(result.data?.items ?? []);
+        const items = result.data?.items ?? [];
+        this.collections.set(items);
         this.updatePagerResult(this.collectionsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+        if (this.selectedCollectionId() && !items.some((collection) => collection.id === this.selectedCollectionId())) {
+          this.selectedCollectionId.set('');
+          this.selectedRequestId.set('');
+          this.requests.set([]);
+          this.requestDetail.set(null);
+          this.resetRequestEditor();
+        }
         if (!this.selectedCollectionId()) {
-          this.selectedCollectionId.set(this.collections()[0]?.id ?? '');
+          this.selectedCollectionId.set(items[0]?.id ?? '');
         }
         if (this.selectedCollectionId()) {
           this.loadRequests();
@@ -1389,6 +1397,11 @@ export class App implements OnInit {
       next: (result) => {
         this.requests.set(result.data?.items ?? []);
         this.updatePagerResult(this.requestsPager, result.data?.totalCount ?? 0, result.data?.offset, result.data?.count);
+        if ((result.data?.totalCount ?? 0) > 0 && this.requests().length === 0 && this.requestsPager().offset > 0) {
+          this.requestsPager.update((state) => ({ ...state, offset: 0 }));
+          this.loadRequests();
+          return;
+        }
         if (this.selectedRequestId() && !this.requests().some((request) => request.id === this.selectedRequestId())) {
           this.selectedRequestId.set('');
           this.requestDetail.set(null);

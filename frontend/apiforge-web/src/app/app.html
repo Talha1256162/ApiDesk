@@ -891,6 +891,14 @@
                 </div>
               </div>
 
+              @if (!selectedRequestId() || !selectedRequest()) {
+                <article class="panel api-client-empty-request">
+                  <app-empty-state title="Select a request" description="Choose a request from the collection tree, clear the request search, or create a new request in the selected collection.">
+                    <button class="primary-action" type="button" (click)="createNewRequest()" [disabled]="!selectedCollectionId() || pageLoading()">New request</button>
+                    <button class="secondary-action" type="button" (click)="openPostmanImport()">Import from Postman</button>
+                  </app-empty-state>
+                </article>
+              } @else {
               <div class="request-bar" [attr.data-method]="requestMethod">
                 <div class="request-method-shell">
                   <app-premium-select [options]="methodOptions()" [value]="requestMethod" (valueChange)="requestMethod = $event"></app-premium-select>
@@ -1363,6 +1371,7 @@
                 </aside>
                 }
               </div>
+              }
               }
             </section>
           </section>
