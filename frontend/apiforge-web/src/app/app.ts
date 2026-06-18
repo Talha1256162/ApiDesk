@@ -1624,7 +1624,8 @@ export class App implements OnInit {
     this.api.inviteMember(this.selectedOrganizationId(), {
       email: this.inviteEmail.trim(),
       roleId: this.inviteRoleId,
-      message: this.inviteMessage.trim() || undefined
+      message: this.inviteMessage.trim() || undefined,
+      workspaceId: this.selectedWorkspaceId() || undefined
     }).subscribe({
       next: (result) => {
         this.pageLoading.set(false);
@@ -1638,7 +1639,13 @@ export class App implements OnInit {
         this.inviteMessage = '';
         this.loadActivity();
         this.loadManagerActivity();
-        this.showToast('Invitation created', `Invite link is ready for ${result.data.email}.`, 'success');
+        this.showToast(
+          result.data.emailDeliveryStatus === 'Sent' ? 'Invitation email sent' : 'Invitation created',
+          result.data.emailDeliveryStatus === 'Sent'
+            ? `${result.data.email} has been emailed.`
+            : `Invite link is ready for ${result.data.email}. Email status: ${result.data.emailDeliveryStatus ?? 'NotConfigured'}.`,
+          result.data.emailDeliveryStatus === 'Failed' ? 'danger' : 'success'
+        );
       },
       error: (error) => {
         this.pageLoading.set(false);
@@ -1678,6 +1685,10 @@ export class App implements OnInit {
   }
 
   inviteLink(invite: Invitation): string {
+    if (invite.inviteUrl) {
+      return invite.inviteUrl;
+    }
+
     const token = invite.inviteToken || invite.id;
     return `${window.location.origin}/invite/${token}`;
   }

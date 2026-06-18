@@ -5,6 +5,7 @@ using ApiForge.Application.DTOs.Organizations;
 using ApiForge.Domain.Constants;
 using ApiForge.Shared.Pagination;
 using ApiForge.Shared.Responses;
+using Microsoft.Extensions.Configuration;
 
 namespace ApiForge.Application.Services;
 
@@ -12,7 +13,10 @@ public sealed class OrganizationService(
     IOrganizationRepository organizationRepository,
     IPermissionService permissionService,
     ICurrentUserContext currentUserContext,
-    IActivityRepository activityRepository) : ServiceBase(currentUserContext, activityRepository), IOrganizationService
+    IActivityRepository activityRepository,
+    IEmailDeliveryRepository emailDeliveryRepository,
+    IEmailSender emailSender,
+    IConfiguration configuration) : ServiceBase(currentUserContext, activityRepository), IOrganizationService
 {
     public async Task<Result<IReadOnlyList<OrganizationDto>>> GetMyOrganizationsAsync(CancellationToken cancellationToken)
     {
@@ -89,9 +93,43 @@ public sealed class OrganizationService(
             return Result<InvitationDto>.Failure("Role scope is not valid for organization membership.", new ErrorDetail("role.scope_invalid", "Role scope is not valid for organization membership."));
         }
 
+        var emailContext = await organizationRepository.GetInvitationEmailContextAsync(organizationId, request.WorkspaceId, CurrentUser.UserId, cancellationToken);
+        if (emailContext is null || (request.WorkspaceId.HasValue && emailContext.WorkspaceId != request.WorkspaceId))
+        {
+            return Result<InvitationDto>.Failure("Workspace context is not valid for this organization.", new ErrorDetail("invitation.workspace_invalid", "Workspace context is not valid for this organization."));
+        }
+
         var invitation = await organizationRepository.InviteAsync(organizationId, request, CurrentUser.UserId, cancellationToken);
-        await RecordActivityAsync(organizationId, null, "UserInvited", "Invitation", invitation.Id, invitation.Email, "Invite", "Success", "Info", $"Invitation created for {invitation.Email}.", null, cancellationToken);
-        return Result<InvitationDto>.Success(invitation, "Invitation created.");
+        var inviteUrl = BuildInviteUrl(invitation.InviteToken);
+        var subject = "You've been invited to join Apeiron workspace";
+        var emailMessage = BuildInvitationEmail(invitation, emailContext, inviteUrl);
+        var emailResult = await emailSender.SendAsync(emailMessage, cancellationToken);
+        var deliveryStatus = emailResult.Succeeded
+            ? "Sent"
+            : emailResult.ErrorMessage?.Contains("not configured", StringComparison.OrdinalIgnoreCase) == true ? "NotConfigured" : "Failed";
+
+        await emailDeliveryRepository.LogInvitationEmailAsync(
+            invitation.Id,
+            organizationId,
+            emailContext.WorkspaceId,
+            invitation.Email,
+            subject,
+            emailResult.Provider,
+            deliveryStatus,
+            emailResult.Succeeded ? null : emailResult.ErrorMessage,
+            CurrentUser.UserId,
+            cancellationToken);
+
+        await RecordActivityAsync(organizationId, emailContext.WorkspaceId, "UserInvited", "Invitation", invitation.Id, invitation.Email, "Invite", emailResult.Succeeded ? "Success" : deliveryStatus, emailResult.Succeeded ? "Info" : "Warning", $"Invitation created for {invitation.Email}. Email delivery: {deliveryStatus}.", null, cancellationToken);
+        var response = invitation with
+        {
+            WorkspaceId = emailContext.WorkspaceId,
+            WorkspaceName = emailContext.WorkspaceName,
+            EmailDeliveryStatus = deliveryStatus,
+            EmailDeliveryError = emailResult.Succeeded ? null : emailResult.ErrorMessage,
+            InviteUrl = inviteUrl
+        };
+        return Result<InvitationDto>.Success(response, emailResult.Succeeded ? "Invitation email sent." : $"Invitation created. Email delivery status: {deliveryStatus}.");
     }
 
     public async Task<Result<InvitationDto>> RegenerateInvitationAsync(Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
@@ -113,8 +151,8 @@ public sealed class OrganizationService(
             return Result<InvitationDto>.Failure("Invitation was not found or is no longer pending.", new ErrorDetail("invitation.not_found", "Invitation was not found or is no longer pending."));
         }
 
-        await RecordActivityAsync(organizationId, null, "InviteRegenerated", "Invitation", invitation.Id, invitation.Email, "Regenerate", "Success", "Info", "Invitation link regenerated.", null, cancellationToken);
-        return Result<InvitationDto>.Success(invitation, "Invitation link regenerated.");
+        await RecordActivityAsync(organizationId, invitation.WorkspaceId, "InviteRegenerated", "Invitation", invitation.Id, invitation.Email, "Regenerate", "Success", "Info", "Invitation link regenerated.", null, cancellationToken);
+        return Result<InvitationDto>.Success(invitation with { InviteUrl = BuildInviteUrl(invitation.InviteToken) }, "Invitation link regenerated.");
     }
 
     public async Task<Result> RevokeInvitationAsync(Guid organizationId, Guid invitationId, CancellationToken cancellationToken)
@@ -253,4 +291,45 @@ public sealed class OrganizationService(
         var scope = await organizationRepository.GetRoleScopeAsync(roleId, cancellationToken);
         return scope is not null && new[] { "Organization", "Workspace" }.Contains(scope, StringComparer.OrdinalIgnoreCase);
     }
+
+    private string BuildInviteUrl(string? token)
+    {
+        var baseUrl = configuration["Email:PublicBaseUrl"];
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            baseUrl = "https://apidesk.runasp.net";
+        }
+
+        return $"{baseUrl.TrimEnd('/')}/invite/{Uri.EscapeDataString(token ?? string.Empty)}";
+    }
+
+    private static EmailMessage BuildInvitationEmail(InvitationDto invitation, InvitationEmailContextDto context, string inviteUrl)
+    {
+        var workspaceName = context.WorkspaceName ?? context.OrganizationName;
+        var expiry = invitation.ExpiresOn.ToString("yyyy-MM-dd HH:mm 'UTC'");
+        var html = $"""
+            <div style="font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.55;color:#111827">
+              <h2 style="margin:0 0 12px">You've been invited to Apeiron</h2>
+              <p>{Escape(context.InviterName)} ({Escape(context.InviterEmail)}) invited you to join the <strong>{Escape(workspaceName)}</strong> workspace.</p>
+              <p>Apeiron is the API collaboration workspace for collections, environments, mocks, docs, and team activity.</p>
+              <p><a href="{Escape(inviteUrl)}" style="display:inline-block;background:#5b5ff4;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">Accept invitation</a></p>
+              <p>This invitation expires on <strong>{Escape(expiry)}</strong>.</p>
+              <p>If the button does not work, copy and paste this URL into your browser:</p>
+              <p style="word-break:break-all;color:#374151">{Escape(inviteUrl)}</p>
+            </div>
+            """;
+        var text = $"""
+            You've been invited to Apeiron
+
+            {context.InviterName} ({context.InviterEmail}) invited you to join the {workspaceName} workspace.
+
+            Accept invitation:
+            {inviteUrl}
+
+            This invitation expires on {expiry}.
+            """;
+        return new EmailMessage(invitation.Email, "You've been invited to join Apeiron workspace", html, text);
+    }
+
+    private static string Escape(string value) => System.Net.WebUtility.HtmlEncode(value);
 }

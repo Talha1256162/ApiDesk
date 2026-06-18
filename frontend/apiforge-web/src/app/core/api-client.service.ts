@@ -322,7 +322,7 @@ export class ApiClientService {
     return this.http.get<ApiResult<OrganizationRole[]>>(`${this.apiBaseUrl}/organizations/${organizationId}/roles`);
   }
 
-  inviteMember(organizationId: string, payload: { email: string; roleId: string; message?: string }) {
+  inviteMember(organizationId: string, payload: { email: string; roleId: string; message?: string; workspaceId?: string }) {
     return this.http.post<ApiResult<Invitation>>(`${this.apiBaseUrl}/organizations/${organizationId}/invites`, payload);
   }
 

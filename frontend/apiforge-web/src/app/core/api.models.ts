@@ -556,6 +556,11 @@ export interface Invitation {
   status: string;
   expiresOn: string;
   inviteToken?: string;
+  workspaceId?: string;
+  workspaceName?: string;
+  emailDeliveryStatus?: string;
+  emailDeliveryError?: string;
+  inviteUrl?: string;
 }
 
 export interface BuildInfo {

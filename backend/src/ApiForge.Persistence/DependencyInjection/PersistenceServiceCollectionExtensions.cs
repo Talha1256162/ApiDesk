@@ -17,6 +17,7 @@ public static class PersistenceServiceCollectionExtensions
         services.AddScoped<ICollectionRepository, CollectionRepository>();
         services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
         services.AddScoped<IActivityRepository, ActivityRepository>();
+        services.AddScoped<IEmailDeliveryRepository, EmailDeliveryRepository>();
         services.AddScoped<IRequestRunRepository, RequestRunRepository>();
         services.AddScoped<IProductOpsRepository, ProductOpsRepository>();
         services.AddScoped<IPhase4Repository, Phase4Repository>();

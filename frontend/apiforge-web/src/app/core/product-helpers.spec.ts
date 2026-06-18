@@ -193,6 +193,38 @@ describe('ApiClientService', () => {
     request.flush({ succeeded: true, message: 'Success', data: { completedCount: 0, totalCount: 5, items: [] }, errors: [] });
   });
 
+  it('sends team invitations with selected workspace context', () => {
+    api.inviteMember('org-1', {
+      email: 'developer@example.com',
+      roleId: 'role-developer',
+      workspaceId: 'workspace-1',
+      message: 'Join the shared workspace'
+    }).subscribe((result) => {
+      expect(result.data?.emailDeliveryStatus).toBe('Sent');
+    });
+
+    const request = http.expectOne('/api/organizations/org-1/invites');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body.email).toBe('developer@example.com');
+    expect(request.request.body.workspaceId).toBe('workspace-1');
+    request.flush({
+      succeeded: true,
+      message: 'Invitation email sent.',
+      data: {
+        id: 'invite-1',
+        email: 'developer@example.com',
+        status: 'Invited',
+        expiresOn: new Date().toISOString(),
+        inviteToken: 'token-1',
+        workspaceId: 'workspace-1',
+        workspaceName: 'Platform APIs',
+        emailDeliveryStatus: 'Sent',
+        inviteUrl: 'https://test.apidesk.local/invite/token-1'
+      },
+      errors: []
+    });
+  });
+
   it('updates, duplicates, deletes, and loads environment variables through real endpoints', () => {
     api.updateEnvironment('env-1', { name: 'Staging', isDefault: true }).subscribe();
     const update = http.expectOne('/api/environments/env-1');

@@ -2019,6 +2019,7 @@
                 <div class="table-row compact">
                   <strong>{{ invite.email }}</strong>
                   <span>{{ invite.status }}</span>
+                  <span>Email {{ invite.emailDeliveryStatus || 'NotConfigured' }}</span>
                   <span>Expires {{ invite.expiresOn | date:'mediumDate' }}</span>
                   <button class="ghost-button compact-action" type="button" (click)="copyInviteLink(invite)">Copy link</button>
                   <button class="ghost-button compact-action" type="button" (click)="regenerateInvite(invite)" [disabled]="invite.status !== 'Invited'">Regenerate</button>

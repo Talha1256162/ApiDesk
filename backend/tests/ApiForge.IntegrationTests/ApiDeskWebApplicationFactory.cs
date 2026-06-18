@@ -4,10 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using ApiForge.Application.Abstractions.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ApiForge.IntegrationTests;
 
@@ -22,6 +25,7 @@ public sealed class ApiDeskWebApplicationFactory : WebApplicationFactory<Program
     public string ConnectionString { get; private set; }
 
     public JsonSerializerOptions JsonOptions { get; } = new(JsonSerializerDefaults.Web);
+    public CapturingEmailSender EmailSender { get; } = new();
 
     public ApiDeskWebApplicationFactory()
         : this(true)
@@ -58,8 +62,24 @@ public sealed class ApiDeskWebApplicationFactory : WebApplicationFactory<Program
                 ["Jwt:AccessTokenMinutes"] = "60",
                 ["Jwt:RefreshTokenDays"] = "14",
                 ["RequestRunner:AllowPrivateNetworkTargets"] = allowPrivateNetworkTargets ? "true" : "false",
+                ["Email:PublicBaseUrl"] = "https://test.apidesk.local",
+                ["Email:Smtp:Enabled"] = "true",
+                ["Email:Smtp:Host"] = "mail.smtp.com",
+                ["Email:Smtp:Port"] = "465",
+                ["Email:Smtp:Username"] = "info@paysetra.com",
+                ["Email:Smtp:Password"] = "integration-secret-not-real",
+                ["Email:Smtp:FromName"] = "Paysetra",
+                ["Email:Smtp:FromEmail"] = "info@paysetra.com",
+                ["Email:Smtp:EncryptionId"] = "2",
+                ["Email:Smtp:IsVerified"] = "false",
                 ["Swagger:Enabled"] = "false"
             });
+        });
+        builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton(EmailSender);
+            services.AddSingleton<IEmailSender>(sp => sp.GetRequiredService<CapturingEmailSender>());
         });
     }
 
@@ -221,6 +241,26 @@ public sealed class ApiDeskWebApplicationFactory : WebApplicationFactory<Program
 }
 
 public sealed record AuthSession(string AccessToken, string RefreshToken, Guid OrganizationId, Guid WorkspaceId);
+
+public sealed class CapturingEmailSender : IEmailSender
+{
+    private readonly List<EmailMessage> messages = [];
+
+    public bool FailNextSend { get; set; }
+    public IReadOnlyList<EmailMessage> Messages => messages;
+
+    public Task<EmailSendResult> SendAsync(EmailMessage message, CancellationToken cancellationToken)
+    {
+        if (FailNextSend)
+        {
+            FailNextSend = false;
+            return Task.FromResult(EmailSendResult.Failed("test", "Simulated SMTP failure."));
+        }
+
+        messages.Add(message);
+        return Task.FromResult(EmailSendResult.Sent("test"));
+    }
+}
 
 public static class HttpTestExtensions
 {

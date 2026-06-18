@@ -113,6 +113,30 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
             cancellationToken: cancellationToken));
     }
 
+    public async Task<InvitationEmailContextDto?> GetInvitationEmailContextAsync(Guid organizationId, Guid? workspaceId, Guid inviterUserId, CancellationToken cancellationToken)
+    {
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QuerySingleOrDefaultAsync<InvitationEmailContextDto>(new CommandDefinition("""
+            select top 1
+                o.id as organizationId,
+                o.name as organizationName,
+                w.id as workspaceId,
+                w.name as workspaceName,
+                u.fullName as inviterName,
+                u.email as inviterEmail
+            from organizations o
+            join users u on u.id = @InviterUserId and u.isDeleted = 0
+            left join workspaces w on w.organizationId = o.id
+                and w.isDeleted = 0
+                and (@WorkspaceId is null or w.id = @WorkspaceId)
+            where o.id = @OrganizationId
+                and o.isDeleted = 0
+            order by case when w.id = @WorkspaceId then 0 else 1 end, w.createdOn;
+            """,
+            new { OrganizationId = organizationId, WorkspaceId = workspaceId, InviterUserId = inviterUserId },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<InvitationDto> InviteAsync(Guid organizationId, InviteMemberRequest request, Guid invitedByUserId, CancellationToken cancellationToken)
     {
         using var connection = connectionFactory.CreateConnection();
@@ -120,13 +144,14 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
         var expiresOn = DateTime.UtcNow.AddDays(7);
         var token = Guid.NewGuid().ToString("N");
         await connection.ExecuteAsync(new CommandDefinition("""
-            insert into invitations (id, organizationId, email, roleId, status, message, tokenHash, expiresOn, createdOn, createdBy, isDeleted, versionNumber)
-            values (@InvitationId, @OrganizationId, @Email, @RoleId, 'Invited', @Message, @TokenHash, @ExpiresOn, sysutcdatetime(), @InvitedByUserId, 0, 1);
+            insert into invitations (id, organizationId, workspaceId, email, roleId, status, message, tokenHash, expiresOn, createdOn, createdBy, isDeleted, versionNumber)
+            values (@InvitationId, @OrganizationId, @WorkspaceId, @Email, @RoleId, 'Invited', @Message, @TokenHash, @ExpiresOn, sysutcdatetime(), @InvitedByUserId, 0, 1);
             """,
             new
             {
                 InvitationId = invitationId,
                 OrganizationId = organizationId,
+                request.WorkspaceId,
                 request.Email,
                 request.RoleId,
                 request.Message,
@@ -136,7 +161,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
             },
             cancellationToken: cancellationToken));
 
-        return new InvitationDto(invitationId, request.Email, "Invited", expiresOn, token);
+        return new InvitationDto(invitationId, request.Email, "Invited", expiresOn, token, request.WorkspaceId);
     }
 
     public async Task<InvitationDto?> RegenerateInvitationAsync(Guid organizationId, Guid invitationId, Guid modifiedByUserId, CancellationToken cancellationToken)
@@ -151,7 +176,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
                 modifiedOn = sysutcdatetime(),
                 modifiedBy = @ModifiedByUserId,
                 versionNumber = versionNumber + 1
-            output inserted.id, inserted.email, inserted.status, inserted.expiresOn, cast(null as nvarchar(100)) as inviteToken
+            output inserted.id, inserted.email, inserted.status, inserted.expiresOn, cast(null as nvarchar(100)) as inviteToken, inserted.workspaceId
             where id = @InvitationId
                 and organizationId = @OrganizationId
                 and status = 'Invited'
@@ -190,7 +215,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
         using var transaction = connection.BeginTransaction();
 
         var invite = await connection.QuerySingleOrDefaultAsync<InvitationRow>(new CommandDefinition("""
-            select top 1 id, organizationId, email, roleId
+            select top 1 id, organizationId, workspaceId, email, roleId
             from invitations
             where tokenHash = @TokenHash
                 and status = 'Invited'
@@ -249,6 +274,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
             select newid(), w.organizationId, w.id, @UserId, @RoleId, 'Active', sysutcdatetime(), @UserId, 0, 1
             from workspaces w
             where w.organizationId = @OrganizationId
+                and (@WorkspaceId is null or w.id = @WorkspaceId)
                 and w.isDeleted = 0
                 and not exists (
                     select 1
@@ -266,7 +292,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
                 versionNumber = versionNumber + 1
             where id = @InvitationId;
             """,
-            new { InvitationId = invite.Id, UserId = acceptingUserId, invite.OrganizationId, invite.RoleId },
+            new { InvitationId = invite.Id, UserId = acceptingUserId, invite.OrganizationId, invite.WorkspaceId, invite.RoleId },
             transaction,
             cancellationToken: cancellationToken));
 
@@ -384,6 +410,7 @@ public sealed class OrganizationRepository(ISqlConnectionFactory connectionFacto
     {
         public Guid Id { get; init; }
         public Guid OrganizationId { get; init; }
+        public Guid? WorkspaceId { get; init; }
         public string Email { get; init; } = string.Empty;
         public Guid RoleId { get; init; }
     }
